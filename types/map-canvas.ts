@@ -1,4 +1,4 @@
-import type { Buggy, HaltePoint } from "@/types/public-monitoring";
+import type { Buggy, HaltePoint } from "@/types/buggy";
 
 export type LatLngLiteral = {
   lat: number;

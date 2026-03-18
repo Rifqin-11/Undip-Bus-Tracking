@@ -1,4 +1,4 @@
-import type { Buggy } from "@/types/public-monitoring";
+import type { Buggy } from "@/types/buggy";
 
 export interface BuggyRepository {
   getLiveBuggies(): Promise<Buggy[]>;
