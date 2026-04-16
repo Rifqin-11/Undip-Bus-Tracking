@@ -1,12 +1,12 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import type { Buggy, HaltePoint } from "@/types/buggy";
 import { CENTER_UNDIP } from "@/lib/transit/buggy-data";
 import type {
   GoogleMapsWindow,
   InfoWindowHandle,
   MapHandle,
+  MapCanvasProps,
   MapsApi,
   MarkerHandle,
   PolylineHandle,
@@ -71,26 +71,6 @@ function loadGoogleMapsScript(apiKey: string): Promise<MapsApi> {
     document.head.appendChild(script);
   });
 }
-
-// ─── Props ───────────────────────────────────────────────────────────────────
-
-export type MapCanvasProps = {
-  buggies: Buggy[];
-  haltes: HaltePoint[];
-  routePath: [number, number][];
-  directionPath?: [number, number][];
-  walkingToHaltePath?: [number, number][];
-  walkingFromHaltePath?: [number, number][];
-  originMarkerPosition?: { lat: number; lng: number };
-  destinationMarkerPosition?: { lat: number; lng: number };
-  focusHaltes?: boolean;
-  selectedBuggyId?: string | null;
-  selectedHalteId?: string | null;
-  centerTarget?: { lat: number; lng: number } | null;
-  onInfoWindowClose?: () => void;
-  onBuggyMarkerClick?: (buggyId: string) => void;
-  onHalteMarkerClick?: (halteId: string) => void;
-};
 
 // ─── Component ───────────────────────────────────────────────────────────────
 
@@ -249,12 +229,7 @@ export function MapCanvas({
             ...WALKING_POLYLINE_OPTIONS,
           })
         : null;
-  }, [
-    directionPath,
-    mapReady,
-    walkingFromHaltePath,
-    walkingToHaltePath,
-  ]);
+  }, [directionPath, mapReady, walkingFromHaltePath, walkingToHaltePath]);
 
   // ── Render origin/destination markers (search result) ────────────────────
 
@@ -417,14 +392,21 @@ export function MapCanvas({
   // ── Focus map to all halte markers when halte view is active ─────────────
 
   useEffect(() => {
-    if (!mapReady || !mapInstanceRef.current || !mapsApiRef.current || !focusHaltes) {
+    if (
+      !mapReady ||
+      !mapInstanceRef.current ||
+      !mapsApiRef.current ||
+      !focusHaltes
+    ) {
       return;
     }
 
     if (haltes.length === 0) return;
 
     const bounds = new mapsApiRef.current.LatLngBounds();
-    haltes.forEach((halte) => bounds.extend({ lat: halte.lat, lng: halte.lng }));
+    haltes.forEach((halte) =>
+      bounds.extend({ lat: halte.lat, lng: halte.lng }),
+    );
     mapInstanceRef.current.fitBounds(bounds, 50);
   }, [focusHaltes, haltes, mapReady]);
 

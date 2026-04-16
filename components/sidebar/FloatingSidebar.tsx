@@ -1,6 +1,7 @@
 import { BuggyIcon, HalteIcon, RouteIcon, InfoIcon, LoginIcon } from "@/components/map/Icons";
 import { DESKTOP_LAYOUT } from "@/lib/presenters/layout-metrics";
 import type { PanelView } from "@/types/buggy";
+import logo from "@/public/logo.svg";
 
 type FloatingSidebarProps = {
   activeView: PanelView;
@@ -21,7 +22,9 @@ export function FloatingSidebar({ activeView, onSelectView }: FloatingSidebarPro
         height: `calc(100vh - (${DESKTOP_LAYOUT.topOffset} * 2))`,
       }}
     >
-      <div className="flex h-12 w-12 items-center justify-center rounded-full bg-[#0f1a3b] text-sm font-bold text-white">BM</div>
+      <div className="flex h-12 w-12">
+        <img src={logo.src} alt="Logo" className="h-12 w-12" />
+      </div>
 
       <nav className="flex flex-col gap-2 rounded-2xl bg-white/70 p-2">
         <button

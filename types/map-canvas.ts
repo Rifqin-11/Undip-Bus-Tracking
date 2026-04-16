@@ -64,8 +64,11 @@ export type MapCanvasProps = {
   directionPath?: [number, number][];
   walkingToHaltePath?: [number, number][];
   walkingFromHaltePath?: [number, number][];
+  originMarkerPosition?: { lat: number; lng: number };
+  destinationMarkerPosition?: { lat: number; lng: number };
   selectedBuggyId?: string | null;
   selectedHalteId?: string | null;
+  centerTarget?: { lat: number; lng: number } | null;
   onInfoWindowClose?: () => void;
   onBuggyMarkerClick?: (buggyId: string) => void;
   onHalteMarkerClick?: (halteId: string) => void;
