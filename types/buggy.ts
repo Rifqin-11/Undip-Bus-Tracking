@@ -29,4 +29,4 @@ export type HaltePoint = {
   lng: number;
 };
 
-export type PanelView = "buggy" | "halte" | "rute" | "info";
+export type PanelView = "buggy" | "halte" | "rute" | "info" | "data";

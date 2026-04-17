@@ -31,6 +31,30 @@ export default function RootLayout({
   return (
     <html lang="id">
       <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
+        <svg
+          aria-hidden="true"
+          className="pointer-events-none fixed h-0 w-0"
+          focusable="false"
+        >
+          <defs>
+            <filter id="liquid-glass-distort" x="-20%" y="-20%" width="140%" height="140%">
+              <feTurbulence
+                type="fractalNoise"
+                baseFrequency="0.012 0.03"
+                numOctaves="2"
+                seed="7"
+                result="noise"
+              />
+              <feDisplacementMap
+                in="SourceGraphic"
+                in2="noise"
+                scale="14"
+                xChannelSelector="R"
+                yChannelSelector="G"
+              />
+            </filter>
+          </defs>
+        </svg>
         {children}
       </body>
     </html>

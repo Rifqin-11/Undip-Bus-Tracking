@@ -1,4 +1,5 @@
 import type { Buggy, HaltePoint } from "@/types/buggy";
+import type { Geofence } from "@/types/geofence";
 
 export type LatLngLiteral = {
   lat: number;
@@ -10,7 +11,10 @@ export type MarkerHandle = {
   setPosition: (position: LatLngLiteral) => void;
   setTitle: (title: string) => void;
   setIcon: (icon: unknown) => void;
-  addListener: (eventName: string, handler: () => void) => void;
+  addListener: (
+    eventName: string,
+    handler: () => void,
+  ) => { remove: () => void };
 };
 
 export type LatLngBoundsHandle = {
@@ -21,6 +25,10 @@ export type MapHandle = {
   panTo: (position: LatLngLiteral) => void;
   setZoom: (zoom: number) => void;
   fitBounds: (bounds: LatLngBoundsHandle, padding?: number) => void;
+  addListener: (
+    eventName: string,
+    handler: (event: { latLng?: { lat: () => number; lng: () => number } }) => void,
+  ) => { remove: () => void };
 };
 
 export type InfoWindowHandle = {
@@ -37,6 +45,10 @@ export type PolylineHandle = {
   setMap: (map: unknown | null) => void;
 };
 
+export type CircleHandle = {
+  setMap: (map: unknown | null) => void;
+};
+
 export type MapsApi = {
   Map: new (
     element: HTMLElement,
@@ -45,6 +57,7 @@ export type MapsApi = {
   Marker: new (options: Record<string, unknown>) => MarkerHandle;
   InfoWindow: new () => InfoWindowHandle;
   Polyline: new (options: Record<string, unknown>) => PolylineHandle;
+  Circle: new (options: Record<string, unknown>) => CircleHandle;
   LatLngBounds: new () => LatLngBoundsHandle;
   SymbolPath: {
     CIRCLE: unknown;
@@ -69,7 +82,10 @@ export type MapCanvasProps = {
   selectedBuggyId?: string | null;
   selectedHalteId?: string | null;
   centerTarget?: { lat: number; lng: number } | null;
+  geofences?: Geofence[];
+  geofenceCreateMode?: boolean;
   onInfoWindowClose?: () => void;
+  onMapClick?: (position: LatLngLiteral) => void;
   onBuggyMarkerClick?: (buggyId: string) => void;
   onHalteMarkerClick?: (halteId: string) => void;
   focusHaltes?: boolean;

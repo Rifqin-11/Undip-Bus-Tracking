@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import type { ReactNode } from "react";
 import type { Buggy, PanelView } from "@/types/buggy";
 import { HALTE_LOCATIONS } from "@/lib/transit/buggy-data";
 import { BuggyCard } from "@/components/buggy/BuggyCard";
@@ -28,6 +29,7 @@ type BuggyListProps = {
   onSelectHalte?: (halteId: string) => void;
   directionResult?: DirectionResult | null;
   onCloseDirection?: () => void;
+  dataViewContent?: ReactNode;
 };
 
 export function BuggyList({
@@ -41,6 +43,7 @@ export function BuggyList({
   onSelectHalte,
   directionResult = null,
   onCloseDirection,
+  dataViewContent,
 }: BuggyListProps) {
   const [buggyViewMode, setBuggyViewMode] = useState<"list" | "detail">("list");
   const [halteViewMode, setHalteViewMode] = useState<"list" | "detail">("list");
@@ -106,6 +109,7 @@ export function BuggyList({
       {activeView === "halte" && <HalteSection onSelectHalte={handleSelectHalte} />}
       {activeView === "rute" && <RuteSection buggies={buggies} />}
       {activeView === "info" && <InfoSection />}
+      {activeView === "data" && dataViewContent}
     </>
   );
 
@@ -151,6 +155,7 @@ export function BuggyList({
 
       {activeView === "rute" && <RuteSection buggies={buggies} />}
       {activeView === "info" && <InfoSection />}
+      {activeView === "data" && dataViewContent}
     </>
   );
 

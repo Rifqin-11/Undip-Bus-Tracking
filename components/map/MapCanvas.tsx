@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { CENTER_UNDIP } from "@/lib/transit/buggy-data";
 import type {
+  CircleHandle,
   GoogleMapsWindow,
   InfoWindowHandle,
   MapHandle,
@@ -83,11 +84,14 @@ export function MapCanvas({
   walkingFromHaltePath = [],
   originMarkerPosition,
   destinationMarkerPosition,
+  geofences = [],
+  geofenceCreateMode = false,
   focusHaltes = false,
   selectedBuggyId,
   selectedHalteId,
   centerTarget,
   onInfoWindowClose,
+  onMapClick,
   onBuggyMarkerClick,
   onHalteMarkerClick,
 }: MapCanvasProps) {
@@ -106,9 +110,11 @@ export function MapCanvas({
   const walkingFromPolylineRef = useRef<PolylineHandle | null>(null);
   const originMarkerRef = useRef<MarkerHandle | null>(null);
   const destinationMarkerRef = useRef<MarkerHandle | null>(null);
+  const geofenceCirclesRef = useRef<Map<string, CircleHandle>>(new Map());
   const infoWindowCloseListenerRef = useRef<{ remove: () => void } | null>(
     null,
   );
+  const mapClickListenerRef = useRef<{ remove: () => void } | null>(null);
 
   const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
   const keyError = apiKey
@@ -123,6 +129,7 @@ export function MapCanvas({
     let isMounted = true;
     const buggyMarkers = buggyMarkersRef.current;
     const halteMarkers = halteMarkersRef.current;
+    const geofenceCircles = geofenceCirclesRef.current;
 
     loadGoogleMapsScript(apiKey)
       .then((maps) => {
@@ -171,8 +178,12 @@ export function MapCanvas({
       walkingFromPolylineRef.current?.setMap(null);
       originMarkerRef.current?.setMap(null);
       destinationMarkerRef.current?.setMap(null);
+      geofenceCircles.forEach((circle) => circle.setMap(null));
+      geofenceCircles.clear();
+      mapClickListenerRef.current?.remove();
       infoWindowCloseListenerRef.current?.remove();
       infoWindowRef.current?.close();
+      mapClickListenerRef.current = null;
       infoWindowCloseListenerRef.current = null;
       mapInstanceRef.current = null;
       setMapReady(false);
@@ -231,6 +242,36 @@ export function MapCanvas({
         : null;
   }, [directionPath, mapReady, walkingFromHaltePath, walkingToHaltePath]);
 
+  // ── Render geofence circles ───────────────────────────────────────────────
+
+  useEffect(() => {
+    if (!mapReady || !mapInstanceRef.current || !mapsApiRef.current) return;
+
+    const map = mapInstanceRef.current;
+    const maps = mapsApiRef.current;
+    const geofenceCircles = geofenceCirclesRef.current;
+
+    geofenceCircles.forEach((circle) => circle.setMap(null));
+    geofenceCircles.clear();
+
+    geofences.forEach((geofence) => {
+      const isEnabled = geofence.enabled;
+      const circle = new maps.Circle({
+        map,
+        center: geofence.center,
+        radius: geofence.radiusMeters,
+        clickable: false,
+        strokeColor: isEnabled ? "#2563eb" : "#64748b",
+        strokeOpacity: isEnabled ? 0.95 : 0.7,
+        strokeWeight: 2,
+        fillColor: isEnabled ? "#3b82f6" : "#94a3b8",
+        fillOpacity: isEnabled ? 0.15 : 0.08,
+        zIndex: 6,
+      });
+      geofenceCircles.set(geofence.id, circle);
+    });
+  }, [geofences, mapReady]);
+
   // ── Render origin/destination markers (search result) ────────────────────
 
   useEffect(() => {
@@ -275,6 +316,32 @@ export function MapCanvas({
         })
       : null;
   }, [destinationMarkerPosition, mapReady, originMarkerPosition]);
+
+  // ── Map click callback for geofence creation ──────────────────────────────
+
+  useEffect(() => {
+    if (!mapReady || !mapInstanceRef.current || !onMapClick) return;
+
+    mapClickListenerRef.current?.remove();
+    mapClickListenerRef.current = null;
+
+    if (!geofenceCreateMode) return;
+
+    mapClickListenerRef.current = mapInstanceRef.current.addListener(
+      "click",
+      (event) => {
+        const lat = event.latLng?.lat();
+        const lng = event.latLng?.lng();
+        if (typeof lat !== "number" || typeof lng !== "number") return;
+        onMapClick({ lat, lng });
+      },
+    );
+
+    return () => {
+      mapClickListenerRef.current?.remove();
+      mapClickListenerRef.current = null;
+    };
+  }, [geofenceCreateMode, mapReady, onMapClick]);
 
   // ── Render buggy markers ───────────────────────────────────────────────────
 

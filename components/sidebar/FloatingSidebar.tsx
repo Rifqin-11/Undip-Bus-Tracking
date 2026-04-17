@@ -1,4 +1,15 @@
-import { BuggyIcon, HalteIcon, RouteIcon, InfoIcon, LoginIcon } from "@/components/map/Icons";
+"use client";
+
+import { usePathname, useRouter } from "next/navigation";
+import {
+  BuggyIcon,
+  HalteIcon,
+  RouteIcon,
+  InfoIcon,
+  LoginIcon,
+  LogoutIcon,
+  DataIcon,
+} from "@/components/map/Icons";
 import { DESKTOP_LAYOUT } from "@/lib/presenters/layout-metrics";
 import type { PanelView } from "@/types/buggy";
 import logo from "@/public/logo.svg";
@@ -6,12 +17,37 @@ import logo from "@/public/logo.svg";
 type FloatingSidebarProps = {
   activeView: PanelView;
   onSelectView: (view: PanelView) => void;
+  showDataButton?: boolean;
 };
 
 const actionButtonClass =
   "grid h-11 w-11 place-items-center rounded-2xl transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-300";
 
-export function FloatingSidebar({ activeView, onSelectView }: FloatingSidebarProps) {
+export function FloatingSidebar({
+  activeView,
+  onSelectView,
+  showDataButton = true,
+}: FloatingSidebarProps) {
+  const pathname = usePathname();
+  const router = useRouter();
+  const isOnAdminPage = pathname.startsWith("/admin");
+  const shouldShowDataButton = isOnAdminPage && showDataButton;
+
+  const handleAdminButtonClick = async () => {
+    if (isOnAdminPage) {
+      try {
+        await fetch("/api/auth/logout", { method: "POST" });
+      } catch {
+        // noop
+      }
+      router.push("/");
+      router.refresh();
+      return;
+    }
+
+    router.push("/login");
+  };
+
   return (
     <aside
       className="absolute z-30 hidden flex-col items-center justify-between rounded-[30px] border border-white/30 bg-white/55 px-3 py-4 shadow-[0_12px_45px_rgba(16,24,40,0.12)] backdrop-blur-xl xl:flex"
@@ -23,10 +59,24 @@ export function FloatingSidebar({ activeView, onSelectView }: FloatingSidebarPro
       }}
     >
       <div className="flex h-12 w-12 overflow-hidden rounded-full">
-        <img src={logo.src} alt="Logo" className="h-12 w-12 rounded-full object-cover" />
+        <img
+          src={logo.src}
+          alt="Logo"
+          className="h-12 w-12 rounded-full object-cover"
+        />
       </div>
 
       <nav className="flex flex-col gap-2 rounded-2xl bg-white/70 p-2">
+        {shouldShowDataButton ? (
+          <button
+            className={`${actionButtonClass} ${activeView === "data" ? "bg-[#0f1a3b] text-white" : "text-slate-600 hover:bg-slate-100"}`}
+            aria-label="Data"
+            type="button"
+            onClick={() => onSelectView("data")}
+          >
+            <DataIcon className="h-5 w-5" />
+          </button>
+        ) : null}
         <button
           className={`${actionButtonClass} ${activeView === "buggy" ? "bg-[#0f1a3b] text-white" : "text-slate-600 hover:bg-slate-100"}`}
           aria-label="Buggy"
@@ -63,10 +113,15 @@ export function FloatingSidebar({ activeView, onSelectView }: FloatingSidebarPro
 
       <button
         className="grid h-11 w-11 place-items-center rounded-2xl bg-[#0f1a3b] text-white transition hover:bg-[#162656]"
-        aria-label="Login admin"
+        aria-label={isOnAdminPage ? "Logout admin" : "Login admin"}
         type="button"
+        onClick={handleAdminButtonClick}
       >
-        <LoginIcon className="h-5 w-5" />
+        {isOnAdminPage ? (
+          <LogoutIcon className="h-5 w-5" />
+        ) : (
+          <LoginIcon className="h-5 w-5" />
+        )}
       </button>
     </aside>
   );
