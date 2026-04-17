@@ -13,9 +13,14 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Buggy Monitoring UNDIP",
+  title: "SIMOBI - Sistem Monitoring Buggy Listrik Realtime",
   description:
     "Sistem monitoring buggy listrik realtime untuk Smart Mobility Universitas Diponegoro.",
+  icons: {
+    icon: "/logo.svg",
+    shortcut: "/logo.svg",
+    apple: "/logo.svg",
+  },
 };
 
 export default function RootLayout({

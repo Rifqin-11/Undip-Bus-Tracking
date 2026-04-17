@@ -22,8 +22,8 @@ export function FloatingSidebar({ activeView, onSelectView }: FloatingSidebarPro
         height: `calc(100vh - (${DESKTOP_LAYOUT.topOffset} * 2))`,
       }}
     >
-      <div className="flex h-12 w-12">
-        <img src={logo.src} alt="Logo" className="h-12 w-12" />
+      <div className="flex h-12 w-12 overflow-hidden rounded-full">
+        <img src={logo.src} alt="Logo" className="h-12 w-12 rounded-full object-cover" />
       </div>
 
       <nav className="flex flex-col gap-2 rounded-2xl bg-white/70 p-2">
