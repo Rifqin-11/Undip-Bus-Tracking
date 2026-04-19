@@ -19,7 +19,13 @@ type MobileBottomNavProps = {
 };
 
 const navButtonBase =
-  "grid h-12 w-12 place-items-center rounded-2xl transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 active:scale-95";
+  "grid h-13 w-13 place-items-center rounded-full transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-300/80 active:scale-95";
+
+const activeButtonClass =
+  "bg-[#0f1a3b] text-white shadow-[0_8px_18px_rgba(15,26,59,0.45)]";
+
+const inactiveButtonClass =
+  "border border-white/25 bg-slate-500/25 text-white/90 hover:bg-slate-500/35 active:bg-slate-500/45";
 
 export function MobileBottomNav({
   activeView,
@@ -47,11 +53,11 @@ export function MobileBottomNav({
   };
 
   return (
-    <nav className="fixed bottom-4 left-1/2 z-50 flex w-[calc(100%-2rem)] max-w-md -translate-x-1/2 items-center justify-around gap-1 rounded-3xl border-2 border-white/50 bg-white/90 px-4 py-3 shadow-[0_8px_32px_rgba(15,23,42,0.25)] backdrop-blur-xl xl:hidden">
+    <nav className="fixed bottom-4 left-1/2 z-50 flex w-[calc(100%-2rem)] max-w-md -translate-x-1/2 items-center justify-center gap-2 rounded-full border border-white/35 bg-transparent px-3 py-2 shadow-[0_18px_40px_rgba(0,0,0,0.35)] backdrop-blur-2xl xl:hidden">
       {shouldShowDataButton ? (
         <button
           type="button"
-          className={`${navButtonBase} ${activeView === "data" ? "bg-[#0f1a3b] text-white shadow-lg" : "text-slate-500 active:bg-slate-100"}`}
+          className={`${navButtonBase} ${activeView === "data" ? activeButtonClass : inactiveButtonClass}`}
           aria-label="Data"
           onClick={() => onSelectView("data")}
         >
@@ -60,7 +66,7 @@ export function MobileBottomNav({
       ) : null}
       <button
         type="button"
-        className={`${navButtonBase} ${activeView === "buggy" ? "bg-[#0f1a3b] text-white shadow-lg" : "text-slate-500 active:bg-slate-100"}`}
+        className={`${navButtonBase} ${activeView === "buggy" ? activeButtonClass : inactiveButtonClass}`}
         aria-label="Buggy"
         onClick={() => onSelectView("buggy")}
       >
@@ -68,7 +74,7 @@ export function MobileBottomNav({
       </button>
       <button
         type="button"
-        className={`${navButtonBase} ${activeView === "halte" ? "bg-[#0f1a3b] text-white shadow-lg" : "text-slate-500 active:bg-slate-100"}`}
+        className={`${navButtonBase} ${activeView === "halte" ? activeButtonClass : inactiveButtonClass}`}
         aria-label="Halte"
         onClick={() => onSelectView("halte")}
       >
@@ -76,7 +82,7 @@ export function MobileBottomNav({
       </button>
       <button
         type="button"
-        className={`${navButtonBase} ${activeView === "rute" ? "bg-[#0f1a3b] text-white shadow-lg" : "text-slate-500 active:bg-slate-100"}`}
+        className={`${navButtonBase} ${activeView === "rute" ? activeButtonClass : inactiveButtonClass}`}
         aria-label="Rute"
         onClick={() => onSelectView("rute")}
       >
@@ -84,7 +90,7 @@ export function MobileBottomNav({
       </button>
       <button
         type="button"
-        className={`${navButtonBase} ${activeView === "info" ? "bg-[#0f1a3b] text-white shadow-lg" : "text-slate-500 active:bg-slate-100"}`}
+        className={`${navButtonBase} ${activeView === "info" ? activeButtonClass : inactiveButtonClass}`}
         aria-label="Info"
         onClick={() => onSelectView("info")}
       >
@@ -92,7 +98,7 @@ export function MobileBottomNav({
       </button>
       <button
         type="button"
-        className="grid h-12 w-12 place-items-center rounded-2xl bg-[#0f1a3b] text-white shadow-lg transition-all duration-200 active:scale-95"
+        className={`${navButtonBase} bg-[#0f1a3b] text-white shadow-[0_8px_18px_rgba(15,26,59,0.45)]`}
         aria-label={isOnAdminPage ? "Logout admin" : "Login admin"}
         onClick={handleAdminButtonClick}
       >

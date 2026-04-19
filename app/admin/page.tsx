@@ -14,7 +14,8 @@ import {
   HALTE_LOCATIONS,
   OFFICIAL_ROUTE_PATH,
 } from "@/lib/transit/buggy-data";
-import { useBuggyRealtime } from "@/hooks/useBuggyRealtime";
+import { haversineMeters } from "@/lib/transit/buggy-route-utils";
+import { useBuggySimulation } from "@/hooks/useBuggySimulation";
 import { GoogleMapsService } from "@/lib/services/google-maps-service";
 import type { PanelView } from "@/types/buggy";
 import type { DirectionResult } from "@/components/panel/DirectionPanel";
@@ -29,7 +30,10 @@ const TOAST_LIMIT = 4;
 const TOAST_TTL_MS = 4_500;
 
 function makeId() {
-  if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
+  if (
+    typeof crypto !== "undefined" &&
+    typeof crypto.randomUUID === "function"
+  ) {
     return crypto.randomUUID();
   }
   return `${Date.now()}-${Math.random().toString(16).slice(2)}`;
@@ -49,21 +53,6 @@ function dist(
   b: { lat: number; lng: number },
 ) {
   return Math.hypot(a.lat - b.lat, a.lng - b.lng);
-}
-
-function haversineMeters(
-  a: { lat: number; lng: number },
-  b: { lat: number; lng: number },
-): number {
-  const R = 6_371_000;
-  const phi1 = (a.lat * Math.PI) / 180;
-  const phi2 = (b.lat * Math.PI) / 180;
-  const dPhi = ((b.lat - a.lat) * Math.PI) / 180;
-  const dLambda = ((b.lng - a.lng) * Math.PI) / 180;
-  const x =
-    Math.sin(dPhi / 2) ** 2 +
-    Math.cos(phi1) * Math.cos(phi2) * Math.sin(dLambda / 2) ** 2;
-  return R * 2 * Math.atan2(Math.sqrt(x), Math.sqrt(1 - x));
 }
 
 /**
@@ -113,7 +102,7 @@ function getRouteBetweenHaltes(
 }
 
 export default function DashboardPage() {
-  const liveBuggies = useBuggyRealtime(INITIAL_BUGGIES);
+  const liveBuggies = useBuggySimulation(INITIAL_BUGGIES);
 
   const [activeView, setActiveView] = useState<PanelView>("buggy");
   const [panelOpen, setPanelOpen] = useState(true);
@@ -140,9 +129,8 @@ export default function DashboardPage() {
   const [pendingGeofenceCenter, setPendingGeofenceCenter] =
     useState<LatLngLiteral | null>(null);
   const [pendingGeofenceName, setPendingGeofenceName] = useState("");
-  const [pendingGeofenceRadiusMeters, setPendingGeofenceRadiusMeters] = useState(
-    GEOFENCE_DEFAULT_RADIUS_METERS,
-  );
+  const [pendingGeofenceRadiusMeters, setPendingGeofenceRadiusMeters] =
+    useState(GEOFENCE_DEFAULT_RADIUS_METERS);
   const [geofenceEvents, setGeofenceEvents] = useState<GeofenceEvent[]>([]);
   const [toasts, setToasts] = useState<ToastItem[]>([]);
   const [browserNotificationEnabled, setBrowserNotificationEnabled] =
@@ -153,13 +141,11 @@ export default function DashboardPage() {
   const notificationPermissionRequestedRef = useRef(false);
 
   const pushToast = useCallback(
-    (
-      title: string,
-      description?: string,
-      tone: ToastItem["tone"] = "info",
-    ) => {
+    (title: string, description?: string, tone: ToastItem["tone"] = "info") => {
       const id = makeId();
-      setToasts((prev) => [{ id, title, description, tone }, ...prev].slice(0, TOAST_LIMIT));
+      setToasts((prev) =>
+        [{ id, title, description, tone }, ...prev].slice(0, TOAST_LIMIT),
+      );
       window.setTimeout(() => {
         setToasts((prev) => prev.filter((toast) => toast.id !== id));
       }, TOAST_TTL_MS);
@@ -231,7 +217,9 @@ export default function DashboardPage() {
       setPendingGeofenceCenter(position);
       setPendingGeofenceRadiusMeters(GEOFENCE_DEFAULT_RADIUS_METERS);
       setPendingGeofenceName((prev) =>
-        prev.trim() ? prev : `Zona ${String(geofences.length + 1).padStart(2, "0")}`,
+        prev.trim()
+          ? prev
+          : `Zona ${String(geofences.length + 1).padStart(2, "0")}`,
       );
       setPanelOpen(true);
       setActiveView("data");
@@ -266,7 +254,11 @@ export default function DashboardPage() {
 
   const handleSavePendingGeofence = useCallback(async () => {
     if (!pendingGeofenceCenter) {
-      pushToast("Pusat geofence belum dipilih", "Klik peta terlebih dahulu.", "warning");
+      pushToast(
+        "Pusat geofence belum dipilih",
+        "Klik peta terlebih dahulu.",
+        "warning",
+      );
       return;
     }
 
@@ -276,8 +268,15 @@ export default function DashboardPage() {
       return;
     }
 
-    if (!Number.isFinite(pendingGeofenceRadiusMeters) || pendingGeofenceRadiusMeters <= 0) {
-      pushToast("Radius geofence tidak valid", "Isi radius > 0 meter.", "warning");
+    if (
+      !Number.isFinite(pendingGeofenceRadiusMeters) ||
+      pendingGeofenceRadiusMeters <= 0
+    ) {
+      pushToast(
+        "Radius geofence tidak valid",
+        "Isi radius > 0 meter.",
+        "warning",
+      );
       return;
     }
 
@@ -312,7 +311,12 @@ export default function DashboardPage() {
         "warning",
       );
     }
-  }, [pendingGeofenceCenter, pendingGeofenceName, pendingGeofenceRadiusMeters, pushToast]);
+  }, [
+    pendingGeofenceCenter,
+    pendingGeofenceName,
+    pendingGeofenceRadiusMeters,
+    pushToast,
+  ]);
 
   const handleToggleGeofence = useCallback(
     async (id: string, enabled: boolean) => {
@@ -329,7 +333,9 @@ export default function DashboardPage() {
         }
 
         const updated = (await response.json()) as Geofence;
-        setGeofences((prev) => prev.map((item) => (item.id === id ? updated : item)));
+        setGeofences((prev) =>
+          prev.map((item) => (item.id === id ? updated : item)),
+        );
         pushToast(
           `Geofence ${updated.enabled ? "diaktifkan" : "dinonaktifkan"}`,
           updated.name,
@@ -423,12 +429,18 @@ export default function DashboardPage() {
       return;
     }
 
-    pushToast("Browser Notification tetap nonaktif", "Permission tidak diberikan.", "warning");
+    pushToast(
+      "Browser Notification tetap nonaktif",
+      "Permission tidak diberikan.",
+      "warning",
+    );
   }, [browserNotificationEnabled, pushToast]);
 
   const emitGeofenceEvent = useCallback(
     (event: GeofenceEvent) => {
-      setGeofenceEvents((prev) => [event, ...prev].slice(0, GEOFENCE_EVENT_LIMIT));
+      setGeofenceEvents((prev) =>
+        [event, ...prev].slice(0, GEOFENCE_EVENT_LIMIT),
+      );
 
       const actionLabel = event.type === "ENTER" ? "masuk" : "keluar";
       pushToast(
@@ -460,7 +472,8 @@ export default function DashboardPage() {
       const activeZoneNames: string[] = [];
       activeGeofences.forEach((geofence) => {
         const inside =
-          haversineMeters(buggy.position, geofence.center) <= geofence.radiusMeters;
+          haversineMeters(buggy.position, geofence.center) <=
+          geofence.radiusMeters;
         if (inside) activeZoneNames.push(geofence.name);
       });
 
@@ -488,7 +501,8 @@ export default function DashboardPage() {
       activeGeofences.forEach((geofence) => {
         const key = `${buggy.id}:${geofence.id}`;
         const inside =
-          haversineMeters(buggy.position, geofence.center) <= geofence.radiusMeters;
+          haversineMeters(buggy.position, geofence.center) <=
+          geofence.radiusMeters;
         const previous = previousMembership.get(key);
 
         nextMembership.set(key, inside);
@@ -644,7 +658,8 @@ export default function DashboardPage() {
 
       const nearest = liveBuggies.reduce((best, b) => {
         if (!best) return b;
-        return dist(b.position, originHalte!) < dist(best.position, originHalte!)
+        return dist(b.position, originHalte!) <
+          dist(best.position, originHalte!)
           ? b
           : best;
       }, liveBuggies[0]);
@@ -745,6 +760,7 @@ export default function DashboardPage() {
         activeView={activeView}
         onClose={() => setPanelOpen(false)}
         selectedBuggyId={selectedBuggyId}
+        selectedHalteId={selectedHalteId}
         onFocusBuggy={handleFocusBuggy}
         onSelectBuggy={handleSelectBuggy}
         onSelectHalte={handleSelectHalte}
@@ -753,7 +769,6 @@ export default function DashboardPage() {
         dataViewContent={
           <AdminDataSection
             buggies={liveBuggies}
-            haltes={HALTE_LOCATIONS}
             geofences={geofences}
             events={geofenceEvents}
             geofenceStatuses={geofenceStatuses}

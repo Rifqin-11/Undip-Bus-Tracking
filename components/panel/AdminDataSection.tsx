@@ -1,11 +1,11 @@
 "use client";
 
-import type { Buggy, HaltePoint } from "@/types/buggy";
+import type { Buggy } from "@/types/buggy";
+import { getBuggyStopNameAtOffset } from "@/lib/transit/buggy-route-utils";
 import type { Geofence, GeofenceEvent } from "@/types/geofence";
 
 type AdminDataSectionProps = {
   buggies: Buggy[];
-  haltes: HaltePoint[];
   geofences: Geofence[];
   events: GeofenceEvent[];
   geofenceStatuses: Record<string, string[]>;
@@ -25,30 +25,8 @@ type AdminDataSectionProps = {
   onToggleBrowserNotification: () => void;
 };
 
-function getStopName(
-  buggy: Buggy,
-  haltes: HaltePoint[],
-  offset: number,
-): string {
-  const fallbackStops = buggy.stops ?? [];
-  if (fallbackStops.length > 0) {
-    const idx =
-      ((buggy.currentStopIndex + offset) % fallbackStops.length +
-        fallbackStops.length) %
-      fallbackStops.length;
-    return fallbackStops[idx];
-  }
-
-  if (haltes.length === 0) return "-";
-  const idx =
-    ((buggy.currentStopIndex + offset) % haltes.length + haltes.length) %
-    haltes.length;
-  return haltes[idx].name;
-}
-
 export function AdminDataSection({
   buggies,
-  haltes,
   geofences,
   events,
   geofenceStatuses,
@@ -80,7 +58,7 @@ export function AdminDataSection({
         </div>
 
         <div className="overflow-x-auto">
-          <table className="min-w-[920px] text-left text-[12px] text-slate-700">
+          <table className="min-w-230 text-left text-[12px] text-slate-700">
             <thead>
               <tr className="border-b border-slate-200 text-[11px] uppercase tracking-[0.08em] text-slate-500">
                 <th className="px-2 py-2">Kode</th>
@@ -108,15 +86,20 @@ export function AdminDataSection({
                     </td>
                     <td className="px-2 py-2">{buggy.name}</td>
                     <td className="px-2 py-2">
-                      {buggy.position.lat.toFixed(5)}, {buggy.position.lng.toFixed(5)}
+                      {buggy.position.lat.toFixed(5)},{" "}
+                      {buggy.position.lng.toFixed(5)}
                     </td>
                     <td className="px-2 py-2">{buggy.speedKmh} km/h</td>
                     <td className="px-2 py-2">{buggy.etaMinutes} min</td>
                     <td className="px-2 py-2">
                       {buggy.passengers}/{buggy.capacity}
                     </td>
-                    <td className="px-2 py-2">{getStopName(buggy, haltes, 0)}</td>
-                    <td className="px-2 py-2">{getStopName(buggy, haltes, 1)}</td>
+                    <td className="px-2 py-2">
+                      {getBuggyStopNameAtOffset(buggy, 0)}
+                    </td>
+                    <td className="px-2 py-2">
+                      {getBuggyStopNameAtOffset(buggy, 1)}
+                    </td>
                     <td className="px-2 py-2">{buggy.updatedAt}</td>
                     <td className="px-2 py-2">
                       {activeZones.length > 0 ? activeZones.join(", ") : "-"}
@@ -138,7 +121,9 @@ export function AdminDataSection({
             <button
               type="button"
               className={`rounded-xl px-3 py-2 text-[12px] font-semibold text-white transition ${
-                geofenceCreateMode ? "bg-rose-600 hover:bg-rose-700" : "bg-[#0f1a3b] hover:bg-[#162656]"
+                geofenceCreateMode
+                  ? "bg-rose-600 hover:bg-rose-700"
+                  : "bg-[#0f1a3b] hover:bg-[#162656]"
               }`}
               onClick={onToggleCreateMode}
             >
@@ -169,7 +154,8 @@ export function AdminDataSection({
         {pendingCenter && (
           <div className="mb-3 rounded-2xl border border-slate-200 bg-slate-50 p-3">
             <p className="mb-2 text-[12px] text-slate-700">
-              Pusat: {pendingCenter.lat.toFixed(6)}, {pendingCenter.lng.toFixed(6)}
+              Pusat: {pendingCenter.lat.toFixed(6)},{" "}
+              {pendingCenter.lng.toFixed(6)}
             </p>
             <div className="grid gap-2 md:grid-cols-2">
               <input
@@ -225,7 +211,8 @@ export function AdminDataSection({
                       {geofence.name}
                     </p>
                     <p className="text-[12px] text-slate-500">
-                      {geofence.center.lat.toFixed(5)}, {geofence.center.lng.toFixed(5)} •{" "}
+                      {geofence.center.lat.toFixed(5)},{" "}
+                      {geofence.center.lng.toFixed(5)} •{" "}
                       {Math.round(geofence.radiusMeters)} m
                     </p>
                   </div>
@@ -233,7 +220,9 @@ export function AdminDataSection({
                     <button
                       type="button"
                       className={`rounded-lg px-2.5 py-1.5 text-[11px] font-semibold text-white ${
-                        geofence.enabled ? "bg-amber-500 hover:bg-amber-600" : "bg-emerald-600 hover:bg-emerald-700"
+                        geofence.enabled
+                          ? "bg-amber-500 hover:bg-amber-600"
+                          : "bg-emerald-600 hover:bg-emerald-700"
                       }`}
                       onClick={() =>
                         onToggleGeofence(geofence.id, !geofence.enabled)
@@ -272,12 +261,14 @@ export function AdminDataSection({
                 className="rounded-2xl border border-slate-200 bg-white px-3 py-2"
               >
                 <p className="text-[13px] font-semibold text-slate-900">
-                  {event.buggyName} {event.type === "ENTER" ? "masuk" : "keluar"}{" "}
+                  {event.buggyName}{" "}
+                  {event.type === "ENTER" ? "masuk" : "keluar"}{" "}
                   {event.geofenceName}
                 </p>
                 <p className="text-[11px] text-slate-500">
                   {new Date(event.timestamp).toLocaleString("id-ID")} •{" "}
-                  {event.position.lat.toFixed(5)}, {event.position.lng.toFixed(5)}
+                  {event.position.lat.toFixed(5)},{" "}
+                  {event.position.lng.toFixed(5)}
                 </p>
               </article>
             ))

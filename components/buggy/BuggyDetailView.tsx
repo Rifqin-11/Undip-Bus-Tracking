@@ -1,6 +1,11 @@
 "use client";
 
 import type { Buggy } from "@/types/buggy";
+import {
+  estimateMinutesBetweenStops,
+  getBuggyCurrentRouteIndex,
+  getBuggyStopsInRouteOrder,
+} from "@/lib/transit/buggy-route-utils";
 
 function formatClock(date: Date): string {
   const formatter = new Intl.DateTimeFormat("id-ID", {
@@ -19,19 +24,37 @@ type BuggyDetailViewProps = {
 
 export function BuggyDetailView({ buggy, onBack }: BuggyDetailViewProps) {
   const now = new Date();
-  const stops = buggy.stops ?? [];
+  const stops = getBuggyStopsInRouteOrder(buggy);
 
   if (!stops.length) return null;
 
-  const currentIndex =
-    ((buggy.currentStopIndex % stops.length) + stops.length) % stops.length;
-  const orderedStops = stops.map((stopName, index) => {
-    const diff = (index - currentIndex + stops.length) % stops.length;
-    const minuteOffset = diff * 2;
+  const currentIndex = getBuggyCurrentRouteIndex(buggy, stops);
+
+  const firstArrivalMinutes = Math.max(1, buggy.etaMinutes);
+  const safeSpeedKmh = Math.max(5, buggy.speedKmh);
+
+  const orderedStops = stops.map((stopName, routeOrderIndex) => {
+    const diff = (routeOrderIndex - currentIndex + stops.length) % stops.length;
+
+    let minuteOffset = 0;
+    if (diff > 0) {
+      minuteOffset = firstArrivalMinutes;
+
+      for (let segment = 1; segment < diff; segment += 1) {
+        const fromIndex = (currentIndex + segment) % stops.length;
+        const toIndex = (fromIndex + 1) % stops.length;
+        minuteOffset += estimateMinutesBetweenStops(
+          stops[fromIndex],
+          stops[toIndex],
+          safeSpeedKmh,
+        );
+      }
+    }
+
     return {
       stopName,
       minuteOffset,
-      isCurrent: index === currentIndex,
+      isCurrent: routeOrderIndex === currentIndex,
       timeLabel: formatClock(new Date(now.getTime() + minuteOffset * 60_000)),
     };
   });
@@ -57,10 +80,19 @@ export function BuggyDetailView({ buggy, onBack }: BuggyDetailViewProps) {
         </div>
         <button
           type="button"
+          aria-label="Kembali"
           onClick={onBack}
-          className="rounded-lg border border-slate-300 bg-white px-2 py-1 text-[11px] font-semibold text-slate-600 hover:bg-slate-50"
+          className="grid h-9 w-9 shrink-0 place-items-center rounded-full border border-slate-300 bg-white text-slate-700 shadow-sm transition hover:bg-slate-50"
         >
-          Kembali
+          <svg
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            className="h-4 w-4"
+          >
+            <path d="M15 18l-6-6 6-6" />
+          </svg>
         </button>
       </div>
 
@@ -82,9 +114,9 @@ export function BuggyDetailView({ buggy, onBack }: BuggyDetailViewProps) {
                     {stop.stopName}
                   </p>
                   <p className="text-[12px] text-slate-500">
-                    {stop.minuteOffset === 0
-                      ? "Scheduled · now"
-                      : `Scheduled · in ${stop.minuteOffset} min`}
+                    {stop.isCurrent
+                      ? "Posisi buggy saat ini"
+                      : `Estimasi tiba · ${stop.minuteOffset} min lagi`}
                   </p>
                 </div>
                 <p className="text-[16px] font-bold text-slate-700">

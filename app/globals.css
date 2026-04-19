@@ -49,8 +49,16 @@ body {
   backdrop-filter: blur(26px) saturate(170%);
   -webkit-backdrop-filter: blur(26px) saturate(170%);
   background:
-    linear-gradient(160deg, rgba(255, 255, 255, 0.58), rgba(255, 255, 255, 0.2)),
-    radial-gradient(90% 120% at 20% 0%, rgba(255, 255, 255, 0.42), rgba(255, 255, 255, 0.08));
+    linear-gradient(
+      160deg,
+      rgba(255, 255, 255, 0.58),
+      rgba(255, 255, 255, 0.2)
+    ),
+    radial-gradient(
+      90% 120% at 20% 0%,
+      rgba(255, 255, 255, 0.42),
+      rgba(255, 255, 255, 0.08)
+    );
   border-color: rgba(255, 255, 255, 0.35) !important;
   box-shadow:
     0 18px 48px rgba(15, 23, 42, 0.16),
@@ -65,9 +73,21 @@ body {
   pointer-events: none;
   border-radius: inherit;
   background:
-    radial-gradient(45% 35% at 25% 16%, rgba(255, 255, 255, 0.95), rgba(255, 255, 255, 0)),
-    radial-gradient(38% 36% at 72% 82%, rgba(140, 193, 255, 0.35), rgba(140, 193, 255, 0)),
-    radial-gradient(36% 32% at 58% 28%, rgba(176, 226, 255, 0.26), rgba(176, 226, 255, 0));
+    radial-gradient(
+      45% 35% at 25% 16%,
+      rgba(255, 255, 255, 0.95),
+      rgba(255, 255, 255, 0)
+    ),
+    radial-gradient(
+      38% 36% at 72% 82%,
+      rgba(140, 193, 255, 0.35),
+      rgba(140, 193, 255, 0)
+    ),
+    radial-gradient(
+      36% 32% at 58% 28%,
+      rgba(176, 226, 255, 0.26),
+      rgba(176, 226, 255, 0)
+    );
   filter: url(#liquid-glass-distort);
   animation: liquidGlassDrift 15s ease-in-out infinite alternate;
 }

@@ -302,24 +302,6 @@ const SOURCE_BUGGIES: SourceBuggy[] = [
     tag: "Cepat",
     currentStopIndex: 10,
   },
-  {
-    id: 7,
-    name: "Buggy 07",
-    eta: 12,
-    passengers: 3,
-    capacity: 8,
-    tag: "Normal",
-    currentStopIndex: 12,
-  },
-  {
-    id: 8,
-    name: "Buggy 08",
-    eta: 4,
-    passengers: 5,
-    capacity: 8,
-    tag: "Normal",
-    currentStopIndex: 14,
-  },
 ];
 
 // ─── Factory ──────────────────────────────────────────────────────────────────

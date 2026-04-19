@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { MapCanvas } from "@/components/map/MapCanvas";
 import { BuggyList } from "@/components/buggy/BuggyList";
 import { FloatingSidebar } from "@/components/sidebar/FloatingSidebar";
@@ -11,7 +11,8 @@ import {
   HALTE_LOCATIONS,
   OFFICIAL_ROUTE_PATH,
 } from "@/lib/transit/buggy-data";
-import { useBuggyRealtime } from "@/hooks/useBuggyRealtime";
+import { haversineMeters } from "@/lib/transit/buggy-route-utils";
+import { useBuggySimulation } from "@/hooks/useBuggySimulation";
 import { GoogleMapsService } from "@/lib/services/google-maps-service";
 import type { PanelView } from "@/types/buggy";
 import type { DirectionResult } from "@/components/panel/DirectionPanel";
@@ -27,8 +28,16 @@ function findHalteByQuery(query: string) {
   return HALTE_LOCATIONS.find((h) => normalize(h.name).includes(n)) ?? null;
 }
 
-function dist(a: { lat: number; lng: number }, b: { lat: number; lng: number }) {
+function dist(
+  a: { lat: number; lng: number },
+  b: { lat: number; lng: number },
+) {
   return Math.hypot(a.lat - b.lat, a.lng - b.lng);
+}
+
+function formatDistance(distanceMeters: number): string {
+  if (distanceMeters < 1000) return `${Math.round(distanceMeters)} m`;
+  return `${(distanceMeters / 1000).toFixed(1)} km`;
 }
 
 /**
@@ -38,7 +47,10 @@ function findNearestPathIndex(lat: number, lng: number): number {
   let bestIdx = 0;
   let bestDist = Infinity;
   for (let i = 0; i < OFFICIAL_ROUTE_PATH.length; i++) {
-    const d = Math.hypot(OFFICIAL_ROUTE_PATH[i][0] - lat, OFFICIAL_ROUTE_PATH[i][1] - lng);
+    const d = Math.hypot(
+      OFFICIAL_ROUTE_PATH[i][0] - lat,
+      OFFICIAL_ROUTE_PATH[i][1] - lng,
+    );
     if (d < bestDist) {
       bestDist = d;
       bestIdx = i;
@@ -75,7 +87,7 @@ function getRouteBetweenHaltes(
 }
 
 export default function DashboardPage() {
-  const liveBuggies = useBuggyRealtime(INITIAL_BUGGIES);
+  const liveBuggies = useBuggySimulation(INITIAL_BUGGIES);
 
   const [activeView, setActiveView] = useState<PanelView>("buggy");
   const [panelOpen, setPanelOpen] = useState(true);
@@ -86,13 +98,20 @@ export default function DashboardPage() {
     INITIAL_BUGGIES[0]?.id ?? null,
   );
   const [selectedHalteId, setSelectedHalteId] = useState<string | null>(null);
+  const [userPosition, setUserPosition] = useState<{
+    lat: number;
+    lng: number;
+  } | null>(null);
 
   // Search state
-  const [searchStep, setSearchStep] = useState<"destination" | "origin">("destination");
+  const [searchStep, setSearchStep] = useState<"destination" | "origin">(
+    "destination",
+  );
   const [fromInput, setFromInput] = useState("");
   const [toInput, setToInput] = useState("");
   const [isSearching, setIsSearching] = useState(false);
-  const [directionResult, setDirectionResult] = useState<DirectionResult | null>(null);
+  const [directionResult, setDirectionResult] =
+    useState<DirectionResult | null>(null);
 
   const handleSelectView = (view: PanelView) => {
     setActiveView(view);
@@ -130,6 +149,173 @@ export default function DashboardPage() {
     setSelectedHalteId(halteId);
   }, []);
 
+  useEffect(() => {
+    if (typeof window === "undefined" || !("geolocation" in navigator)) return;
+
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        setUserPosition({
+          lat: position.coords.latitude,
+          lng: position.coords.longitude,
+        });
+      },
+      () => {
+        // noop: keep fallback position
+      },
+      {
+        enableHighAccuracy: false,
+        timeout: 8000,
+        maximumAge: 60_000,
+      },
+    );
+  }, []);
+
+  const nearestHalteRecommendations = useMemo(() => {
+    const fallbackPos = liveBuggies[0]?.position ?? {
+      lat: HALTE_LOCATIONS[0].lat,
+      lng: HALTE_LOCATIONS[0].lng,
+    };
+    const sourcePos = userPosition ?? fallbackPos;
+
+    return HALTE_LOCATIONS.map((halte) => ({
+      ...halte,
+      distanceMeters: haversineMeters(sourcePos, {
+        lat: halte.lat,
+        lng: halte.lng,
+      }),
+    }))
+      .sort((a, b) => a.distanceMeters - b.distanceMeters)
+      .slice(0, 3);
+  }, [liveBuggies, userPosition]);
+
+  const getLatestUserPosition = useCallback(async () => {
+    if (typeof window === "undefined" || !("geolocation" in navigator)) {
+      return userPosition;
+    }
+
+    return new Promise<{ lat: number; lng: number } | null>((resolve) => {
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          const latest = {
+            lat: position.coords.latitude,
+            lng: position.coords.longitude,
+          };
+          setUserPosition(latest);
+          resolve(latest);
+        },
+        () => resolve(userPosition),
+        {
+          enableHighAccuracy: true,
+          timeout: 8000,
+          maximumAge: 15_000,
+        },
+      );
+    });
+  }, [userPosition]);
+
+  const handleRecommendedHalteDirection = useCallback(
+    async (halteId: string) => {
+      const destinationHalte =
+        HALTE_LOCATIONS.find((halte) => halte.id === halteId) ?? null;
+      if (!destinationHalte) return;
+
+      setIsSearching(true);
+
+      try {
+        if (!(window as Window & { google?: { maps?: unknown } }).google?.maps) {
+          alert("Google Maps belum loading. Coba lagi.");
+          return;
+        }
+
+        const currentPos = await getLatestUserPosition();
+        if (!currentPos) {
+          alert("Lokasi pengguna belum tersedia. Aktifkan izin lokasi lalu coba lagi.");
+          return;
+        }
+
+        const mapsService = GoogleMapsService.fromWindow();
+        const originHalte = mapsService.findNearestHalte(currentPos, HALTE_LOCATIONS);
+        if (!originHalte) {
+          alert("Halte asal terdekat tidak ditemukan.");
+          return;
+        }
+
+        const walkToOriginHalte = await mapsService.getWalkingDirections(
+          currentPos,
+          { lat: originHalte.lat, lng: originHalte.lng },
+        );
+
+        const originIdx = HALTE_LOCATIONS.findIndex((h) => h.id === originHalte.id);
+        const destIdx = HALTE_LOCATIONS.findIndex((h) => h.id === destinationHalte.id);
+        if (originIdx < 0 || destIdx < 0) {
+          return;
+        }
+
+        const routeStopNames: string[] = [];
+        let cursor = originIdx;
+        while (true) {
+          routeStopNames.push(HALTE_LOCATIONS[cursor].name);
+          if (cursor === destIdx) break;
+          cursor = (cursor + 1) % HALTE_LOCATIONS.length;
+        }
+
+        const busRoutePath = getRouteBetweenHaltes(
+          originHalte.lat,
+          originHalte.lng,
+          destinationHalte.lat,
+          destinationHalte.lng,
+        );
+
+        const nearest = liveBuggies.reduce((best, buggy) => {
+          if (!best) return buggy;
+          return dist(buggy.position, originHalte) < dist(best.position, originHalte)
+            ? buggy
+            : best;
+        }, liveBuggies[0]);
+
+        if (!nearest) return;
+
+        setFromInput("Lokasi Saya");
+        setToInput(destinationHalte.name);
+        setSearchStep("origin");
+        setSelectedHalteId(destinationHalte.id);
+
+        setDirectionResult({
+          originName: "Lokasi Saya",
+          destinationName: destinationHalte.name,
+          originPosition: currentPos,
+          destinationPosition: {
+            lat: destinationHalte.lat,
+            lng: destinationHalte.lng,
+          },
+          routeStopNames,
+          nearestBuggyName: nearest.name,
+          nearestBuggyId: nearest.id,
+          directionPath: busRoutePath,
+          walkingToHalte: walkToOriginHalte
+            ? {
+                originHalteName: originHalte.name,
+                distance: walkToOriginHalte.totalDistance,
+                duration: walkToOriginHalte.totalDuration,
+                path: walkToOriginHalte.decodedPath,
+              }
+            : undefined,
+        });
+
+        setSelectedBuggyId(nearest.id);
+        setMapFollowingBuggyId(nearest.id);
+        setActiveView("buggy");
+        setPanelOpen(true);
+      } catch (err) {
+        console.error("Recommendation direction error:", err);
+        alert("Terjadi kesalahan saat membuat rute dari lokasi Anda.");
+      } finally {
+        setIsSearching(false);
+      }
+    },
+    [getLatestUserPosition, liveBuggies],
+  );
+
   // ── Direction search ─────────────────────────────────────────────────────
 
   const handleDirectionSearch = async () => {
@@ -158,15 +344,23 @@ export default function DashboardPage() {
       if (!originHalte) {
         const geocoded = await mapsService.geocodePlace(fromInput);
         if (!geocoded) {
-          alert(`Lokasi "${fromInput}" tidak ditemukan. Coba nama lengkap + UNDIP.`);
+          alert(
+            `Lokasi "${fromInput}" tidak ditemukan. Coba nama lengkap + UNDIP.`,
+          );
           setIsSearching(false);
           return;
         }
         originPos = { lat: geocoded.lat, lng: geocoded.lng };
         originHalte = mapsService.findNearestHalte(geocoded, HALTE_LOCATIONS);
-        if (!originHalte) { setIsSearching(false); return; }
+        if (!originHalte) {
+          setIsSearching(false);
+          return;
+        }
 
-        const walk = await mapsService.getWalkingDirections(geocoded, { lat: originHalte.lat, lng: originHalte.lng });
+        const walk = await mapsService.getWalkingDirections(geocoded, {
+          lat: originHalte.lat,
+          lng: originHalte.lng,
+        });
         if (walk) {
           walkingToHalte = {
             originHalteName: originHalte.name,
@@ -187,15 +381,23 @@ export default function DashboardPage() {
       if (!destHalte) {
         const geocoded = await mapsService.geocodePlace(toInput);
         if (!geocoded) {
-          alert(`Lokasi "${toInput}" tidak ditemukan. Coba nama lengkap + UNDIP.`);
+          alert(
+            `Lokasi "${toInput}" tidak ditemukan. Coba nama lengkap + UNDIP.`,
+          );
           setIsSearching(false);
           return;
         }
         destPos = { lat: geocoded.lat, lng: geocoded.lng };
         destHalte = mapsService.findNearestHalte(geocoded, HALTE_LOCATIONS);
-        if (!destHalte) { setIsSearching(false); return; }
+        if (!destHalte) {
+          setIsSearching(false);
+          return;
+        }
 
-        const walk = await mapsService.getWalkingDirections({ lat: destHalte.lat, lng: destHalte.lng }, geocoded);
+        const walk = await mapsService.getWalkingDirections(
+          { lat: destHalte.lat, lng: destHalte.lng },
+          geocoded,
+        );
         if (walk) {
           walkingFromHalte = {
             destinationHalteName: destHalte.name,
@@ -209,9 +411,14 @@ export default function DashboardPage() {
       }
 
       // Calculate bus route between haltes — using actual road path
-      const originIdx = HALTE_LOCATIONS.findIndex((h) => h.id === originHalte?.id);
+      const originIdx = HALTE_LOCATIONS.findIndex(
+        (h) => h.id === originHalte?.id,
+      );
       const destIdx = HALTE_LOCATIONS.findIndex((h) => h.id === destHalte?.id);
-      if (originIdx < 0 || destIdx < 0) { setIsSearching(false); return; }
+      if (originIdx < 0 || destIdx < 0) {
+        setIsSearching(false);
+        return;
+      }
 
       // Get stop names
       const routeStopNames: string[] = [];
@@ -224,17 +431,25 @@ export default function DashboardPage() {
 
       // Get actual road path between the two haltes
       const busRoutePath = getRouteBetweenHaltes(
-        originHalte!.lat, originHalte!.lng,
-        destHalte!.lat, destHalte!.lng,
+        originHalte!.lat,
+        originHalte!.lng,
+        destHalte!.lat,
+        destHalte!.lng,
       );
 
       // Find nearest buggy
       const nearest = liveBuggies.reduce((best, b) => {
         if (!best) return b;
-        return dist(b.position, originHalte!) < dist(best.position, originHalte!) ? b : best;
+        return dist(b.position, originHalte!) <
+          dist(best.position, originHalte!)
+          ? b
+          : best;
       }, liveBuggies[0]);
 
-      if (!nearest) { setIsSearching(false); return; }
+      if (!nearest) {
+        setIsSearching(false);
+        return;
+      }
 
       setDirectionResult({
         originName: fromInput,
@@ -270,7 +485,8 @@ export default function DashboardPage() {
   // Map data
   const mapBuggies = activeView === "halte" ? [] : liveBuggies;
   const mapRoutePath = activeView === "buggy" ? OFFICIAL_ROUTE_PATH : [];
-  const mapDirectionPath = activeView === "buggy" ? (directionResult?.directionPath ?? []) : [];
+  const mapDirectionPath =
+    activeView === "buggy" ? (directionResult?.directionPath ?? []) : [];
 
   return (
     <main className="relative h-screen w-screen overflow-hidden bg-slate-100">
@@ -291,22 +507,65 @@ export default function DashboardPage() {
         focusHaltes={activeView === "halte"}
       />
 
-      <div className="absolute right-3 top-3 z-20 rounded-full border border-emerald-200 bg-emerald-100/90 px-2 py-0.5 text-xs font-semibold text-emerald-700 shadow-sm backdrop-blur-sm xl:right-4 xl:top-4 xl:px-3 xl:py-1 xl:text-sm">
+      {/* Gradient overlay for mobile view */}
+      <div className="pointer-events-none absolute inset-x-0 top-0 z-30 h-52 bg-linear-to-b from-slate-900/70 via-slate-900/35 to-transparent xl:hidden" />
+
+      <section className="absolute inset-x-0 top-3 z-40 px-4 xl:hidden">
+        <h1 className="text-[26px] font-bold tracking-tight text-white drop-shadow-md">
+          SIMOBI
+        </h1>
+        <p className="mt-1 text-[12px] text-white/85">
+          Sistem Monitoring Buggy Listrik
+        </p>
+      </section>
+
+      <section
+        className={`absolute left-1/2 z-40 w-[min(92vw,420px)] -translate-x-1/2 xl:hidden ${
+          searchStep === "origin" ? "top-40" : "top-28"
+        }`}
+      >
+        <div className="flex gap-2 overflow-x-auto pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+          {nearestHalteRecommendations.map((halte) => (
+            <button
+              key={halte.id}
+              type="button"
+              className="shrink-0 rounded-full border border-white/35 bg-slate-900/50 px-3 py-1.5 text-left text-white backdrop-blur-md transition active:scale-[0.98]"
+              onClick={() => void handleRecommendedHalteDirection(halte.id)}
+            >
+              <p className="text-[12px] font-semibold leading-none">
+                {halte.name}
+              </p>
+              <p className="mt-0.5 text-[10px] text-white/80">
+                {formatDistance(halte.distanceMeters)}
+              </p>
+            </button>
+          ))}
+        </div>
+      </section>
+
+      <div className="absolute right-3 top-3 z-20 hidden rounded-full border border-emerald-200 bg-emerald-100/90 px-2 py-0.5 text-xs font-semibold text-emerald-700 shadow-sm backdrop-blur-sm xl:block xl:right-4 xl:top-4 xl:px-3 xl:py-1 xl:text-sm">
         Realtime aktif
       </div>
 
-      <FloatingSidebar activeView={activeView} onSelectView={handleSelectView} />
+      <FloatingSidebar
+        activeView={activeView}
+        onSelectView={handleSelectView}
+      />
 
       <LiveSearchBar
         fromValue={fromInput}
         toValue={toInput}
         onFromChange={setFromInput}
-        onToChange={(val) => { setToInput(val); setDirectionResult(null); }}
+        onToChange={(val) => {
+          setToInput(val);
+          setDirectionResult(null);
+        }}
         onSubmit={handleDirectionSearch}
         showOriginField={searchStep === "origin"}
         onBackToDestination={handleBackToDestination}
         panelOpen={panelOpen}
         isSearching={isSearching}
+        mobileTopClass="top-[3.3rem]"
       />
 
       <BuggyList
@@ -315,6 +574,7 @@ export default function DashboardPage() {
         activeView={activeView}
         onClose={() => setPanelOpen(false)}
         selectedBuggyId={selectedBuggyId}
+        selectedHalteId={selectedHalteId}
         onFocusBuggy={handleFocusBuggy}
         onSelectBuggy={handleSelectBuggy}
         onSelectHalte={handleSelectHalte}
@@ -322,7 +582,10 @@ export default function DashboardPage() {
         onCloseDirection={() => setDirectionResult(null)}
       />
 
-      <MobileBottomNav activeView={activeView} onSelectView={handleSelectView} />
+      <MobileBottomNav
+        activeView={activeView}
+        onSelectView={handleSelectView}
+      />
     </main>
   );
 }

@@ -37,7 +37,7 @@ export function MobileDrawer({ open, onClose, children }: MobileDrawerProps) {
       {/* Drawer */}
       <div
         ref={drawerRef}
-        className={`fixed inset-x-0 bottom-0 z-50 flex max-h-[85vh] flex-col rounded-t-[28px] border-t border-white/50 bg-white/80 shadow-[0_-16px_50px_rgba(15,23,42,0.2)] backdrop-blur-xl transition-transform duration-300 ease-out xl:hidden ${
+        className={`fixed inset-x-0 bottom-0 z-80 flex max-h-[85vh] flex-col rounded-t-[28px] border-t border-white/50 bg-white/80 shadow-[0_-16px_50px_rgba(15,23,42,0.2)] backdrop-blur-xl transition-transform duration-300 ease-out xl:hidden ${
           open ? "translate-y-0" : "translate-y-full"
         }`}
       >

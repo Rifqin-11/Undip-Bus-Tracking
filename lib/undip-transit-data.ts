@@ -196,30 +196,6 @@ export const SOURCE_BUGGIES: SourceBuggy[] = [
     currentStopIndex: 10,
     stops: UNDIP_ROUTE_STOPS,
   },
-  {
-    id: 7,
-    name: "Buggy 07",
-    eta: 12,
-    passengers: 3,
-    capacity: 8,
-    tag: "Normal",
-    lat: -7.047569654368096,
-    lng: 110.44101030995277,
-    currentStopIndex: 12,
-    stops: UNDIP_ROUTE_STOPS,
-  },
-  {
-    id: 8,
-    name: "Buggy 08",
-    eta: 4,
-    passengers: 5,
-    capacity: 8,
-    tag: "Normal",
-    lat: -7.050684864323637,
-    lng: 110.4420491664416,
-    currentStopIndex: 14,
-    stops: UNDIP_ROUTE_STOPS,
-  },
 ];
 
 export const OFFICIAL_ROUTE_PATH: [number, number][] = [

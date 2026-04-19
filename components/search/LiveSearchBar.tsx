@@ -11,6 +11,7 @@ type LiveSearchBarProps = {
   onBackToDestination: () => void;
   panelOpen: boolean;
   isSearching?: boolean;
+  mobileTopClass?: string;
 };
 
 export function LiveSearchBar({
@@ -23,6 +24,7 @@ export function LiveSearchBar({
   onBackToDestination,
   panelOpen,
   isSearching = false,
+  mobileTopClass = "top-3",
 }: LiveSearchBarProps) {
   const [isFocused, setIsFocused] = useState(false);
   const [focusedField, setFocusedField] = useState<"from" | "to" | null>(null);
@@ -62,7 +64,7 @@ export function LiveSearchBar({
   return (
     <form
       ref={wrapperRef}
-      className={`absolute left-1/2 top-3 z-50 w-[min(92vw,420px)] -translate-x-1/2 xl:translate-x-0 xl:top-4 ${
+      className={`absolute left-1/2 ${mobileTopClass} z-50 w-[min(92vw,420px)] -translate-x-1/2 xl:translate-x-0 xl:top-4 ${
         panelOpen
           ? "xl:left-[calc(1rem+4.5rem+1rem+25rem+1rem)]"
           : "xl:left-[calc(1rem+4.5rem+1rem)]"
@@ -73,7 +75,7 @@ export function LiveSearchBar({
         setIsFocused(false);
       }}
     >
-      <div className={`rounded-2xl border border-white/50 bg-white/70 shadow-[0_8px_32px_rgba(15,23,42,0.1)] backdrop-blur-xl transition-all duration-200 ${isFocused ? "border-slate-300/60 bg-white/85 shadow-[0_8px_32px_rgba(15,23,42,0.16)]" : ""}`}>
+      <div className={`rounded-4xl border border-white/50 bg-white/70 shadow-[0_8px_32px_rgba(15,23,42,0.1)] backdrop-blur-xl transition-all duration-200 ${isFocused ? "border-slate-300/60 bg-white/85 shadow-[0_8px_32px_rgba(15,23,42,0.16)]" : ""}`}>
         {/* Origin field (shown after destination is entered) */}
         {showOriginField && (
           <div className="flex items-center gap-2 border-b border-slate-200/50 px-3 py-2">
@@ -133,7 +135,7 @@ export function LiveSearchBar({
           <button
             type="submit"
             disabled={isSearching}
-            className="grid h-8 w-8 shrink-0 place-items-center rounded-xl bg-[#0f1a3b] text-white transition active:bg-[#1a2f68] disabled:opacity-50 xl:hover:bg-[#1a2f68]"
+            className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-[#0f1a3b] text-white transition active:bg-[#1a2f68] disabled:opacity-50 xl:hover:bg-[#1a2f68]"
             aria-label={showOriginField ? "Cari rute" : "Cari tujuan"}
           >
             {isSearching ? (
