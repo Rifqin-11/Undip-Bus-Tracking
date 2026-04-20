@@ -1,9 +1,15 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import type { ReactNode } from "react";
 import type { Buggy, PanelView } from "@/types/buggy";
 import { HALTE_LOCATIONS } from "@/lib/transit/buggy-data";
+import { haversineMeters } from "@/lib/transit/buggy-route-utils";
+
+type LatLng = {
+  lat: number;
+  lng: number;
+};
 import { BuggyCard } from "@/components/buggy/BuggyCard";
 import { BuggyDetailView } from "@/components/buggy/BuggyDetailView";
 import { PanelShell } from "@/components/panel/PanelShell";
@@ -50,6 +56,46 @@ export function BuggyList({
   const [selectedHalteIdLocal, setSelectedHalteIdLocal] = useState<
     string | null
   >(null);
+
+  const [userLocation, setUserLocation] = useState<LatLng | null>(null);
+
+  useEffect(() => {
+    if (!navigator.geolocation) return;
+
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        setUserLocation({
+          lat: position.coords.latitude,
+          lng: position.coords.longitude,
+        });
+      },
+      (error) => {
+        console.warn("Lokasi pengguna tidak terdeteksi:", error);
+      }
+    );
+  }, []);
+
+  const sortedBuggies = useMemo(() => {
+    const byBuggyNumber = (a: Buggy, b: Buggy) => {
+      const getNumber = (id: string) => {
+        const match = id.match(/\d+/);
+        return match ? Number(match[0]) : Number.MAX_SAFE_INTEGER;
+      };
+      return getNumber(a.id) - getNumber(b.id);
+    };
+
+    if (!userLocation) {
+      return [...buggies].sort(byBuggyNumber);
+    }
+
+    return [...buggies].sort((a, b) => {
+      const distA = haversineMeters(userLocation, a.position);
+      const distB = haversineMeters(userLocation, b.position);
+
+      if (distA === distB) return byBuggyNumber(a, b);
+      return distA - distB;
+    });
+  }, [buggies, userLocation]);
 
   const selectedBuggy = selectedBuggyId
     ? (buggies.find((b) => b.id === selectedBuggyId) ?? null)
