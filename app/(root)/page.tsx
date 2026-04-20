@@ -526,9 +526,6 @@ export default function DashboardPage() {
         <h1 className="text-[26px] font-bold tracking-tight text-white drop-shadow-md">
           SIMOBI
         </h1>
-        <p className="mt-1 text-[12px] text-white/85">
-          Sistem Monitoring Buggy Listrik
-        </p>
       </section>
 
       <section

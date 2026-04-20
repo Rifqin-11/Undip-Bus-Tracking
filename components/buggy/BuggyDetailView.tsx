@@ -64,9 +64,9 @@ export function BuggyDetailView({ buggy, onBack }: BuggyDetailViewProps) {
     : 0;
 
   return (
-    <section className="mt-4 rounded-3xl border border-slate-200/80 bg-white/80 p-3">
+    <section className="mt-4 w-full min-w-0 touch-pan-y overflow-x-hidden rounded-3xl border border-slate-200/80 bg-white/80 p-3">
       {/* Buggy header */}
-      <div className="mb-3 flex items-start gap-3 rounded-2xl bg-slate-100 p-3">
+      <div className="mb-3 flex min-w-0 items-start gap-3 rounded-2xl bg-slate-100 p-3">
         <div className="grid h-10 w-10 place-items-center rounded-2xl bg-blue-500 text-sm font-bold text-white">
           <svg
             xmlns="http://www.w3.org/2000/svg"
@@ -107,13 +107,13 @@ export function BuggyDetailView({ buggy, onBack }: BuggyDetailViewProps) {
       </div>
 
       {/* Stop timeline */}
-      <div className="relative pl-7">
+      <div className="relative min-w-0 overflow-hidden pl-7">
         <div className="absolute bottom-3 left-2 top-2 w-1 rounded-full bg-amber-400" />
         <div className="space-y-2">
           {orderedStops.map((stop, index) => (
             <article
               key={`${buggy.id}-${stop.stopName}-${index}`}
-              className={`relative rounded-xl border p-3 ${stop.isCurrent ? "border-slate-300 bg-slate-100" : "border-slate-200 bg-white"}`}
+              className={`relative min-w-0 overflow-hidden rounded-xl border p-3 ${stop.isCurrent ? "border-slate-300 bg-slate-100" : "border-slate-200 bg-white"}`}
             >
               <span
                 className={`absolute -left-5.75 top-5 h-2.5 w-2.5 rounded-full ${stop.isCurrent ? "bg-slate-700" : "bg-sky-500"}`}
@@ -129,7 +129,7 @@ export function BuggyDetailView({ buggy, onBack }: BuggyDetailViewProps) {
                       : `Estimasi tiba · ${stop.minuteOffset} min lagi`}
                   </p>
                 </div>
-                <p className="text-[16px] font-bold text-slate-700">
+                <p className="shrink-0 whitespace-nowrap text-[16px] font-bold text-slate-700">
                   {stop.timeLabel}
                 </p>
               </div>

@@ -2,5 +2,9 @@
   {
     "name": "github.com/upstash/context7-mcp",
     "url": "https://mcp.context7.com/mcp"
+  },
+  {
+    "name": "github.com/postmanlabs/postman-mcp-server",
+    "url": "https://mcp.postman.com/minimal"
   }
 ]

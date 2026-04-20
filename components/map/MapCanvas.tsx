@@ -115,6 +115,9 @@ export function MapCanvas({
     null,
   );
   const mapClickListenerRef = useRef<{ remove: () => void } | null>(null);
+  const mapDragStartListenerRef = useRef<{ remove: () => void } | null>(null);
+  const followSelectedBuggyRef = useRef(false);
+  const lastSelectedBuggyIdRef = useRef<string | null>(null);
 
   const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
   const keyError = apiKey
@@ -151,6 +154,13 @@ export function MapCanvas({
         });
 
         infoWindowRef.current = new maps.InfoWindow();
+        mapDragStartListenerRef.current?.remove();
+        mapDragStartListenerRef.current = mapInstanceRef.current.addListener(
+          "dragstart",
+          () => {
+            followSelectedBuggyRef.current = false;
+          },
+        );
         infoWindowCloseListenerRef.current?.remove();
         infoWindowCloseListenerRef.current = infoWindowRef.current.addListener(
           "closeclick",
@@ -181,11 +191,15 @@ export function MapCanvas({
       geofenceCircles.forEach((circle) => circle.setMap(null));
       geofenceCircles.clear();
       mapClickListenerRef.current?.remove();
+      mapDragStartListenerRef.current?.remove();
       infoWindowCloseListenerRef.current?.remove();
       infoWindowRef.current?.close();
       mapClickListenerRef.current = null;
+      mapDragStartListenerRef.current = null;
       infoWindowCloseListenerRef.current = null;
       mapInstanceRef.current = null;
+      followSelectedBuggyRef.current = false;
+      lastSelectedBuggyIdRef.current = null;
       setMapReady(false);
     };
   }, [apiKey, onInfoWindowClose]);
@@ -433,7 +447,14 @@ export function MapCanvas({
 
     if (!selectedBuggyId) {
       infoWindow.close();
+      followSelectedBuggyRef.current = false;
+      lastSelectedBuggyIdRef.current = null;
       return;
+    }
+
+    if (lastSelectedBuggyIdRef.current !== selectedBuggyId) {
+      followSelectedBuggyRef.current = true;
+      lastSelectedBuggyIdRef.current = selectedBuggyId;
     }
 
     const selectedBuggy = buggies.find((b) => b.id === selectedBuggyId);
@@ -446,7 +467,10 @@ export function MapCanvas({
 
     infoWindow.setContent(buildBuggyInfoContent(selectedBuggy));
     infoWindow.open({ map, anchor: selectedMarker });
-    map.panTo(selectedBuggy.position);
+
+    if (followSelectedBuggyRef.current) {
+      map.panTo(selectedBuggy.position);
+    }
   }, [buggies, selectedBuggyId]);
 
   // ── Center on target (from search) ─────────────────────────────────────────

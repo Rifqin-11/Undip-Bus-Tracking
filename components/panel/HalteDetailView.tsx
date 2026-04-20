@@ -32,7 +32,7 @@ type HalteDetailViewProps = {
 
 export function HalteDetailView({
   halte,
-  halteIndex,
+  halteIndex: _halteIndex,
   onBack,
 }: HalteDetailViewProps) {
   const schedule = generateSchedule(halte.id);
@@ -64,8 +64,8 @@ export function HalteDetailView({
   };
 
   return (
-    <section className="mt-4 rounded-3xl border border-slate-200/80 bg-white/80 p-3">
-      <div className="mb-3 flex items-start gap-3 rounded-2xl bg-slate-100 p-3">
+    <section className="mt-4 w-full min-w-0 overflow-x-hidden rounded-3xl border border-slate-200/80 bg-white/80 p-3">
+      <div className="mb-3 flex min-w-0 items-start gap-3 rounded-2xl bg-slate-100 p-3">
         <div className="grid h-10 w-10 shrink-0 place-items-center rounded-2xl bg-emerald-500 text-sm font-bold text-white">
           <svg
             xmlns="http://www.w3.org/2000/svg"
@@ -91,8 +91,8 @@ export function HalteDetailView({
           </svg>
         </div>
 
-        <div className="flex-1">
-          <h3 className="truncate text-[20px] font-bold text-slate-900">
+        <div className="min-w-0 flex-1">
+          <h3 className="truncate break-words text-[20px] leading-tight font-bold text-slate-900">
             {halte.name}
           </h3>
         </div>
@@ -130,7 +130,7 @@ export function HalteDetailView({
         </figcaption>
       </figure>
 
-      <div className="mb-3 grid grid-cols-3 gap-2">
+      <div className="mb-3 grid w-full min-w-0 grid-cols-3 gap-2 min-[360px]:gap-2.5">
         <a
           href={mapsUrl}
           target="_blank"
@@ -146,13 +146,13 @@ export function HalteDetailView({
           >
             <path d="M12 2L6 8l1.41 1.41L11 5.83V22h2V5.83l3.59 3.58L18 8z" />
           </svg>
-          Arahkan
+          <span className="truncate">Arahkan</span>
         </a>
 
         <button
           type="button"
           onClick={handleShare}
-          className="flex items-center justify-center gap-1.5 rounded-xl border border-slate-200 bg-white p-2.5 text-[12px] font-semibold text-slate-700 transition hover:bg-slate-50"
+          className="flex min-w-0 items-center justify-center gap-1 rounded-xl border border-slate-200 bg-white p-2 text-[11px] font-semibold text-slate-700 transition hover:bg-slate-50 min-[360px]:gap-1.5 min-[360px]:p-2.5 min-[360px]:text-[12px]"
         >
           <svg
             viewBox="0 0 24 24"
@@ -167,14 +167,14 @@ export function HalteDetailView({
             <path d="m8.59 13.51 6.83 3.98" />
             <path d="m15.41 6.51-6.82 3.98" />
           </svg>
-          Bagikan
+          <span className="truncate">Bagikan</span>
         </button>
 
         <a
           href={`https://www.google.com/maps/@${halte.lat},${halte.lng},18z`}
           target="_blank"
           rel="noopener noreferrer"
-          className="flex items-center justify-center gap-1.5 rounded-xl border border-slate-200 bg-white p-2.5 text-[12px] font-semibold text-slate-700 transition hover:bg-slate-50"
+          className="flex min-w-0 items-center justify-center gap-1 rounded-xl border border-slate-200 bg-white p-2 text-[11px] font-semibold text-slate-700 transition hover:bg-slate-50 min-[360px]:gap-1.5 min-[360px]:p-2.5 min-[360px]:text-[12px]"
         >
           <svg
             viewBox="0 0 24 24"
@@ -186,7 +186,7 @@ export function HalteDetailView({
             <path d="M9 11a3 3 0 1 0 6 0a3 3 0 0 0 -6 0" />
             <path d="M17.657 16.657l-4.243 4.243a2 2 0 0 1 -2.827 0l-4.244 -4.243a8 8 0 1 1 11.314 0z" />
           </svg>
-          Maps
+          <span className="truncate">Maps</span>
         </a>
       </div>
 
@@ -221,7 +221,7 @@ export function HalteDetailView({
           </span>
         </div>
 
-        <div className="grid grid-cols-4 gap-2">
+        <div className="grid grid-cols-3 gap-2 min-[420px]:grid-cols-4">
           {schedule.map((time, idx) => (
             <div
               key={idx}

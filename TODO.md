@@ -1,4 +1,5 @@
-- [x] Buat komponen client baru `app/login/LoginForm.tsx` dan pindahkan logic/form login dari `app/login/page.tsx`.
-- [x] Ubah `app/login/page.tsx` menjadi wrapper server component yang membungkus `LoginForm` dengan `Suspense`.
-- [x] Verifikasi build dengan `npm run build`.
-- [x] Update TODO setelah tiap langkah selesai.
+- [ ] Perbaiki overflow horizontal di `components/panel/HalteDetailView.tsx`
+- [ ] Pastikan elemen teks panjang tidak memaksa lebar container (judul halte, caption, info section)
+- [ ] Sesuaikan grid jadwal agar responsif di mobile sempit
+- [ ] Tambahkan guard class (`min-w-0`, `w-full`, `overflow-hidden`) pada wrapper penting
+- [ ] Review cepat hasil perubahan pada struktur class Tailwind
