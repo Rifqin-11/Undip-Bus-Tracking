@@ -67,16 +67,34 @@ export function HalteDetailView({
     <section className="mt-4 rounded-3xl border border-slate-200/80 bg-white/80 p-3">
       <div className="mb-3 flex items-start gap-3 rounded-2xl bg-slate-100 p-3">
         <div className="grid h-10 w-10 shrink-0 place-items-center rounded-2xl bg-emerald-500 text-sm font-bold text-white">
-          H{halteIndex + 1}
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            width="24"
+            height="24"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            className="icon icon-tabler icons-tabler-outline icon-tabler-bus-stop"
+          >
+            <path stroke="none" d="M0 0h24v24H0z" fill="none" />
+            <path d="M3 4a1 1 0 0 1 1 -1h2a1 1 0 0 1 1 1v4a1 1 0 0 1 -1 1h-2a1 1 0 0 1 -1 -1l0 -4" />
+            <path d="M16 17a2 2 0 1 0 4 0a2 2 0 1 0 -4 0" />
+            <path d="M10 5h7c2.761 0 5 3.134 5 7v5h-2" />
+            <path d="M16 17h-8" />
+            <path d="M16 5l1.5 7h4.5" />
+            <path d="M9.5 10h7.5" />
+            <path d="M12 5v5" />
+            <path d="M5 9v11" />
+          </svg>
         </div>
 
-        <div className="min-w-0 flex-1">
+        <div className="flex-1">
           <h3 className="truncate text-[20px] font-bold text-slate-900">
             {halte.name}
           </h3>
-          <p className="text-[13px] text-slate-500">
-            {halte.lat.toFixed(6)}, {halte.lng.toFixed(6)}
-          </p>
         </div>
 
         <button

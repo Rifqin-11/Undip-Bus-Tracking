@@ -1,0 +1,4 @@
+- [x] Buat komponen client baru `app/login/LoginForm.tsx` dan pindahkan logic/form login dari `app/login/page.tsx`.
+- [x] Ubah `app/login/page.tsx` menjadi wrapper server component yang membungkus `LoginForm` dengan `Suspense`.
+- [x] Verifikasi build dengan `npm run build`.
+- [x] Update TODO setelah tiap langkah selesai.

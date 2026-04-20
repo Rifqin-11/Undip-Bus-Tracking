@@ -222,19 +222,26 @@ export default function DashboardPage() {
       setIsSearching(true);
 
       try {
-        if (!(window as Window & { google?: { maps?: unknown } }).google?.maps) {
+        if (
+          !(window as Window & { google?: { maps?: unknown } }).google?.maps
+        ) {
           alert("Google Maps belum loading. Coba lagi.");
           return;
         }
 
         const currentPos = await getLatestUserPosition();
         if (!currentPos) {
-          alert("Lokasi pengguna belum tersedia. Aktifkan izin lokasi lalu coba lagi.");
+          alert(
+            "Lokasi pengguna belum tersedia. Aktifkan izin lokasi lalu coba lagi.",
+          );
           return;
         }
 
         const mapsService = GoogleMapsService.fromWindow();
-        const originHalte = mapsService.findNearestHalte(currentPos, HALTE_LOCATIONS);
+        const originHalte = mapsService.findNearestHalte(
+          currentPos,
+          HALTE_LOCATIONS,
+        );
         if (!originHalte) {
           alert("Halte asal terdekat tidak ditemukan.");
           return;
@@ -245,8 +252,12 @@ export default function DashboardPage() {
           { lat: originHalte.lat, lng: originHalte.lng },
         );
 
-        const originIdx = HALTE_LOCATIONS.findIndex((h) => h.id === originHalte.id);
-        const destIdx = HALTE_LOCATIONS.findIndex((h) => h.id === destinationHalte.id);
+        const originIdx = HALTE_LOCATIONS.findIndex(
+          (h) => h.id === originHalte.id,
+        );
+        const destIdx = HALTE_LOCATIONS.findIndex(
+          (h) => h.id === destinationHalte.id,
+        );
         if (originIdx < 0 || destIdx < 0) {
           return;
         }
@@ -268,7 +279,8 @@ export default function DashboardPage() {
 
         const nearest = liveBuggies.reduce((best, buggy) => {
           if (!best) return buggy;
-          return dist(buggy.position, originHalte) < dist(best.position, originHalte)
+          return dist(buggy.position, originHalte) <
+            dist(best.position, originHalte)
             ? buggy
             : best;
         }, liveBuggies[0]);
