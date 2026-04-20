@@ -27,15 +27,5 @@ const crowdConfigMap: Record<CrowdLevel, CrowdConfig> = {
 export const toCrowdConfig = (crowdLevel: CrowdLevel): CrowdConfig =>
   crowdConfigMap[crowdLevel];
 
-export function toCrowdLevel(
-  passengers: number,
-  capacity: number,
-): CrowdLevel {
-  const ratio = capacity ? passengers / capacity : 0;
-  if (ratio >= 0.9) return "PENUH";
-  if (ratio >= 0.65) return "HAMPIR_PENUH";
-  return "LONGGAR";
-}
-
 export const activeFleetLabel = (buggies: Buggy[]): string =>
   `${buggies.length} unit`;

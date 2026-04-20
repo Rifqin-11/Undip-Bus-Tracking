@@ -14,6 +14,7 @@ import {
   HALTE_LOCATIONS,
   OFFICIAL_ROUTE_PATH,
 } from "@/lib/transit/buggy-data";
+import type { Buggy } from "@/types/buggy";
 import { haversineMeters } from "@/lib/transit/buggy-route-utils";
 import { useBuggySimulation } from "@/hooks/useBuggySimulation";
 import { GoogleMapsService } from "@/lib/services/google-maps-service";
@@ -22,7 +23,7 @@ import type { DirectionResult } from "@/components/panel/DirectionPanel";
 import type { LatLngLiteral } from "@/types/map-canvas";
 import type { Geofence, GeofenceEvent } from "@/types/geofence";
 
-const INITIAL_BUGGIES = createInitialBuggies();
+const FALLBACK_BUGGIES = createInitialBuggies();
 const GEOFENCE_DEFAULT_RADIUS_METERS = 100;
 const GEOFENCE_EVENT_LIMIT = 100;
 const GEOFENCE_EVENT_COOLDOWN_MS = 10_000;
@@ -102,15 +103,17 @@ function getRouteBetweenHaltes(
 }
 
 export default function DashboardPage() {
-  const liveBuggies = useBuggySimulation(INITIAL_BUGGIES);
+  const [initialBuggies, setInitialBuggies] =
+    useState<Buggy[]>(FALLBACK_BUGGIES);
+  const liveBuggies = useBuggySimulation(initialBuggies);
 
   const [activeView, setActiveView] = useState<PanelView>("buggy");
   const [panelOpen, setPanelOpen] = useState(true);
   const [selectedBuggyId, setSelectedBuggyId] = useState<string | null>(
-    INITIAL_BUGGIES[0]?.id ?? null,
+    FALLBACK_BUGGIES[0]?.id ?? null,
   );
   const [mapFollowingBuggyId, setMapFollowingBuggyId] = useState<string | null>(
-    INITIAL_BUGGIES[0]?.id ?? null,
+    FALLBACK_BUGGIES[0]?.id ?? null,
   );
   const [selectedHalteId, setSelectedHalteId] = useState<string | null>(null);
 
@@ -174,6 +177,37 @@ export default function DashboardPage() {
   useEffect(() => {
     void loadGeofences();
   }, [loadGeofences]);
+
+  useEffect(() => {
+    let ignore = false;
+
+    async function loadDummyGpsBuggies() {
+      try {
+        const response = await fetch("/api/buggy", { cache: "no-store" });
+        if (!response.ok) {
+          throw new Error("Gagal memuat data buggy dummy GPS.");
+        }
+
+        const data: unknown = await response.json();
+        if (!Array.isArray(data) || data.length === 0) return;
+
+        const parsed = data as Buggy[];
+        if (ignore) return;
+
+        setInitialBuggies(parsed);
+        setSelectedBuggyId((prev) => prev ?? parsed[0]?.id ?? null);
+        setMapFollowingBuggyId((prev) => prev ?? parsed[0]?.id ?? null);
+      } catch (error) {
+        console.error("Load buggy dummy GPS error:", error);
+      }
+    }
+
+    void loadDummyGpsBuggies();
+
+    return () => {
+      ignore = true;
+    };
+  }, []);
 
   const handleSelectView = (view: PanelView) => {
     setActiveView(view);

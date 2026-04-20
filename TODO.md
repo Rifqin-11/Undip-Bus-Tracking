@@ -5,3 +5,7 @@
 - [ ] Review cepat hasil perubahan pada struktur class Tailwind
 - [x] Update BuggyDetailView: titik halte aktif menjadi biru, garis timeline tetap amber
 - [x] Verifikasi perubahan hanya pada styling UI (tanpa ubah logika)
+- [x] Update halte detection in `hooks/useBuggySimulation.ts` to use arrival radius (meters), not nearest-only.
+- [x] Add helper to detect halte within radius using `haversineMeters`.
+- [x] Keep previous `currentStopIndex` when buggy is not within any halte radius.
+- [ ] Run lightweight validation (`npm run lint` or `npm run type-check`).

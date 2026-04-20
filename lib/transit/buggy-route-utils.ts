@@ -80,10 +80,6 @@ const HALTE_BY_NAME = new Map(
   ]),
 );
 
-export function getRouteOrderedStopNames(): string[] {
-  return ROUTE_ORDERED_STOP_NAMES;
-}
-
 export function getBuggyStopsInRouteOrder(
   buggy: Buggy,
   routeOrderedStops: string[] = ROUTE_ORDERED_STOP_NAMES,

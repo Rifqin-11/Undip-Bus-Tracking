@@ -22,8 +22,8 @@ export const HALTE_LOCATIONS: HaltePoint[] = [
   {
     id: "h03",
     name: "Pos Satpam Astina Undip",
-    lat: -7.055335586528005,
-    lng: 110.43929330859879,
+    lat: -7.0556189,
+    lng: 110.4393167,
   },
   {
     id: "h04",
@@ -106,8 +106,8 @@ export const HALTE_LOCATIONS: HaltePoint[] = [
   {
     id: "h17",
     name: "UPT Laboratorium Terpadu",
-    lat: -7.0545419609050946,
-    lng: 110.43962946087483,
+    lat: -7.0552369,
+    lng: 110.4394576,
   },
   {
     id: "h18",
@@ -235,7 +235,7 @@ export const OFFICIAL_ROUTE_PATH: [number, number][] = [
 
 // ─── Source data ───────────────────────────────────────────────────────────────
 
-type SourceBuggy = {
+type SeedBuggy = {
   id: number;
   name: string;
   eta: number;
@@ -247,7 +247,7 @@ type SourceBuggy = {
 
 const STOP_NAMES = HALTE_LOCATIONS.map((h) => h.name);
 
-const SOURCE_BUGGIES: SourceBuggy[] = [
+const SOURCE_BUGGIES: SeedBuggy[] = [
   {
     id: 1,
     name: "Buggy 01",
@@ -313,13 +313,34 @@ function resolveCrowdLevel(passengers: number, capacity: number): CrowdLevel {
   return "LONGGAR";
 }
 
-export function createInitialBuggies(): Buggy[] {
-  const total = OFFICIAL_ROUTE_PATH.length;
-  const count = SOURCE_BUGGIES.length;
+function normalizeLoopIndex(index: number, length: number): number {
+  if (length <= 0) return 0;
+  return ((index % length) + length) % length;
+}
 
-  return SOURCE_BUGGIES.map((src, index) => {
-    const pathCursor = Math.floor((index / count) * total);
-    const [lat, lng] = OFFICIAL_ROUTE_PATH[pathCursor];
+function findNearestPathIndex(lat: number, lng: number): number {
+  let bestIndex = 0;
+  let bestDistance = Number.POSITIVE_INFINITY;
+
+  for (let i = 0; i < OFFICIAL_ROUTE_PATH.length; i += 1) {
+    const [pathLat, pathLng] = OFFICIAL_ROUTE_PATH[i];
+    const distance = Math.hypot(pathLat - lat, pathLng - lng);
+    if (distance < bestDistance) {
+      bestDistance = distance;
+      bestIndex = i;
+    }
+  }
+
+  return bestIndex;
+}
+
+export function createInitialBuggies(): Buggy[] {
+  return SOURCE_BUGGIES.map((src) => {
+    const halteIndex = normalizeLoopIndex(src.currentStopIndex, HALTE_LOCATIONS.length);
+    const haltePosition = HALTE_LOCATIONS[halteIndex] ?? HALTE_LOCATIONS[0];
+    const lat = haltePosition?.lat ?? CENTER_UNDIP[0];
+    const lng = haltePosition?.lng ?? CENTER_UNDIP[1];
+    const pathCursor = findNearestPathIndex(lat, lng);
     const crowdLevel = resolveCrowdLevel(src.passengers, src.capacity);
 
     return {

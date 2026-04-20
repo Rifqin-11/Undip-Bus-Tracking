@@ -47,19 +47,43 @@ function findNearestRouteIndex(position: LatLng): number {
   return bestIndex;
 }
 
-function findNearestHalteIndex(position: LatLng): number {
-  let bestIndex = 0;
-  let bestDistance = Infinity;
+const HALTE_ARRIVAL_RADIUS_METERS = 40;
+// Keep stop progression strict and deterministic: no halte skipping.
+const MAX_SKIP_AHEAD_STOPS = 0;
 
-  for (let i = 0; i < HALTE_LOCATIONS.length; i += 1) {
-    const halte = HALTE_LOCATIONS[i];
-    const distance = Math.hypot(
-      halte.lat - position.lat,
-      halte.lng - position.lng,
-    );
-    if (distance < bestDistance) {
+function normalizeLoopIndex(index: number, length: number): number {
+  if (length <= 0) return 0;
+  return ((index % length) + length) % length;
+}
+
+function findSemiFlexibleArrivalHalteIndex(
+  position: LatLng,
+  currentStopIndex: number,
+  radiusMeters: number = HALTE_ARRIVAL_RADIUS_METERS,
+  maxSkipAheadStops: number = MAX_SKIP_AHEAD_STOPS,
+): number | null {
+  const halteCount = HALTE_LOCATIONS.length;
+  if (halteCount <= 0) return null;
+
+  const current = normalizeLoopIndex(currentStopIndex, halteCount);
+  const maxStep = Math.min(halteCount - 1, maxSkipAheadStops + 1);
+  let bestIndex: number | null = null;
+  let bestStep = Number.POSITIVE_INFINITY;
+  let bestDistance = Number.POSITIVE_INFINITY;
+
+  for (let step = 1; step <= maxStep; step += 1) {
+    const halteIndex = normalizeLoopIndex(current + step, halteCount);
+    const halte = HALTE_LOCATIONS[halteIndex];
+    const distance = haversineMeters(position, {
+      lat: halte.lat,
+      lng: halte.lng,
+    });
+
+    if (distance > radiusMeters) continue;
+    if (step < bestStep || (step === bestStep && distance < bestDistance)) {
+      bestStep = step;
       bestDistance = distance;
-      bestIndex = i;
+      bestIndex = halteIndex;
     }
   }
 
@@ -68,10 +92,14 @@ function findNearestHalteIndex(position: LatLng): number {
 
 function computeEtaMinutes(
   position: LatLng,
-  halteIndex: number,
+  currentStopIndex: number,
   speedKmh: number,
 ): number {
-  const nextHalte = HALTE_LOCATIONS[(halteIndex + 1) % HALTE_LOCATIONS.length];
+  const halteCount = HALTE_LOCATIONS.length;
+  if (halteCount <= 0) return 1;
+
+  const normalizedCurrent = normalizeLoopIndex(currentStopIndex, halteCount);
+  const nextHalte = HALTE_LOCATIONS[(normalizedCurrent + 1) % halteCount];
   const distanceMeters = haversineMeters(position, {
     lat: nextHalte.lat,
     lng: nextHalte.lng,
@@ -86,15 +114,26 @@ function applyPositionUpdate(
   point: BuggySimulatorPosition,
 ): Buggy {
   const position = { lat: point.latitude, lng: point.longitude };
-  const halteIndex = findNearestHalteIndex(position);
+  const halteWithinRadius = findSemiFlexibleArrivalHalteIndex(
+    position,
+    buggy.currentStopIndex,
+  );
+  const halteCount = HALTE_LOCATIONS.length;
+  const currentStopIndex =
+    halteCount > 0
+      ? normalizeLoopIndex(
+          halteWithinRadius ?? buggy.currentStopIndex,
+          halteCount,
+        )
+      : 0;
 
   return {
     ...buggy,
     position,
     pathCursor: findNearestRouteIndex(position),
-    currentStopIndex: halteIndex,
+    currentStopIndex,
     speedKmh: point.speedKmh,
-    etaMinutes: computeEtaMinutes(position, halteIndex, point.speedKmh),
+    etaMinutes: computeEtaMinutes(position, currentStopIndex, point.speedKmh),
     updatedAt: new Date(point.timestamp).toLocaleTimeString("id-ID", {
       hour: "2-digit",
       minute: "2-digit",
@@ -124,11 +163,8 @@ export function useBuggySimulation(
     const parsedOptions = JSON.parse(
       simulatorOptionsKey,
     ) as Partial<BuggySimulatorOptions>;
-    const simulators = initialBuggies.map((buggy, index) => {
-      const rotatedRoute = rotateRoute(
-        ROUTE_POINTS,
-        buggy.pathCursor + index * 3,
-      );
+    const simulators = initialBuggies.map((buggy) => {
+      const rotatedRoute = rotateRoute(ROUTE_POINTS, buggy.pathCursor);
       return createBuggyMovementSimulator(rotatedRoute, parsedOptions);
     });
 
