@@ -111,29 +111,33 @@ export function BuggyDetailView({ buggy, onBack }: BuggyDetailViewProps) {
         <div className="absolute bottom-3 left-2 top-2 w-1 rounded-full bg-amber-400" />
         <div className="space-y-2">
           {orderedStops.map((stop, index) => (
-            <article
+            <div
               key={`${buggy.id}-${stop.stopName}-${index}`}
-              className={`relative min-w-0 overflow-hidden rounded-xl border p-3 ${stop.isCurrent ? "border-slate-300 bg-slate-100" : "border-slate-200 bg-white"}`}
+              className="relative"
             >
-              <span
-                className={`absolute -left-5.75 top-5 h-2.5 w-2.5 rounded-full ${stop.isCurrent ? "bg-slate-700" : "bg-sky-500"}`}
-              />
-              <div className="flex items-start justify-between gap-3">
-                <div className="min-w-0">
-                  <p className="truncate text-[15px] font-semibold text-slate-900">
-                    {stop.stopName}
-                  </p>
-                  <p className="text-[12px] text-slate-500">
-                    {stop.isCurrent
-                      ? "Posisi buggy saat ini"
-                      : `Estimasi tiba · ${stop.minuteOffset} min lagi`}
+              {stop.isCurrent ? (
+                <span className="absolute -left-4.5 top-1/2 z-20 h-4 w-4 -translate-x-1/2 -translate-y-1/2 rounded-full bg-blue-600 ring-2 ring-white shadow" />
+              ) : null}
+              <article
+                className={`relative min-w-0 overflow-hidden rounded-xl border p-3 ${stop.isCurrent ? "border-slate-300 bg-slate-100" : "border-slate-200 bg-white"}`}
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="truncate text-[15px] font-semibold text-slate-900">
+                      {stop.stopName}
+                    </p>
+                    <p className="text-[12px] text-slate-500">
+                      {stop.isCurrent
+                        ? "Posisi buggy saat ini"
+                        : `Estimasi tiba · ${stop.minuteOffset} min lagi`}
+                    </p>
+                  </div>
+                  <p className="shrink-0 whitespace-nowrap text-[16px] font-bold text-slate-700">
+                    {stop.timeLabel}
                   </p>
                 </div>
-                <p className="shrink-0 whitespace-nowrap text-[16px] font-bold text-slate-700">
-                  {stop.timeLabel}
-                </p>
-              </div>
-            </article>
+              </article>
+            </div>
           ))}
         </div>
       </div>

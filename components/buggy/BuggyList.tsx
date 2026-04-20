@@ -71,7 +71,7 @@ export function BuggyList({
       },
       (error) => {
         console.warn("Lokasi pengguna tidak terdeteksi:", error);
-      }
+      },
     );
   }, []);
 
@@ -84,18 +84,34 @@ export function BuggyList({
       return getNumber(a.id) - getNumber(b.id);
     };
 
+    const sortByDistance = (origin: LatLng) =>
+      [...buggies].sort((a, b) => {
+        const distA = haversineMeters(origin, a.position);
+        const distB = haversineMeters(origin, b.position);
+
+        if (distA === distB) return byBuggyNumber(a, b);
+        return distA - distB;
+      });
+
+    const originHaltePosition = directionResult?.walkingToHalte
+      ? (() => {
+          const halte = HALTE_LOCATIONS.find(
+            (h) => h.name === directionResult.walkingToHalte?.originHalteName,
+          );
+          return halte ? { lat: halte.lat, lng: halte.lng } : null;
+        })()
+      : null;
+
+    if (originHaltePosition) {
+      return sortByDistance(originHaltePosition);
+    }
+
     if (!userLocation) {
       return [...buggies].sort(byBuggyNumber);
     }
 
-    return [...buggies].sort((a, b) => {
-      const distA = haversineMeters(userLocation, a.position);
-      const distB = haversineMeters(userLocation, b.position);
-
-      if (distA === distB) return byBuggyNumber(a, b);
-      return distA - distB;
-    });
-  }, [buggies, userLocation]);
+    return sortByDistance(userLocation);
+  }, [buggies, userLocation, directionResult]);
 
   const selectedBuggy = selectedBuggyId
     ? (buggies.find((b) => b.id === selectedBuggyId) ?? null)
@@ -157,7 +173,7 @@ export function BuggyList({
             </span>
           </div>
           <div className="space-y-3">
-            {buggies.map((buggy) => (
+            {sortedBuggies.map((buggy) => (
               <BuggyCard
                 key={buggy.id}
                 buggy={buggy}
@@ -218,7 +234,7 @@ export function BuggyList({
             </span>
           </div>
           <div className="space-y-3">
-            {buggies.map((buggy) => (
+            {sortedBuggies.map((buggy) => (
               <BuggyCard
                 key={buggy.id}
                 buggy={buggy}

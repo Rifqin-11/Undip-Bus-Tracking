@@ -3,3 +3,5 @@
 - [ ] Sesuaikan grid jadwal agar responsif di mobile sempit
 - [ ] Tambahkan guard class (`min-w-0`, `w-full`, `overflow-hidden`) pada wrapper penting
 - [ ] Review cepat hasil perubahan pada struktur class Tailwind
+- [x] Update BuggyDetailView: titik halte aktif menjadi biru, garis timeline tetap amber
+- [x] Verifikasi perubahan hanya pada styling UI (tanpa ubah logika)

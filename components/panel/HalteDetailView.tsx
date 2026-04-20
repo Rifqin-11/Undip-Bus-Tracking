@@ -92,7 +92,7 @@ export function HalteDetailView({
         </div>
 
         <div className="min-w-0 flex-1">
-          <h3 className="truncate break-words text-[20px] leading-tight font-bold text-slate-900">
+          <h3 className=" wrap-break-words text-lg leading-tight font-bold text-slate-900">
             {halte.name}
           </h3>
         </div>
