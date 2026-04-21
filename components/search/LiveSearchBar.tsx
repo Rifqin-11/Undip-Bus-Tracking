@@ -1,5 +1,12 @@
 import { useState, useRef, useEffect } from "react";
 import { HALTE_LOCATIONS } from "@/lib/transit/buggy-data";
+import {
+  XIcon,
+  SearchIcon,
+  SpinnerIcon,
+  ArrowRightIcon,
+  MapPinIcon,
+} from "@/components/ui/Icons";
 
 type LiveSearchBarProps = {
   fromValue: string;
@@ -34,7 +41,7 @@ export function LiveSearchBar({
   const trimmed = currentInput.trim().toLowerCase();
   const suggestions = trimmed
     ? HALTE_LOCATIONS.filter((h) =>
-        h.name.toLowerCase().includes(trimmed)
+        h.name.toLowerCase().includes(trimmed),
       ).slice(0, 6)
     : [];
 
@@ -42,7 +49,10 @@ export function LiveSearchBar({
 
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
-      if (wrapperRef.current && !wrapperRef.current.contains(e.target as Node)) {
+      if (
+        wrapperRef.current &&
+        !wrapperRef.current.contains(e.target as Node)
+      ) {
         setIsFocused(false);
         setFocusedField(null);
       }
@@ -75,7 +85,9 @@ export function LiveSearchBar({
         setIsFocused(false);
       }}
     >
-      <div className={`rounded-4xl border border-white/50 bg-white/70 shadow-[0_8px_32px_rgba(15,23,42,0.1)] backdrop-blur-xl transition-all duration-200 ${isFocused ? "border-slate-300/60 bg-white/85 shadow-[0_8px_32px_rgba(15,23,42,0.16)]" : ""}`}>
+      <div
+        className={`rounded-4xl border border-white/50 bg-white/70 shadow-[0_8px_32px_rgba(15,23,42,0.1)] backdrop-blur-xl transition-all duration-200 ${isFocused ? "border-slate-300/60 bg-white/85 shadow-[0_8px_32px_rgba(15,23,42,0.16)]" : ""}`}
+      >
         {/* Origin field (shown after destination is entered) */}
         {showOriginField && (
           <div className="flex items-center gap-2 border-b border-slate-200/50 px-3 py-2">
@@ -99,10 +111,7 @@ export function LiveSearchBar({
               className="grid h-6 w-6 shrink-0 place-items-center rounded-full text-slate-400 transition hover:bg-slate-100 hover:text-slate-600"
               aria-label="Ubah tujuan"
             >
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="h-3.5 w-3.5">
-                <path d="m6 6 12 12" />
-                <path d="m18 6-12 12" />
-              </svg>
+              <XIcon className="h-3.5 w-3.5" />
             </button>
           </div>
         )}
@@ -113,10 +122,7 @@ export function LiveSearchBar({
             {showOriginField ? (
               <div className="h-2.5 w-2.5 rounded-full bg-rose-500" />
             ) : (
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="h-4 w-4 text-slate-400">
-                <circle cx="11" cy="11" r="7" />
-                <path d="m20 20-3.5-3.5" />
-              </svg>
+              <SearchIcon className="h-4 w-4 text-slate-400" />
             )}
           </div>
           <input
@@ -139,15 +145,9 @@ export function LiveSearchBar({
             aria-label={showOriginField ? "Cari rute" : "Cari tujuan"}
           >
             {isSearching ? (
-              <svg className="h-4 w-4 animate-spin" viewBox="0 0 24 24">
-                <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" opacity="0.25" />
-                <path fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-              </svg>
+              <SpinnerIcon className="h-4 w-4" />
             ) : (
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="h-4 w-4">
-                <path d="M5 12h14" />
-                <path d="m12 5 7 7-7 7" />
-              </svg>
+              <ArrowRightIcon className="h-4 w-4" />
             )}
           </button>
         </div>
@@ -164,10 +164,7 @@ export function LiveSearchBar({
               onClick={() => handleSuggestionClick(halte.name)}
             >
               <div className="grid h-7 w-7 shrink-0 place-items-center rounded-lg bg-emerald-100 text-emerald-600">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="h-3.5 w-3.5">
-                  <path d="M9 11a3 3 0 1 0 6 0a3 3 0 0 0 -6 0" />
-                  <path d="M17.657 16.657l-4.243 4.243a2 2 0 0 1 -2.827 0l-4.244 -4.243a8 8 0 1 1 11.314 0z" />
-                </svg>
+                <MapPinIcon className="h-3.5 w-3.5" />
               </div>
               <div className="min-w-0 flex-1">
                 <p className="truncate text-[13px] font-medium text-slate-800">

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, type ReactNode } from "react";
+import { XIcon } from "@/components/ui/Icons";
 
 type MobileDrawerProps = {
   open: boolean;
@@ -19,7 +20,9 @@ export function MobileDrawer({ open, onClose, children }: MobileDrawerProps) {
     } else {
       document.body.style.overflow = "";
     }
-    return () => { document.body.style.overflow = ""; };
+    return () => {
+      document.body.style.overflow = "";
+    };
   }, [open]);
 
   return (
@@ -66,10 +69,7 @@ export function MobileDrawer({ open, onClose, children }: MobileDrawerProps) {
               className="grid h-8 w-8 place-items-center rounded-full border border-slate-200 bg-white text-slate-500 transition active:bg-slate-100"
               aria-label="Tutup panel"
             >
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="h-4 w-4">
-                <path d="m6 6 12 12" />
-                <path d="m18 6-12 12" />
-              </svg>
+              <XIcon className="h-4 w-4" />
             </button>
           </div>
         </div>

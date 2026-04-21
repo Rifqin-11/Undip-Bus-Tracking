@@ -2,6 +2,15 @@
 
 import { useEffect, useState } from "react";
 import type { HaltePoint } from "@/types/buggy";
+import {
+  BusStopIcon,
+  ChevronLeftIcon,
+  MapPinOutlineIcon,
+  EyeIcon,
+  NavigateIcon,
+  ShareIcon,
+  MapPinIcon,
+} from "@/components/ui/Icons";
 
 function generateSchedule(halteId: string): string[] {
   const baseHour = 7;
@@ -70,7 +79,9 @@ export function HalteDetailView({
 
   // Lazy-load Street View: URL hanya diset setelah komponen mount (panel terbuka)
   const [imageUrl, setImageUrl] = useState<string | null>(null);
-  const [imageType, setImageType] = useState<"streetview" | "satellite">("streetview");
+  const [imageType, setImageType] = useState<"streetview" | "satellite">(
+    "streetview",
+  );
   const [svError, setSvError] = useState(false);
 
   useEffect(() => {
@@ -134,28 +145,7 @@ export function HalteDetailView({
     <section className="mt-4 w-full min-w-0 overflow-x-hidden rounded-3xl border border-slate-200/80 bg-white/80 p-3">
       <div className="mb-3 flex min-w-0 items-start gap-3 rounded-2xl bg-slate-100 p-3">
         <div className="grid h-10 w-10 shrink-0 place-items-center rounded-2xl bg-emerald-500 text-sm font-bold text-white">
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            width="24"
-            height="24"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            stroke-width="2"
-            stroke-linecap="round"
-            stroke-linejoin="round"
-            className="icon icon-tabler icons-tabler-outline icon-tabler-bus-stop"
-          >
-            <path stroke="none" d="M0 0h24v24H0z" fill="none" />
-            <path d="M3 4a1 1 0 0 1 1 -1h2a1 1 0 0 1 1 1v4a1 1 0 0 1 -1 1h-2a1 1 0 0 1 -1 -1l0 -4" />
-            <path d="M16 17a2 2 0 1 0 4 0a2 2 0 1 0 -4 0" />
-            <path d="M10 5h7c2.761 0 5 3.134 5 7v5h-2" />
-            <path d="M16 17h-8" />
-            <path d="M16 5l1.5 7h4.5" />
-            <path d="M9.5 10h7.5" />
-            <path d="M12 5v5" />
-            <path d="M5 9v11" />
-          </svg>
+          <BusStopIcon className="h-5 w-5" />
         </div>
 
         <div className="min-w-0 flex-1">
@@ -170,15 +160,7 @@ export function HalteDetailView({
           onClick={onBack}
           className="grid h-9 w-9 shrink-0 place-items-center rounded-full border border-slate-300 bg-white text-slate-700 shadow-sm transition hover:bg-slate-50"
         >
-          <svg
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            className="h-4 w-4"
-          >
-            <path d="M15 18l-6-6 6-6" />
-          </svg>
+          <ChevronLeftIcon className="h-4 w-4" />
         </button>
       </div>
 
@@ -186,17 +168,7 @@ export function HalteDetailView({
         {/* Skeleton saat Street View belum dimuat */}
         {!imageUrl && !svError && (
           <div className="flex h-44 w-full animate-pulse items-center justify-center bg-slate-200">
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="1.5"
-              className="h-8 w-8 text-slate-400"
-            >
-              <path d="M15 10.5a3 3 0 1 1-6 0 3 3 0 0 1 6 0z" />
-              <path d="M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 1 1 15 0z" />
-            </svg>
+            <MapPinOutlineIcon className="h-8 w-8 text-slate-400" />
           </div>
         )}
 
@@ -213,17 +185,7 @@ export function HalteDetailView({
         {/* Fallback jika gambar gagal dimuat */}
         {svError && (
           <div className="flex h-44 w-full flex-col items-center justify-center gap-2 bg-slate-100 text-slate-400">
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="1.5"
-              className="h-8 w-8"
-            >
-              <path d="M2.036 12.322a1.012 1.012 0 0 1 0-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z" />
-              <path d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0z" />
-            </svg>
+            <EyeIcon className="h-8 w-8" />
             <p className="text-[12px]">Gambar tidak tersedia</p>
           </div>
         )}
@@ -231,7 +193,9 @@ export function HalteDetailView({
         <figcaption className="absolute inset-x-0 bottom-0 bg-linear-to-t from-black/60 to-transparent p-3">
           <p className="text-[14px] font-semibold text-white">{halte.name}</p>
           <p className="text-[11px] text-white/80">
-            {imageType === "streetview" ? "Street View · Google Maps" : "Citra Satelit · Google Maps"}
+            {imageType === "streetview"
+              ? "Street View · Google Maps"
+              : "Citra Satelit · Google Maps"}
           </p>
         </figcaption>
       </figure>
@@ -243,15 +207,7 @@ export function HalteDetailView({
           rel="noopener noreferrer"
           className="flex items-center justify-center gap-1.5 rounded-xl border border-slate-200 bg-white p-2.5 text-[12px] font-semibold text-slate-700 transition hover:bg-slate-50"
         >
-          <svg
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            className="h-4 w-4"
-          >
-            <path d="M12 2L6 8l1.41 1.41L11 5.83V22h2V5.83l3.59 3.58L18 8z" />
-          </svg>
+          <NavigateIcon className="h-4 w-4" />
           <span className="truncate">Arahkan</span>
         </a>
 
@@ -260,19 +216,7 @@ export function HalteDetailView({
           onClick={handleShare}
           className="flex min-w-0 items-center justify-center gap-1 rounded-xl border border-slate-200 bg-white p-2 text-[11px] font-semibold text-slate-700 transition hover:bg-slate-50 min-[360px]:gap-1.5 min-[360px]:p-2.5 min-[360px]:text-[12px]"
         >
-          <svg
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            className="h-4 w-4"
-          >
-            <circle cx="18" cy="5" r="3" />
-            <circle cx="6" cy="12" r="3" />
-            <circle cx="18" cy="19" r="3" />
-            <path d="m8.59 13.51 6.83 3.98" />
-            <path d="m15.41 6.51-6.82 3.98" />
-          </svg>
+          <ShareIcon className="h-4 w-4" />
           <span className="truncate">Bagikan</span>
         </button>
 
@@ -282,16 +226,7 @@ export function HalteDetailView({
           rel="noopener noreferrer"
           className="flex min-w-0 items-center justify-center gap-1 rounded-xl border border-slate-200 bg-white p-2 text-[11px] font-semibold text-slate-700 transition hover:bg-slate-50 min-[360px]:gap-1.5 min-[360px]:p-2.5 min-[360px]:text-[12px]"
         >
-          <svg
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            className="h-4 w-4"
-          >
-            <path d="M9 11a3 3 0 1 0 6 0a3 3 0 0 0 -6 0" />
-            <path d="M17.657 16.657l-4.243 4.243a2 2 0 0 1 -2.827 0l-4.244 -4.243a8 8 0 1 1 11.314 0z" />
-          </svg>
+          <MapPinIcon className="h-4 w-4" />
           <span className="truncate">Maps</span>
         </a>
       </div>

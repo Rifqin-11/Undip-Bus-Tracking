@@ -4,12 +4,12 @@ import { usePathname, useRouter } from "next/navigation";
 import {
   BuggyIcon,
   HalteIcon,
-  RouteIcon,
-  InfoIcon,
+  BellIcon,
+  ReportIcon,
   LoginIcon,
   LogoutIcon,
   DataIcon,
-} from "@/components/map/Icons";
+} from "@/components/ui/Icons";
 import { DESKTOP_LAYOUT } from "@/lib/presenters/layout-metrics";
 import type { PanelView } from "@/types/buggy";
 import logo from "@/public/logo.svg";
@@ -94,20 +94,20 @@ export function FloatingSidebar({
           <HalteIcon className="h-5 w-5" />
         </button>
         <button
-          className={`${actionButtonClass} ${activeView === "rute" ? "bg-[#0f1a3b] text-white" : "text-slate-600 hover:bg-slate-100"}`}
-          aria-label="Rute"
+          className={`${actionButtonClass} ${activeView === "notifikasi" ? "bg-[#0f1a3b] text-white" : "text-slate-600 hover:bg-slate-100"}`}
+          aria-label="Notifikasi"
           type="button"
-          onClick={() => onSelectView("rute")}
+          onClick={() => onSelectView("notifikasi")}
         >
-          <RouteIcon className="h-5 w-5" />
+          <BellIcon className="h-5 w-5" />
         </button>
         <button
-          className={`${actionButtonClass} ${activeView === "info" ? "bg-[#0f1a3b] text-white" : "text-slate-600 hover:bg-slate-100"}`}
-          aria-label="Info"
+          className={`${actionButtonClass} ${activeView === "lapor" ? "bg-[#0f1a3b] text-white" : "text-slate-600 hover:bg-slate-100"}`}
+          aria-label="Lapor"
           type="button"
-          onClick={() => onSelectView("info")}
+          onClick={() => onSelectView("lapor")}
         >
-          <InfoIcon className="h-5 w-5" />
+          <ReportIcon className="h-5 w-5" />
         </button>
       </nav>
 
