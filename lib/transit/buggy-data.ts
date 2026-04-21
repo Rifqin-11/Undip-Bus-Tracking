@@ -257,6 +257,15 @@ const SOURCE_BUGGIES: SeedBuggy[] = [
     tag: "Real GPS",
     currentStopIndex: 0,
   },
+  {
+    id: 3,
+    name: "Buggy 03",
+    eta: 7,
+    passengers: 0,
+    capacity: 8,
+    tag: "Real GPS",
+    currentStopIndex: 3,
+  },
 ];
 
 

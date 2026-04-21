@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import type { HaltePoint } from "@/types/buggy";
 
 function generateSchedule(halteId: string): string[] {
@@ -18,10 +19,39 @@ function generateSchedule(halteId: string): string[] {
   return schedule;
 }
 
-function getHaltePhotoUrl(halte: HaltePoint): string {
-  const lat = halte.lat.toFixed(6);
-  const lng = halte.lng.toFixed(6);
-  return `https://staticmap.openstreetmap.de/staticmap.php?center=${lat},${lng}&zoom=17&size=1280x640&markers=${lat},${lng},red-pushpin`;
+const GMAPS_KEY = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY ?? "";
+
+function getStreetViewUrl(halte: HaltePoint): string {
+  const lat = halte.lat.toFixed(7);
+  const lng = halte.lng.toFixed(7);
+  return (
+    `https://maps.googleapis.com/maps/api/streetview` +
+    `?size=640x320&location=${lat},${lng}` +
+    `&fov=90&pitch=0&radius=100&source=outdoor` +
+    `&key=${GMAPS_KEY}`
+  );
+}
+
+function getStreetViewMetadataUrl(halte: HaltePoint): string {
+  const lat = halte.lat.toFixed(7);
+  const lng = halte.lng.toFixed(7);
+  return (
+    `https://maps.googleapis.com/maps/api/streetview/metadata` +
+    `?location=${lat},${lng}&radius=100&source=outdoor` +
+    `&key=${GMAPS_KEY}`
+  );
+}
+
+function getStaticMapUrl(halte: HaltePoint): string {
+  const lat = halte.lat.toFixed(7);
+  const lng = halte.lng.toFixed(7);
+  return (
+    `https://maps.googleapis.com/maps/api/staticmap` +
+    `?center=${lat},${lng}&zoom=18&size=640x320` +
+    `&maptype=satellite` +
+    `&markers=color:red%7C${lat},${lng}` +
+    `&key=${GMAPS_KEY}`
+  );
 }
 
 type HalteDetailViewProps = {
@@ -36,8 +66,45 @@ export function HalteDetailView({
   onBack,
 }: HalteDetailViewProps) {
   const schedule = generateSchedule(halte.id);
-  const haltePhotoUrl = getHaltePhotoUrl(halte);
   const mapsUrl = `https://www.google.com/maps/dir/?api=1&destination=${halte.lat},${halte.lng}`;
+
+  // Lazy-load Street View: URL hanya diset setelah komponen mount (panel terbuka)
+  const [imageUrl, setImageUrl] = useState<string | null>(null);
+  const [imageType, setImageType] = useState<"streetview" | "satellite">("streetview");
+  const [svError, setSvError] = useState(false);
+
+  useEffect(() => {
+    setImageUrl(null);
+    setSvError(false);
+
+    const controller = new AbortController();
+    const t = setTimeout(async () => {
+      try {
+        const res = await fetch(getStreetViewMetadataUrl(halte), {
+          signal: controller.signal,
+        });
+        const data = (await res.json()) as { status: string };
+
+        if (data.status === "OK") {
+          setImageType("streetview");
+          setImageUrl(getStreetViewUrl(halte));
+        } else {
+          // Tidak ada Street View — gunakan Static Map satellite
+          setImageType("satellite");
+          setImageUrl(getStaticMapUrl(halte));
+        }
+      } catch {
+        // Jika metadata gagal, coba langsung Street View
+        setImageType("streetview");
+        setImageUrl(getStreetViewUrl(halte));
+      }
+    }, 150);
+
+    return () => {
+      clearTimeout(t);
+      controller.abort();
+    };
+  }, [halte.id, halte.lat, halte.lng]);
 
   const handleShare = async () => {
     const shareData = {
@@ -116,16 +183,55 @@ export function HalteDetailView({
       </div>
 
       <figure className="relative mb-3 overflow-hidden rounded-2xl border border-slate-200 bg-slate-100">
-        <img
-          src={haltePhotoUrl}
-          alt={`Foto area ${halte.name}`}
-          className="h-44 w-full object-cover"
-          loading="lazy"
-        />
+        {/* Skeleton saat Street View belum dimuat */}
+        {!imageUrl && !svError && (
+          <div className="flex h-44 w-full animate-pulse items-center justify-center bg-slate-200">
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.5"
+              className="h-8 w-8 text-slate-400"
+            >
+              <path d="M15 10.5a3 3 0 1 1-6 0 3 3 0 0 1 6 0z" />
+              <path d="M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 1 1 15 0z" />
+            </svg>
+          </div>
+        )}
+
+        {/* Street View dimuat setelah panel terbuka */}
+        {imageUrl && !svError && (
+          <img
+            src={imageUrl}
+            alt={`Street View ${halte.name}`}
+            className="h-44 w-full object-cover"
+            onError={() => setSvError(true)}
+          />
+        )}
+
+        {/* Fallback jika gambar gagal dimuat */}
+        {svError && (
+          <div className="flex h-44 w-full flex-col items-center justify-center gap-2 bg-slate-100 text-slate-400">
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.5"
+              className="h-8 w-8"
+            >
+              <path d="M2.036 12.322a1.012 1.012 0 0 1 0-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z" />
+              <path d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0z" />
+            </svg>
+            <p className="text-[12px]">Gambar tidak tersedia</p>
+          </div>
+        )}
+
         <figcaption className="absolute inset-x-0 bottom-0 bg-linear-to-t from-black/60 to-transparent p-3">
           <p className="text-[14px] font-semibold text-white">{halte.name}</p>
           <p className="text-[11px] text-white/80">
-            Area halte pada peta kampus
+            {imageType === "streetview" ? "Street View · Google Maps" : "Citra Satelit · Google Maps"}
           </p>
         </figcaption>
       </figure>

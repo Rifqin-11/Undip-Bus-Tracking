@@ -312,16 +312,54 @@ function ingestSnapshot(buggies: Buggy[]): BuggyIngestResult {
   };
 }
 
+function autoRegisterBuggy(buggyId: string, point: BuggyTelemetryInput): Buggy {
+  // Extract numeric suffix from "buggy-3" → 3, or fallback to 99
+  const numericMatch = buggyId.match(/(\d+)$/);
+  const num = numericMatch ? parseInt(numericMatch[1], 10) : 99;
+  const code = `B${String(num).padStart(2, "0")}`;
+  const stopIndex = resolveCurrentStopIndexFromPosition(point.lat, point.lng, 0);
+
+  return {
+    id: buggyId,
+    code,
+    name: `Buggy ${String(num).padStart(2, "0")}`,
+    isActive: true,
+    routeLabel: "Rute Kampus Undip",
+    tripId: `TRIP-2026-${String(num).padStart(3, "0")}`,
+    etaMinutes: point.etaMinutes ?? 5,
+    speedKmh: point.speedKmh ?? 0,
+    crowdLevel: resolveCrowdLevel(point.passengers ?? 0, point.capacity ?? 8),
+    passengers: point.passengers ?? 0,
+    capacity: point.capacity ?? 8,
+    tag: point.tag ?? "Real GPS",
+    updatedAt: timestampToUpdatedAt(point.timestamp),
+    currentStopIndex: stopIndex,
+    stops: HALTE_LOCATIONS.map((h) => h.name),
+    pathCursor: findNearestPathIndex(point.lat, point.lng),
+    position: { lat: point.lat, lng: point.lng },
+  };
+}
+
 function ingestTelemetry(telemetry: BuggyTelemetryInput[]): BuggyIngestResult | null {
   const current = getMutableState();
   const byId = new Map(current.buggies.map((buggy) => [buggy.id, cloneBuggy(buggy)]));
   const telemetryLastSeenById = { ...current.telemetryLastSeenById };
   let accepted = 0;
+  const newBuggies: Buggy[] = [];
 
   for (const point of telemetry) {
     const buggyId = normalizeBuggyId(point.id);
-    const existing = byId.get(buggyId);
-    if (!existing) continue;
+    let existing = byId.get(buggyId);
+
+    // Auto-register unknown buggy on first GPS ping
+    if (!existing) {
+      existing = autoRegisterBuggy(buggyId, point);
+      newBuggies.push(existing);
+      byId.set(buggyId, existing);
+      telemetryLastSeenById[buggyId] = nowMs();
+      accepted += 1;
+      continue;
+    }
 
     const capacity = Math.max(1, point.capacity ?? existing.capacity);
     const passengers = Math.max(
@@ -362,10 +400,18 @@ function ingestTelemetry(telemetry: BuggyTelemetryInput[]): BuggyIngestResult | 
   if (accepted <= 0) return null;
 
   const updatedAt = nowMs();
+  // Merge: existing buggies (updated) + newly registered buggies
+  const updatedBuggies = current.buggies.map((buggy) => byId.get(buggy.id) ?? buggy);
+  for (const nb of newBuggies) {
+    if (!updatedBuggies.find((b) => b.id === nb.id)) {
+      updatedBuggies.push(nb);
+    }
+  }
+
   setState({
     source: "ingest_telemetry",
     updatedAt,
-    buggies: current.buggies.map((buggy) => byId.get(buggy.id) ?? buggy),
+    buggies: updatedBuggies,
     telemetryLastSeenById,
   });
 
@@ -376,6 +422,7 @@ function ingestTelemetry(telemetry: BuggyTelemetryInput[]): BuggyIngestResult | 
     updatedAt,
   };
 }
+
 
 export function ingestBuggyPayload(payload: unknown): BuggyIngestResult | null {
   const snapshot = parseSnapshotPayload(payload);
