@@ -24,7 +24,7 @@ export function LiveSearchBar({
   onBackToDestination,
   panelOpen,
   isSearching = false,
-  mobileTopClass = "top-3",
+  mobileTopClass = "top-10",
 }: LiveSearchBarProps) {
   const [isFocused, setIsFocused] = useState(false);
   const [focusedField, setFocusedField] = useState<"from" | "to" | null>(null);
@@ -64,7 +64,7 @@ export function LiveSearchBar({
   return (
     <form
       ref={wrapperRef}
-      className={`absolute left-1/2 ${mobileTopClass} z-50 w-[min(92vw,420px)] -translate-x-1/2 xl:translate-x-0 xl:top-4 ${
+      className={`absolute left-1/2 ${mobileTopClass} z-40 w-[min(92vw,420px)] -translate-x-1/2 xl:translate-x-0 xl:top-4 ${
         panelOpen
           ? "xl:left-[calc(1rem+4.5rem+1rem+25rem+1rem)]"
           : "xl:left-[calc(1rem+4.5rem+1rem)]"

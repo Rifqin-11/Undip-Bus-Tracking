@@ -527,10 +527,31 @@ export default function DashboardPage() {
       {/* Gradient overlay for mobile view */}
       <div className="pointer-events-none absolute inset-x-0 top-0 z-30 h-52 bg-linear-to-b from-slate-900/70 via-slate-900/35 to-transparent xl:hidden" />
 
-      <section className="absolute inset-x-0 top-3 z-40 px-4 xl:hidden">
+      <section className="absolute inset-x-0 top-3 z-40 flex items-center justify-between px-4 xl:hidden">
         <h1 className="text-[26px] font-bold tracking-tight text-white drop-shadow-md">
           SIMOBI
         </h1>
+
+        <button
+          type="button"
+          aria-label="Notifikasi"
+          className="relative flex h-10 w-10 items-center justify-center rounded-full border border-white/20 bg-slate-900/50 text-white backdrop-blur-md transition active:scale-95"
+        >
+          {/* Bell icon */}
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            className="h-5 w-5"
+          >
+            <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
+            <path d="M13.73 21a2 2 0 0 1-3.46 0" />
+          </svg>
+        </button>
       </section>
 
       <section
@@ -543,14 +564,23 @@ export default function DashboardPage() {
             <button
               key={halte.id}
               type="button"
-              className="shrink-0 rounded-full border border-white/35 bg-slate-900/50 px-3 py-1.5 text-left text-white backdrop-blur-md transition active:scale-[0.98]"
+              className="shrink-0 flex items-center gap-2 rounded-full border border-white/35 bg-slate-900/50 px-3 py-1.5 text-white backdrop-blur-md transition active:scale-[0.98]"
               onClick={() => void handleRecommendedHalteDirection(halte.id)}
             >
-              <p className="text-[12px] font-semibold leading-none">
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                viewBox="0 0 24 24"
+                fill="currentColor"
+                className="h-4 w-4 shrink-0 text-white"
+              >
+                <path
+                  fillRule="evenodd"
+                  d="M11.54 22.351l.07.04.028.016a.76.76 0 00.723 0l.028-.015.071-.041a16.975 16.975 0 001.144-.742 19.58 19.58 0 002.683-2.282c1.944-2.003 3.5-4.697 3.5-8.327a8 8 0 10-16 0c0 3.63 1.555 6.326 3.5 8.327a19.58 19.58 0 002.682 2.282 16.975 16.975 0 001.145.742zM12 13.5a3 3 0 100-6 3 3 0 000 6z"
+                  clipRule="evenodd"
+                />
+              </svg>
+              <p className="text-[12px] font-bold leading-none">
                 {halte.name}
-              </p>
-              <p className="mt-0.5 text-[10px] text-white/80">
-                {formatDistance(halte.distanceMeters)}
               </p>
             </button>
           ))}
@@ -579,7 +609,7 @@ export default function DashboardPage() {
         onBackToDestination={handleBackToDestination}
         panelOpen={panelOpen}
         isSearching={isSearching}
-        mobileTopClass="top-[3.3rem]"
+        mobileTopClass="top-14"
       />
 
       <BuggyList
