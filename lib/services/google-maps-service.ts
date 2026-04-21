@@ -166,6 +166,20 @@ export class GoogleMapsService {
     origin: { lat: number; lng: number },
     destination: { lat: number; lng: number },
   ): Promise<WalkingRoute | null> {
+    // Estimasi jarak langsung (haversine) sebagai fallback
+    const straightMeters = this.haversine(origin, destination);
+    const fallbackRoute: WalkingRoute = {
+      totalDistance:
+        straightMeters < 1000
+          ? `${Math.round(straightMeters)} m`
+          : `${(straightMeters / 1000).toFixed(1)} km`,
+      totalDuration: `${Math.ceil(straightMeters / 80)} min`,
+      decodedPath: [
+        [origin.lat, origin.lng],
+        [destination.lat, destination.lng],
+      ],
+    };
+
     try {
       const result = await this.directionsService.route({
         origin: new this.api.LatLng(origin.lat, origin.lng),
@@ -175,23 +189,38 @@ export class GoogleMapsService {
         language: "id",
       });
 
-      if (!result.routes?.length) return null;
+      if (!result.routes?.length) return fallbackRoute;
 
       const route = result.routes[0];
       const leg = route.legs[0];
-      if (!leg) return null;
+      if (!leg) return fallbackRoute;
 
-      const decodedPath: [number, number][] = (route.overview_path ?? []).map(
-        (p) => [p.lat(), p.lng()],
-      );
+      // overview_path bisa berupa LatLng[] atau MVCArray — normalkan ke array biasa
+      const rawPath = route.overview_path;
+      const pathArray: Array<{ lat: () => number; lng: () => number }> =
+        Array.isArray(rawPath)
+          ? rawPath
+          : typeof (rawPath as { getArray?: () => unknown[] })?.getArray ===
+              "function"
+            ? ((rawPath as { getArray: () => unknown[] }).getArray() as Array<{
+                lat: () => number;
+                lng: () => number;
+              }>)
+            : [];
+
+      const decodedPath: [number, number][] =
+        pathArray.length > 0
+          ? pathArray.map((p) => [p.lat(), p.lng()])
+          : fallbackRoute.decodedPath;
 
       return {
-        totalDistance: leg.distance?.text ?? "",
-        totalDuration: leg.duration?.text ?? "",
+        totalDistance: leg.distance?.text ?? fallbackRoute.totalDistance,
+        totalDuration: leg.duration?.text ?? fallbackRoute.totalDuration,
         decodedPath,
       };
     } catch {
-      return null;
+      // DirectionsService gagal — gunakan estimasi lurus
+      return fallbackRoute;
     }
   }
 

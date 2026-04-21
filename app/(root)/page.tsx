@@ -359,7 +359,37 @@ export default function DashboardPage() {
       let walkingToHalte: DirectionResult["walkingToHalte"];
       let originPos: { lat: number; lng: number };
 
-      if (!originHalte) {
+      // Jika fromInput kosong, otomatis gunakan posisi GPS user
+      const effectiveFrom = normalize(fromInput);
+      if (!effectiveFrom) {
+        const currentPos = await getLatestUserPosition();
+        if (currentPos) {
+          originPos = currentPos;
+          setFromInput("Lokasi Saya");
+          originHalte = mapsService.findNearestHalte(currentPos, HALTE_LOCATIONS);
+          if (!originHalte) {
+            alert("Halte terdekat dari lokasi Anda tidak ditemukan.");
+            setIsSearching(false);
+            return;
+          }
+          const walk = await mapsService.getWalkingDirections(currentPos, {
+            lat: originHalte.lat,
+            lng: originHalte.lng,
+          });
+          if (walk) {
+            walkingToHalte = {
+              originHalteName: originHalte.name,
+              distance: walk.totalDistance,
+              duration: walk.totalDuration,
+              path: walk.decodedPath,
+            };
+          }
+        } else {
+          alert("Aktifkan izin lokasi atau ketik lokasi asal Anda.");
+          setIsSearching(false);
+          return;
+        }
+      } else if (!originHalte) {
         const geocoded = await mapsService.geocodePlace(fromInput);
         if (!geocoded) {
           alert(

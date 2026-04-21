@@ -16,8 +16,6 @@ import { PanelShell } from "@/components/panel/PanelShell";
 import { MobileDrawer } from "@/components/panel/MobileDrawer";
 import { HalteSection } from "@/components/panel/HalteSection";
 import { HalteDetailView } from "@/components/panel/HalteDetailView";
-import { RuteSection } from "@/components/panel/RuteSection";
-import { InfoSection } from "@/components/panel/InfoSection";
 import { DirectionPanel } from "@/components/panel/DirectionPanel";
 import type { DirectionResult } from "@/components/panel/DirectionPanel";
 import { activeFleetLabel } from "@/lib/presenters/crowd-presenter";
@@ -199,8 +197,18 @@ export function BuggyList({
       ) : activeView === "halte" ? (
         <HalteSection onSelectHalte={handleSelectHalte} />
       ) : null}
-      {activeView === "rute" && <RuteSection buggies={buggies} />}
-      {activeView === "info" && <InfoSection />}
+      {activeView === "notifikasi" && (
+        <div className="rounded-3xl border border-slate-200/80 bg-white/70 p-5 text-center">
+          <p className="text-[15px] font-semibold text-slate-700">Notifikasi</p>
+          <p className="mt-1 text-[12px] text-slate-400">Belum ada notifikasi baru.</p>
+        </div>
+      )}
+      {activeView === "lapor" && (
+        <div className="rounded-3xl border border-slate-200/80 bg-white/70 p-5 text-center">
+          <p className="text-[15px] font-semibold text-slate-700">Lapor Masalah</p>
+          <p className="mt-1 text-[12px] text-slate-400">Fitur pelaporan segera hadir.</p>
+        </div>
+      )}
       {activeView === "data" && dataViewContent}
     </>
   );
@@ -261,8 +269,18 @@ export function BuggyList({
         <HalteSection onSelectHalte={handleSelectHalte} />
       ) : null}
 
-      {activeView === "rute" && <RuteSection buggies={buggies} />}
-      {activeView === "info" && <InfoSection />}
+      {activeView === "notifikasi" && (
+        <div className="rounded-3xl border border-slate-200/80 bg-white/70 p-5 text-center">
+          <p className="text-[15px] font-semibold text-slate-700">Notifikasi</p>
+          <p className="mt-1 text-[12px] text-slate-400">Belum ada notifikasi baru.</p>
+        </div>
+      )}
+      {activeView === "lapor" && (
+        <div className="rounded-3xl border border-slate-200/80 bg-white/70 p-5 text-center">
+          <p className="text-[15px] font-semibold text-slate-700">Lapor Masalah</p>
+          <p className="mt-1 text-[12px] text-slate-400">Fitur pelaporan segera hadir.</p>
+        </div>
+      )}
       {activeView === "data" && dataViewContent}
     </>
   );
