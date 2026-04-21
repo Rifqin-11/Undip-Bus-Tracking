@@ -17,6 +17,11 @@ export function BuggyCard({
   onSelect,
 }: BuggyCardProps) {
   const crowd = toCrowdConfig(buggy.crowdLevel);
+  const badgeLabel = buggy.isActive ? crowd.label : "Non-aktif";
+  const badgeClassName = buggy.isActive
+    ? crowd.badgeClassName
+    : "border-slate-300 bg-slate-100 text-slate-600";
+  const badgeDotClassName = buggy.isActive ? crowd.dotClassName : "bg-slate-500";
 
   return (
     <article
@@ -44,12 +49,12 @@ export function BuggyCard({
           </span>
         </h3>
         <span
-          className={`inline-flex shrink-0 items-center gap-1.5 rounded-full border px-2.5 py-1 text-[10px] font-semibold xl:px-2 xl:py-0.5 ${crowd.badgeClassName}`}
+          className={`inline-flex shrink-0 items-center gap-1.5 rounded-full border px-2.5 py-1 text-[10px] font-semibold xl:px-2 xl:py-0.5 ${badgeClassName}`}
         >
           <span
-            className={`h-2 w-2 rounded-full xl:h-1.5 xl:w-1.5 ${crowd.dotClassName}`}
+            className={`h-2 w-2 rounded-full xl:h-1.5 xl:w-1.5 ${badgeDotClassName}`}
           />
-          {crowd.label}
+          {badgeLabel}
         </span>
       </div>
 

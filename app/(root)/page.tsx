@@ -12,7 +12,7 @@ import {
   OFFICIAL_ROUTE_PATH,
 } from "@/lib/transit/buggy-data";
 import { haversineMeters } from "@/lib/transit/buggy-route-utils";
-import { useBuggySimulation } from "@/hooks/useBuggySimulation";
+import { useBuggyLiveFeed } from "@/hooks/useBuggyLiveFeed";
 import { GoogleMapsService } from "@/lib/services/google-maps-service";
 import type { PanelView } from "@/types/buggy";
 import type { DirectionResult } from "@/components/panel/DirectionPanel";
@@ -87,7 +87,12 @@ function getRouteBetweenHaltes(
 }
 
 export default function DashboardPage() {
-  const liveBuggies = useBuggySimulation(INITIAL_BUGGIES);
+  const realtimeFeed = useBuggyLiveFeed();
+  const allBuggies = realtimeFeed.liveBuggies ?? INITIAL_BUGGIES;
+  const liveBuggies = useMemo(
+    () => allBuggies.filter((buggy) => buggy.isActive),
+    [allBuggies],
+  );
 
   const [activeView, setActiveView] = useState<PanelView>("buggy");
   const [panelOpen, setPanelOpen] = useState(true);

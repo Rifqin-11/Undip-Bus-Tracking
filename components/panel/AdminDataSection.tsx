@@ -47,6 +47,7 @@ export function AdminDataSection({
 }: AdminDataSectionProps) {
   return (
     <section className="space-y-3">
+      {/* ── Data Operasional Buggy ─────────────────────────────────────────── */}
       <div className="rounded-3xl border border-slate-200/80 bg-white/70 p-3">
         <div className="mb-3 flex items-center justify-between gap-2">
           <h2 className="text-[17px] font-semibold text-slate-900">

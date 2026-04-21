@@ -13,12 +13,12 @@ export const HALTE_LOCATIONS: HaltePoint[] = [
     lat: -7.054518537168431,
     lng: 110.44413919120406,
   },
-  {
-    id: "h02",
-    name: "Masjid Hijau Sigawe",
-    lat: -7.056254910600861,
-    lng: 110.44003763725826,
-  },
+  // {
+  //   id: "h02",
+  //   name: "Masjid Hijau Sigawe",
+  //   lat: -7.056254910600861,
+  //   lng: 110.44003763725826,
+  // },
   {
     id: "h03",
     name: "Pos Satpam Astina Undip",
@@ -73,12 +73,12 @@ export const HALTE_LOCATIONS: HaltePoint[] = [
     lat: -7.04713778936035,
     lng: 110.43869200447789,
   },
-  {
-    id: "h12",
-    name: "Halte Trans Semarang Psikologi",
-    lat: -7.046914956352711,
-    lng: 110.43875327893443,
-  },
+  // {
+  //   id: "h12",
+  //   name: "Halte Trans Semarang Psikologi",
+  //   lat: -7.046914956352711,
+  //   lng: 110.43875327893443,
+  // },
   {
     id: "h13",
     name: "Fakultas Ekonomika dan Bisnis",
@@ -249,60 +249,16 @@ const STOP_NAMES = HALTE_LOCATIONS.map((h) => h.name);
 
 const SOURCE_BUGGIES: SeedBuggy[] = [
   {
-    id: 1,
-    name: "Buggy 01",
-    eta: 2,
-    passengers: 2,
-    capacity: 8,
-    tag: "Cepat",
-    currentStopIndex: 0,
-  },
-  {
     id: 2,
     name: "Buggy 02",
     eta: 5,
-    passengers: 7,
-    capacity: 8,
-    tag: "Ramai",
-    currentStopIndex: 2,
-  },
-  {
-    id: 3,
-    name: "Buggy 03",
-    eta: 9,
     passengers: 0,
     capacity: 8,
-    tag: "Kosong",
-    currentStopIndex: 4,
-  },
-  {
-    id: 4,
-    name: "Buggy 04",
-    eta: 3,
-    passengers: 4,
-    capacity: 8,
-    tag: "Normal",
-    currentStopIndex: 6,
-  },
-  {
-    id: 5,
-    name: "Buggy 05",
-    eta: 6,
-    passengers: 8,
-    capacity: 8,
-    tag: "Penuh",
-    currentStopIndex: 8,
-  },
-  {
-    id: 6,
-    name: "Buggy 06",
-    eta: 1,
-    passengers: 1,
-    capacity: 8,
-    tag: "Cepat",
-    currentStopIndex: 10,
+    tag: "Real GPS",
+    currentStopIndex: 0,
   },
 ];
+
 
 // ─── Factory ──────────────────────────────────────────────────────────────────
 
@@ -347,6 +303,7 @@ export function createInitialBuggies(): Buggy[] {
       id: `buggy-${src.id}`,
       code: `B${String(src.id).padStart(2, "0")}`,
       name: src.name,
+      isActive: false,
       routeLabel: "Rute Kampus Undip",
       tripId: `TRIP-2026-${String(src.id).padStart(3, "0")}`,
       etaMinutes: src.eta,

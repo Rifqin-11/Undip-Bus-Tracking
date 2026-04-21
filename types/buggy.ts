@@ -4,6 +4,7 @@ export type Buggy = {
   id: string;
   code: string;
   name: string;
+  isActive: boolean;
   routeLabel: string;
   tripId: string;
   etaMinutes: number;

@@ -47,28 +47,22 @@ export function findNearestPathIndex(
 
 function buildRouteOrderedStopNames(
   haltes: HaltePoint[] = HALTE_LOCATIONS,
-  routePath: [number, number][] = OFFICIAL_ROUTE_PATH,
   routeStartName: string = ROUTE_START_NAME,
 ): string[] {
-  const stopsWithPathIndex = haltes
-    .map((halte) => ({
-      name: halte.name,
-      pathIndex: findNearestPathIndex(halte.lat, halte.lng, routePath),
-    }))
-    .sort((a, b) => a.pathIndex - b.pathIndex);
+  const routeStops = haltes.map((halte) => halte.name);
 
-  const routeStartIndex = stopsWithPathIndex.findIndex(
-    (halte) => halte.name === routeStartName,
+  const routeStartIndex = routeStops.findIndex(
+    (stopName) => stopName === routeStartName,
   );
 
   if (routeStartIndex < 0) {
-    return stopsWithPathIndex.map((halte) => halte.name);
+    return routeStops;
   }
 
   return [
-    ...stopsWithPathIndex.slice(routeStartIndex),
-    ...stopsWithPathIndex.slice(0, routeStartIndex),
-  ].map((halte) => halte.name);
+    ...routeStops.slice(routeStartIndex),
+    ...routeStops.slice(0, routeStartIndex),
+  ];
 }
 
 const ROUTE_ORDERED_STOP_NAMES = buildRouteOrderedStopNames();

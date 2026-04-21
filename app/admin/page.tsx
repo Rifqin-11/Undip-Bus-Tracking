@@ -16,7 +16,7 @@ import {
 } from "@/lib/transit/buggy-data";
 import type { Buggy } from "@/types/buggy";
 import { haversineMeters } from "@/lib/transit/buggy-route-utils";
-import { useBuggySimulation } from "@/hooks/useBuggySimulation";
+import { useBuggyLiveFeed } from "@/hooks/useBuggyLiveFeed";
 import { GoogleMapsService } from "@/lib/services/google-maps-service";
 import type { PanelView } from "@/types/buggy";
 import type { DirectionResult } from "@/components/panel/DirectionPanel";
@@ -103,9 +103,8 @@ function getRouteBetweenHaltes(
 }
 
 export default function DashboardPage() {
-  const [initialBuggies, setInitialBuggies] =
-    useState<Buggy[]>(FALLBACK_BUGGIES);
-  const liveBuggies = useBuggySimulation(initialBuggies);
+  const realtimeFeed = useBuggyLiveFeed();
+  const liveBuggies = realtimeFeed.liveBuggies ?? FALLBACK_BUGGIES;
 
   const [activeView, setActiveView] = useState<PanelView>("buggy");
   const [panelOpen, setPanelOpen] = useState(true);
@@ -177,37 +176,6 @@ export default function DashboardPage() {
   useEffect(() => {
     void loadGeofences();
   }, [loadGeofences]);
-
-  useEffect(() => {
-    let ignore = false;
-
-    async function loadDummyGpsBuggies() {
-      try {
-        const response = await fetch("/api/buggy", { cache: "no-store" });
-        if (!response.ok) {
-          throw new Error("Gagal memuat data buggy dummy GPS.");
-        }
-
-        const data: unknown = await response.json();
-        if (!Array.isArray(data) || data.length === 0) return;
-
-        const parsed = data as Buggy[];
-        if (ignore) return;
-
-        setInitialBuggies(parsed);
-        setSelectedBuggyId((prev) => prev ?? parsed[0]?.id ?? null);
-        setMapFollowingBuggyId((prev) => prev ?? parsed[0]?.id ?? null);
-      } catch (error) {
-        console.error("Load buggy dummy GPS error:", error);
-      }
-    }
-
-    void loadDummyGpsBuggies();
-
-    return () => {
-      ignore = true;
-    };
-  }, []);
 
   const handleSelectView = (view: PanelView) => {
     setActiveView(view);
