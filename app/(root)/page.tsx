@@ -537,7 +537,7 @@ export default function DashboardPage() {
     activeView === "buggy" ? (directionResult?.directionPath ?? []) : [];
 
   return (
-    <main className="relative h-screen w-screen overflow-hidden bg-slate-100">
+    <main className="fixed inset-0 overflow-hidden bg-black">
       <MapCanvas
         buggies={mapBuggies}
         haltes={HALTE_LOCATIONS}
@@ -556,9 +556,12 @@ export default function DashboardPage() {
       />
 
       {/* Gradient overlay for mobile view */}
-      <div className="pointer-events-none absolute inset-x-0 top-0 z-30 h-52 bg-linear-to-b from-slate-900/70 via-slate-900/35 to-transparent xl:hidden" />
+      <div className="pointer-events-none absolute inset-x-0 top-0 z-20 h-52 bg-linear-to-b from-slate-900/70 via-slate-900/35 to-transparent xl:hidden" />
 
-      <section className="absolute inset-x-0 top-3 z-40 flex items-center justify-between px-4 xl:hidden">
+      <section
+        className="absolute inset-x-0 z-40 flex items-center justify-between px-4 xl:hidden"
+        style={{ top: "calc(0.75rem + var(--sai-top, 0px))" }}
+      >
         <h1 className="text-[26px] font-bold tracking-tight text-white drop-shadow-md">
           SIMOBI
         </h1>

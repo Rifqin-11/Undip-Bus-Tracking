@@ -169,6 +169,17 @@ export function MapCanvas({
 
         setMapReady(true);
         setErrorMessage(null);
+
+        // Trigger resize agar Google Maps mengisi container dengan benar
+        // (penting untuk iOS Safari dengan safe area & dynamic viewport)
+        requestAnimationFrame(() => {
+          if (mapInstanceRef.current && mapsApiRef.current) {
+            mapsApiRef.current.event.trigger(
+              mapInstanceRef.current,
+              "resize",
+            );
+          }
+        });
       })
       .catch((error: unknown) => {
         setErrorMessage(
@@ -504,8 +515,8 @@ export function MapCanvas({
   // ── Render ─────────────────────────────────────────────────────────────────
 
   return (
-    <div className="absolute inset-0 h-full w-full">
-      <div ref={mapRef} className="h-full w-full" />
+    <div className="absolute inset-0">
+      <div ref={mapRef} className="absolute inset-0" />
       {(keyError ?? errorMessage) && (
         <div className="pointer-events-none absolute inset-x-4 top-4 rounded-2xl border border-amber-200 bg-amber-50/95 p-3 text-xs font-medium text-amber-800 shadow-lg md:inset-x-auto md:right-6 md:max-w-sm">
           {keyError ?? errorMessage}

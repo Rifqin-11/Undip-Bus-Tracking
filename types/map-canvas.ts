@@ -62,6 +62,9 @@ export type MapsApi = {
   SymbolPath: {
     CIRCLE: unknown;
   };
+  event: {
+    trigger: (instance: unknown, eventName: string) => void;
+  };
 };
 
 export type GoogleMapsWindow = Window & {
