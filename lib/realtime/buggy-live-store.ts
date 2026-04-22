@@ -1,4 +1,8 @@
-import { createInitialBuggies, HALTE_LOCATIONS } from "@/lib/transit/buggy-data";
+import {
+  createInitialBuggies,
+  HALTE_LOCATIONS,
+  OFFICIAL_ROUTE_PATH,
+} from "@/lib/transit/buggy-data";
 import {
   findNearestPathIndex,
   haversineMeters,
@@ -16,6 +20,7 @@ export type BuggyTelemetryInput = {
   capacity?: number;
   etaMinutes?: number;
   currentStopIndex?: number;
+  forceResync?: boolean;
   tag?: string;
   timestamp?: string | number;
 };
@@ -61,13 +66,61 @@ const HALTE_ARRIVAL_RADIUS_METERS = 10;
 // Keep progression directional to avoid jumping to opposite-side nearby haltes.
 const MAX_SKIP_AHEAD_STOPS = 0;
 const ACTIVE_TELEMETRY_WINDOW_MS = 15_000;
-// If the nearest halte (by raw GPS distance) is this many steps OR MORE ahead
+// If the nearest halte (by route-cursor proximity) is this many steps OR MORE ahead
 // of currentStopIndex in the forward loop, auto-resync instead of staying stuck.
 const RESYNC_THRESHOLD_STOPS = 3;
+const HALTE_PATH_CURSORS = HALTE_LOCATIONS.map((halte) =>
+  findNearestPathIndex(halte.lat, halte.lng),
+);
 
 function normalizeLoopIndex(index: number, length: number): number {
   if (length <= 0) return 0;
   return ((index % length) + length) % length;
+}
+
+function circularDistance(a: number, b: number, length: number): number {
+  if (length <= 0) return 0;
+  const delta = Math.abs(a - b);
+  return Math.min(delta, length - delta);
+}
+
+function resolveNearestHalteIndexFromPosition(
+  lat: number,
+  lng: number,
+): number {
+  const halteCount = HALTE_LOCATIONS.length;
+  if (halteCount <= 0) return 0;
+
+  const pointCursor = findNearestPathIndex(lat, lng);
+  const routeCursorCount = OFFICIAL_ROUTE_PATH.length;
+
+  let bestIndex = 0;
+  let bestCursorDistance = Number.POSITIVE_INFINITY;
+  let bestGeoDistance = Number.POSITIVE_INFINITY;
+
+  for (let i = 0; i < halteCount; i += 1) {
+    const halteCursor = HALTE_PATH_CURSORS[i] ?? 0;
+    const cursorDistance = circularDistance(
+      pointCursor,
+      halteCursor,
+      routeCursorCount,
+    );
+    const geoDistance = haversineMeters(
+      { lat, lng },
+      { lat: HALTE_LOCATIONS[i].lat, lng: HALTE_LOCATIONS[i].lng },
+    );
+
+    if (
+      cursorDistance < bestCursorDistance ||
+      (cursorDistance === bestCursorDistance && geoDistance < bestGeoDistance)
+    ) {
+      bestCursorDistance = cursorDistance;
+      bestGeoDistance = geoDistance;
+      bestIndex = i;
+    }
+  }
+
+  return bestIndex;
 }
 
 function findArrivedNextHalteIndex(
@@ -117,34 +170,26 @@ function resolveCurrentStopIndexFromPosition(
   const arrivedIndex = findArrivedNextHalteIndex(lat, lng, existingStopIndex);
   if (arrivedIndex !== null) return arrivedIndex;
 
-  // 2. Resync case: find the globally nearest halte by raw GPS distance
+  // 2. Resync case: infer nearest halte using route cursor proximity
   const current = normalizeLoopIndex(existingStopIndex, halteCount);
-  let nearestIndex = current;
-  let nearestDistance = Number.POSITIVE_INFINITY;
-
-  for (let i = 0; i < halteCount; i++) {
-    const halte = HALTE_LOCATIONS[i];
-    const distance = haversineMeters({ lat, lng }, { lat: halte.lat, lng: halte.lng });
-    if (distance < nearestDistance) {
-      nearestDistance = distance;
-      nearestIndex = i;
-    }
-  }
+  const nearestIndex = resolveNearestHalteIndexFromPosition(lat, lng);
 
   // Calculate how many forward steps from current to nearestIndex in the loop.
   // If forwardSteps > halteCount/2, the halte is actually BEHIND us (just expressed
   // as a large forward number due to loop wrap). Never resync backwards.
   const forwardSteps =
-    ((nearestIndex - current) % halteCount + halteCount) % halteCount;
+    (((nearestIndex - current) % halteCount) + halteCount) % halteCount;
   const maxForwardResync = Math.floor(halteCount / 2);
 
-  if (forwardSteps >= RESYNC_THRESHOLD_STOPS && forwardSteps <= maxForwardResync) {
+  if (
+    forwardSteps >= RESYNC_THRESHOLD_STOPS &&
+    forwardSteps <= maxForwardResync
+  ) {
     return nearestIndex;
   }
 
   // 3. Default: stay at current stop index (buggy is between haltes or behind us)
   return current;
-
 }
 
 function resolveCrowdLevel(passengers: number, capacity: number): CrowdLevel {
@@ -195,7 +240,10 @@ function isBuggyLike(value: unknown): value is Buggy {
   if (typeof value.code !== "string") return false;
   if (typeof value.name !== "string") return false;
   if (!isRecord(value.position)) return false;
-  if (!isFiniteNumber(value.position.lat) || !isFiniteNumber(value.position.lng)) {
+  if (
+    !isFiniteNumber(value.position.lat) ||
+    !isFiniteNumber(value.position.lng)
+  ) {
     return false;
   }
   return true;
@@ -237,6 +285,7 @@ function parseTelemetryPayload(payload: unknown): BuggyTelemetryInput[] | null {
       currentStopIndex: isFiniteNumber(item.currentStopIndex)
         ? item.currentStopIndex
         : undefined,
+      forceResync: item.forceResync === true,
       tag: typeof item.tag === "string" ? item.tag : undefined,
       timestamp:
         typeof item.timestamp === "string" || typeof item.timestamp === "number"
@@ -317,7 +366,7 @@ function autoRegisterBuggy(buggyId: string, point: BuggyTelemetryInput): Buggy {
   const numericMatch = buggyId.match(/(\d+)$/);
   const num = numericMatch ? parseInt(numericMatch[1], 10) : 99;
   const code = `B${String(num).padStart(2, "0")}`;
-  const stopIndex = resolveCurrentStopIndexFromPosition(point.lat, point.lng, 0);
+  const stopIndex = resolveNearestHalteIndexFromPosition(point.lat, point.lng);
 
   return {
     id: buggyId,
@@ -340,10 +389,15 @@ function autoRegisterBuggy(buggyId: string, point: BuggyTelemetryInput): Buggy {
   };
 }
 
-function ingestTelemetry(telemetry: BuggyTelemetryInput[]): BuggyIngestResult | null {
+function ingestTelemetry(
+  telemetry: BuggyTelemetryInput[],
+): BuggyIngestResult | null {
   const current = getMutableState();
-  const byId = new Map(current.buggies.map((buggy) => [buggy.id, cloneBuggy(buggy)]));
+  const byId = new Map(
+    current.buggies.map((buggy) => [buggy.id, cloneBuggy(buggy)]),
+  );
   const telemetryLastSeenById = { ...current.telemetryLastSeenById };
+  const now = nowMs();
   let accepted = 0;
   const newBuggies: Buggy[] = [];
 
@@ -368,16 +422,23 @@ function ingestTelemetry(telemetry: BuggyTelemetryInput[]): BuggyIngestResult | 
     );
     const speedKmh = Math.max(0, point.speedKmh ?? existing.speedKmh);
     const etaMinutes = Math.max(1, point.etaMinutes ?? existing.etaMinutes);
+    const lastSeenAt = telemetryLastSeenById[buggyId] ?? 0;
+    const isColdStart =
+      lastSeenAt <= 0 || now - lastSeenAt > ACTIVE_TELEMETRY_WINDOW_MS;
+    const shouldForceResync = point.forceResync === true;
+
     const nextCurrentStopIndex = Number.isFinite(point.currentStopIndex)
       ? normalizeLoopIndex(
           Math.max(0, Math.round(point.currentStopIndex as number)),
           HALTE_LOCATIONS.length,
         )
-      : resolveCurrentStopIndexFromPosition(
-          point.lat,
-          point.lng,
-          existing.currentStopIndex,
-        );
+      : shouldForceResync || isColdStart
+        ? resolveNearestHalteIndexFromPosition(point.lat, point.lng)
+        : resolveCurrentStopIndexFromPosition(
+            point.lat,
+            point.lng,
+            existing.currentStopIndex,
+          );
 
     byId.set(buggyId, {
       ...existing,
@@ -393,7 +454,7 @@ function ingestTelemetry(telemetry: BuggyTelemetryInput[]): BuggyIngestResult | 
       tag: point.tag ?? existing.tag,
       updatedAt: timestampToUpdatedAt(point.timestamp),
     });
-    telemetryLastSeenById[buggyId] = nowMs();
+    telemetryLastSeenById[buggyId] = now;
     accepted += 1;
   }
 
@@ -401,7 +462,9 @@ function ingestTelemetry(telemetry: BuggyTelemetryInput[]): BuggyIngestResult | 
 
   const updatedAt = nowMs();
   // Merge: existing buggies (updated) + newly registered buggies
-  const updatedBuggies = current.buggies.map((buggy) => byId.get(buggy.id) ?? buggy);
+  const updatedBuggies = current.buggies.map(
+    (buggy) => byId.get(buggy.id) ?? buggy,
+  );
   for (const nb of newBuggies) {
     if (!updatedBuggies.find((b) => b.id === nb.id)) {
       updatedBuggies.push(nb);
@@ -422,7 +485,6 @@ function ingestTelemetry(telemetry: BuggyTelemetryInput[]): BuggyIngestResult | 
     updatedAt,
   };
 }
-
 
 export function ingestBuggyPayload(payload: unknown): BuggyIngestResult | null {
   const snapshot = parseSnapshotPayload(payload);

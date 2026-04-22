@@ -1,5 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { ingestBuggyPayload } from "@/lib/realtime/buggy-live-store";
+import {
+  createAdminClient,
+  getBuggyHistoryTableName,
+} from "@/lib/supabase/server";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -40,6 +44,7 @@ export async function POST(request: NextRequest) {
     speedKmh = 0,
     heading,
     altitude,
+    forceResync,
   } = body as Record<string, unknown>;
 
   const numericBuggyId = Number(buggyId);
@@ -54,6 +59,7 @@ export async function POST(request: NextRequest) {
         accuracy: typeof accuracy === "number" ? accuracy : undefined,
         heading: typeof heading === "number" ? heading : undefined,
         altitude: typeof altitude === "number" ? altitude : undefined,
+        forceResync: forceResync === true,
         tag: "iphone_gps",
         timestamp: new Date().toISOString(),
       },
@@ -67,6 +73,30 @@ export async function POST(request: NextRequest) {
       { error: `Buggy ID ${numericBuggyId} not found in store` },
       { status: 404 },
     );
+  }
+
+  // Best effort persistence for admin trip history (do not block live ingest).
+  const supabase = createAdminClient();
+  if (supabase) {
+    const buggyIdNormalized = `buggy-${numericBuggyId}`;
+    const tableName = getBuggyHistoryTableName();
+
+    const { error } = await supabase.from(tableName).insert({
+      buggy_id: buggyIdNormalized,
+      buggy_numeric_id: numericBuggyId,
+      lat: Number(lat),
+      lng: Number(lng),
+      accuracy: typeof accuracy === "number" ? accuracy : null,
+      speed_kmh: typeof speedKmh === "number" ? speedKmh : 0,
+      heading: typeof heading === "number" ? heading : null,
+      altitude: typeof altitude === "number" ? altitude : null,
+      source: "iphone_gps",
+      recorded_at: new Date().toISOString(),
+    });
+
+    if (error) {
+      console.warn("Supabase history insert failed:", error.message);
+    }
   }
 
   return NextResponse.json({

@@ -21,6 +21,10 @@ type GpsCoords = {
 type TrackStatus = "idle" | "requesting" | "tracking" | "error";
 type ApiStatus = "idle" | "sending" | "ok" | "error";
 
+type SendGpsOptions = {
+  forceResync?: boolean;
+};
+
 // ─── Component ────────────────────────────────────────────────────────────────
 
 export default function GpsTrackerPage() {
@@ -40,6 +44,8 @@ export default function GpsTrackerPage() {
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const coordsRef = useRef<GpsCoords | null>(null);
   const isTrackingRef = useRef(false);
+  const gpsSignalLostRef = useRef(false);
+  const forceResyncNextSendRef = useRef(false);
 
   const addLog = useCallback((msg: string) => {
     const time = new Date().toLocaleTimeString("id-ID");
@@ -49,7 +55,8 @@ export default function GpsTrackerPage() {
   // ── Send GPS to API ───────────────────────────────────────────────────────
 
   const sendGps = useCallback(
-    async (c: GpsCoords, id: number) => {
+    async (c: GpsCoords, id: number, options?: SendGpsOptions) => {
+      const shouldForceResync = options?.forceResync === true;
       setApiStatus("sending");
       try {
         const res = await fetch("/api/gps-beacon", {
@@ -60,10 +67,10 @@ export default function GpsTrackerPage() {
             lat: c.lat,
             lng: c.lng,
             accuracy: c.accuracy,
-            speedKmh:
-              c.speed !== null ? Number((c.speed * 3.6).toFixed(2)) : 0,
+            speedKmh: c.speed !== null ? Number((c.speed * 3.6).toFixed(2)) : 0,
             heading: c.heading,
             altitude: c.altitude,
+            forceResync: shouldForceResync,
           }),
         });
 
@@ -77,9 +84,19 @@ export default function GpsTrackerPage() {
         setApiStatus("ok");
         setSendCount((n) => n + 1);
         setLastSent(new Date().toLocaleTimeString("id-ID"));
+        if (shouldForceResync) {
+          forceResyncNextSendRef.current = false;
+          addLog("🔄 GPS kembali tersambung — halte berhasil di-resync");
+        }
       } catch (err) {
         setApiStatus("error");
         addLog(`❌ Gagal kirim: ${String(err)}`);
+        if (shouldForceResync) {
+          forceResyncNextSendRef.current = true;
+          addLog(
+            "⚠️ Resync halte tertunda, akan dicoba lagi di kiriman berikutnya",
+          );
+        }
       }
     },
     [addLog],
@@ -99,6 +116,8 @@ export default function GpsTrackerPage() {
     }
 
     isTrackingRef.current = true;
+    gpsSignalLostRef.current = false;
+    forceResyncNextSendRef.current = false;
 
     watchIdRef.current = navigator.geolocation.watchPosition(
       (pos) => {
@@ -113,6 +132,14 @@ export default function GpsTrackerPage() {
         coordsRef.current = c;
         setCoords(c);
 
+        if (gpsSignalLostRef.current) {
+          gpsSignalLostRef.current = false;
+          forceResyncNextSendRef.current = true;
+          setErrorMsg(null);
+          addLog("📶 GPS kembali terhubung, kirim sinkronisasi halte...");
+          void sendGps(c, buggyId, { forceResync: true });
+        }
+
         if (trackStatus !== "tracking") {
           setTrackStatus("tracking");
           addLog("✅ GPS berhasil — mulai tracking");
@@ -124,6 +151,13 @@ export default function GpsTrackerPage() {
           setErrorMsg("Izin GPS ditolak. Buka Settings → Safari → Lokasi.");
           setTrackStatus("error");
           stopTracking();
+          return;
+        }
+
+        if (!gpsSignalLostRef.current) {
+          gpsSignalLostRef.current = true;
+          setErrorMsg("Sinyal GPS terputus sementara. Menunggu GPS kembali...");
+          addLog("📡 Sinyal GPS hilang sementara, menunggu reconnect...");
         }
       },
       { enableHighAccuracy: true, timeout: 15000, maximumAge: 500 },
@@ -139,9 +173,11 @@ export default function GpsTrackerPage() {
         addLog("⏳ Menunggu GPS fix...");
         return;
       }
-      sendGps(c, id);
+
+      const shouldForceResync = forceResyncNextSendRef.current;
+      void sendGps(c, id, { forceResync: shouldForceResync });
     }, intervalMs);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [buggyId, intervalMs, sendGps, addLog]);
 
   // ── Stop Tracking ─────────────────────────────────────────────────────────
@@ -157,6 +193,8 @@ export default function GpsTrackerPage() {
       intervalRef.current = null;
     }
     coordsRef.current = null;
+    gpsSignalLostRef.current = false;
+    forceResyncNextSendRef.current = false;
     setTrackStatus("idle");
     setApiStatus("idle");
     addLog("🛑 Tracking dihentikan");
@@ -208,7 +246,10 @@ export default function GpsTrackerPage() {
         </div>
 
         <div style={styles.pills}>
-          <Pill label={`GPS ${gpsDot}`} value={coords ? `±${Math.round(coords.accuracy)}m` : "–"} />
+          <Pill
+            label={`GPS ${gpsDot}`}
+            value={coords ? `±${Math.round(coords.accuracy)}m` : "–"}
+          />
           <Pill label={`API ${apiDot}`} value={apiStatus} />
           <Pill label="📤" value={`${sendCount}x`} highlight />
         </div>
@@ -265,8 +306,7 @@ export default function GpsTrackerPage() {
           <Card title="📤 Status Kirim">
             <div style={styles.infoRows}>
               <span>
-                Endpoint:{" "}
-                <code style={styles.code}>/api/gps-beacon</code>
+                Endpoint: <code style={styles.code}>/api/gps-beacon</code>
               </span>
               <span>
                 Interval:{" "}
@@ -371,9 +411,7 @@ export default function GpsTrackerPage() {
               GPS iPhone langsung dikirim ke server via HTTP (tidak perlu MQTT
               port 9001 🎉)
             </li>
-            <li>
-              Buggy {buggyId} di peta akan mengikuti posisi iPhone 📍
-            </li>
+            <li>Buggy {buggyId} di peta akan mengikuti posisi iPhone 📍</li>
           </ol>
         </Card>
 
@@ -456,11 +494,9 @@ function Field({
 const styles: Record<string, React.CSSProperties> = {
   page: {
     minHeight: "100dvh",
-    background:
-      "linear-gradient(135deg,#0f172a 0%,#1e293b 60%,#0f2027 100%)",
+    background: "linear-gradient(135deg,#0f172a 0%,#1e293b 60%,#0f2027 100%)",
     color: "#f1f5f9",
-    fontFamily:
-      "'Inter',-apple-system,BlinkMacSystemFont,sans-serif",
+    fontFamily: "'Inter',-apple-system,BlinkMacSystemFont,sans-serif",
     overflowX: "hidden",
   },
   header: {

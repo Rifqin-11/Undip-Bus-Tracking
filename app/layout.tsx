@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 
@@ -16,6 +16,11 @@ export const metadata: Metadata = {
   title: "SIMOBI - Sistem Monitoring Buggy Listrik Realtime",
   description:
     "Sistem monitoring buggy listrik realtime untuk Smart Mobility Universitas Diponegoro.",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "default",
+    title: "SIMOBI",
+  },
   icons: {
     icon: "/logo.svg",
     shortcut: "/logo.svg",
@@ -23,10 +28,12 @@ export const metadata: Metadata = {
   },
 };
 
-export const viewport = {
+export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
   viewportFit: "cover",
+  themeColor: "#e2e8f0",
+  colorScheme: "light",
 };
 
 export default function RootLayout({
@@ -36,14 +43,22 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="id">
-      <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
+      <body
+        className={`${geistSans.variable} ${geistMono.variable} antialiased`}
+      >
         <svg
           aria-hidden="true"
           className="pointer-events-none fixed h-0 w-0"
           focusable="false"
         >
           <defs>
-            <filter id="liquid-glass-distort" x="-20%" y="-20%" width="140%" height="140%">
+            <filter
+              id="liquid-glass-distort"
+              x="-20%"
+              y="-20%"
+              width="140%"
+              height="140%"
+            >
               <feTurbulence
                 type="fractalNoise"
                 baseFrequency="0.012 0.03"

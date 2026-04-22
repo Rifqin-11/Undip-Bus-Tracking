@@ -366,7 +366,10 @@ export default function DashboardPage() {
         if (currentPos) {
           originPos = currentPos;
           setFromInput("Lokasi Saya");
-          originHalte = mapsService.findNearestHalte(currentPos, HALTE_LOCATIONS);
+          originHalte = mapsService.findNearestHalte(
+            currentPos,
+            HALTE_LOCATIONS,
+          );
           if (!originHalte) {
             alert("Halte terdekat dari lokasi Anda tidak ditemukan.");
             setIsSearching(false);
@@ -534,7 +537,7 @@ export default function DashboardPage() {
     activeView === "buggy" ? (directionResult?.directionPath ?? []) : [];
 
   return (
-    <main className="fixed inset-0 overflow-hidden bg-black">
+    <main className="fixed inset-0 overflow-hidden bg-slate-100">
       <MapCanvas
         buggies={mapBuggies}
         haltes={HALTE_LOCATIONS}
@@ -553,7 +556,7 @@ export default function DashboardPage() {
       />
 
       {/* Gradient overlay for mobile view */}
-      <div className="pointer-events-none absolute inset-x-0 top-0 z-20 h-52 bg-linear-to-b from-slate-900/70 via-slate-900/35 to-transparent xl:hidden" />
+      <div className="pointer-events-none absolute inset-x-0 top-0 z-20 h-52 bg-linear-to-b from-slate-900/45 via-slate-900/20 to-transparent xl:hidden" />
 
       <section
         className="absolute inset-x-0 z-40 flex items-center justify-between px-4 xl:hidden"

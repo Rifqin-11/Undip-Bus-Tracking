@@ -5,10 +5,10 @@ import {
   BuggyIcon,
   HalteIcon,
   BellIcon,
-  ReportIcon,
   LoginIcon,
   LogoutIcon,
   DataIcon,
+  ChatIcon,
 } from "@/components/ui/Icons";
 import { DESKTOP_LAYOUT } from "@/lib/presenters/layout-metrics";
 import type { PanelView } from "@/types/buggy";
@@ -107,7 +107,7 @@ export function FloatingSidebar({
           type="button"
           onClick={() => onSelectView("lapor")}
         >
-          <ReportIcon className="h-5 w-5" />
+          <ChatIcon className="h-5 w-5" />
         </button>
       </nav>
 

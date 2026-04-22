@@ -1,8 +1,10 @@
 "use client";
 
+import { useCallback, useEffect, useMemo, useState } from "react";
 import type { Buggy } from "@/types/buggy";
 import { getBuggyStopNameAtOffset } from "@/lib/transit/buggy-route-utils";
 import type { Geofence, GeofenceEvent } from "@/types/geofence";
+import type { BuggyHistoryEntry } from "@/types/buggy-history";
 
 type AdminDataSectionProps = {
   buggies: Buggy[];
@@ -25,6 +27,31 @@ type AdminDataSectionProps = {
   onToggleBrowserNotification: () => void;
 };
 
+type BuggyHistoryApiResponse = {
+  entries: BuggyHistoryEntry[];
+  table?: string;
+  error?: string;
+};
+
+function normalizeBuggyId(value: string): string {
+  const text = value.trim();
+  if (!text) return "";
+  if (text.startsWith("buggy-")) return text;
+
+  const numeric = Number.parseInt(text, 10);
+  if (!Number.isNaN(numeric) && String(numeric) === text) {
+    return `buggy-${numeric}`;
+  }
+
+  return text;
+}
+
+function formatHistoryTime(timestamp: string): string {
+  const date = new Date(timestamp);
+  if (Number.isNaN(date.getTime())) return "-";
+  return date.toLocaleString("id-ID", { hour12: false });
+}
+
 export function AdminDataSection({
   buggies,
   geofences,
@@ -45,6 +72,100 @@ export function AdminDataSection({
   onDeleteGeofence,
   onToggleBrowserNotification,
 }: AdminDataSectionProps) {
+  const [historyEntries, setHistoryEntries] = useState<BuggyHistoryEntry[]>([]);
+  const [historyLoading, setHistoryLoading] = useState(true);
+  const [historyRefreshing, setHistoryRefreshing] = useState(false);
+  const [historyError, setHistoryError] = useState<string | null>(null);
+  const [historyTable, setHistoryTable] = useState<string | null>(null);
+  const [selectedHistoryBuggyId, setSelectedHistoryBuggyId] = useState("all");
+
+  const historyBuggyOptions = useMemo(
+    () =>
+      buggies
+        .map((buggy) => ({
+          id: buggy.id,
+          label: `${buggy.code} • ${buggy.name}`,
+        }))
+        .sort((a, b) => a.label.localeCompare(b.label, "id-ID")),
+    [buggies],
+  );
+
+  const loadHistory = useCallback(async (silentRefresh = false) => {
+    if (silentRefresh) {
+      setHistoryRefreshing(true);
+    } else {
+      setHistoryLoading(true);
+    }
+
+    try {
+      const response = await fetch("/api/buggy-history?limit=250", {
+        cache: "no-store",
+      });
+
+      const payload =
+        (await response.json()) as Partial<BuggyHistoryApiResponse>;
+
+      if (!response.ok) {
+        throw new Error(
+          typeof payload.error === "string"
+            ? payload.error
+            : "Gagal memuat history perjalanan dari Supabase.",
+        );
+      }
+
+      setHistoryEntries(Array.isArray(payload.entries) ? payload.entries : []);
+      setHistoryTable(typeof payload.table === "string" ? payload.table : null);
+      setHistoryError(null);
+    } catch (error) {
+      const message =
+        error instanceof Error
+          ? error.message
+          : "Gagal memuat history perjalanan dari Supabase.";
+      setHistoryError(message);
+      if (!silentRefresh) {
+        setHistoryEntries([]);
+      }
+    } finally {
+      setHistoryLoading(false);
+      setHistoryRefreshing(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    void loadHistory();
+
+    const refreshTimer = window.setInterval(() => {
+      void loadHistory(true);
+    }, 15_000);
+
+    return () => {
+      window.clearInterval(refreshTimer);
+    };
+  }, [loadHistory]);
+
+  useEffect(() => {
+    if (selectedHistoryBuggyId === "all") return;
+    if (
+      historyBuggyOptions.some((option) => option.id === selectedHistoryBuggyId)
+    ) {
+      return;
+    }
+    setSelectedHistoryBuggyId("all");
+  }, [historyBuggyOptions, selectedHistoryBuggyId]);
+
+  const filteredHistoryEntries = useMemo(() => {
+    if (selectedHistoryBuggyId === "all") return historyEntries;
+
+    const selectedNormalized = normalizeBuggyId(selectedHistoryBuggyId);
+    return historyEntries.filter((entry) => {
+      const entryNormalized = normalizeBuggyId(entry.buggyId);
+      return (
+        entry.buggyId === selectedHistoryBuggyId ||
+        entryNormalized === selectedNormalized
+      );
+    });
+  }, [historyEntries, selectedHistoryBuggyId]);
+
   return (
     <section className="space-y-3">
       {/* ── Data Operasional Buggy ─────────────────────────────────────────── */}
@@ -111,6 +232,105 @@ export function AdminDataSection({
             </tbody>
           </table>
         </div>
+      </div>
+
+      <div className="rounded-3xl border border-slate-200/80 bg-white/70 p-3">
+        <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+          <div>
+            <h2 className="text-[17px] font-semibold text-slate-900">
+              History Perjalanan Buggy
+            </h2>
+            <p className="text-[11px] text-slate-500">
+              {historyTable
+                ? `Sumber data: Supabase table ${historyTable}`
+                : "Sumber data: Supabase"}
+            </p>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-2">
+            <select
+              className="h-9 rounded-xl border border-slate-300 bg-white px-3 text-[12px] text-slate-700 outline-none focus:border-slate-500"
+              value={selectedHistoryBuggyId}
+              onChange={(event) =>
+                setSelectedHistoryBuggyId(event.target.value)
+              }
+            >
+              <option value="all">Semua buggy</option>
+              {historyBuggyOptions.map((option) => (
+                <option key={option.id} value={option.id}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+
+            <button
+              type="button"
+              className="h-9 rounded-xl border border-slate-300 bg-white px-3 text-[12px] font-semibold text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
+              onClick={() => void loadHistory(true)}
+              disabled={historyLoading || historyRefreshing}
+            >
+              {historyRefreshing ? "Menyegarkan..." : "Refresh"}
+            </button>
+          </div>
+        </div>
+
+        {historyError ? (
+          <p className="rounded-2xl border border-rose-200 bg-rose-50 px-3 py-2 text-[12px] text-rose-700">
+            {historyError}
+          </p>
+        ) : historyLoading ? (
+          <p className="text-[12px] text-slate-500">
+            Memuat history perjalanan...
+          </p>
+        ) : filteredHistoryEntries.length === 0 ? (
+          <p className="text-[12px] text-slate-500">
+            Belum ada data history perjalanan buggy.
+          </p>
+        ) : (
+          <div className="max-h-80 overflow-auto rounded-2xl border border-slate-200 bg-white">
+            <table className="min-w-full text-left text-[12px] text-slate-700">
+              <thead className="sticky top-0 bg-slate-50">
+                <tr className="border-b border-slate-200 text-[11px] uppercase tracking-[0.08em] text-slate-500">
+                  <th className="px-3 py-2">Waktu</th>
+                  <th className="px-3 py-2">Buggy</th>
+                  <th className="px-3 py-2">Posisi</th>
+                  <th className="px-3 py-2">Speed</th>
+                  <th className="px-3 py-2">Akurasi</th>
+                  <th className="px-3 py-2">Source</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filteredHistoryEntries.map((entry) => (
+                  <tr
+                    key={`${entry.id}-${entry.recordedAt}`}
+                    className="border-b border-slate-100 align-top last:border-b-0"
+                  >
+                    <td className="px-3 py-2 whitespace-nowrap">
+                      {formatHistoryTime(entry.recordedAt)}
+                    </td>
+                    <td className="px-3 py-2 font-medium text-slate-900">
+                      {entry.buggyId}
+                    </td>
+                    <td className="px-3 py-2">
+                      {entry.lat.toFixed(5)}, {entry.lng.toFixed(5)}
+                    </td>
+                    <td className="px-3 py-2">
+                      {entry.speedKmh !== null
+                        ? `${entry.speedKmh.toFixed(1)} km/h`
+                        : "-"}
+                    </td>
+                    <td className="px-3 py-2">
+                      {entry.accuracy !== null
+                        ? `±${Math.round(entry.accuracy)} m`
+                        : "-"}
+                    </td>
+                    <td className="px-3 py-2">{entry.source ?? "-"}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
 
       <div className="rounded-3xl border border-slate-200/80 bg-white/70 p-3">

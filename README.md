@@ -180,3 +180,45 @@ Verifikasi ingest berhasil:
 ```bash
 curl -s http://localhost:3000/api/buggy | jq '.[0] | {id, name, updatedAt}'
 ```
+
+### 7) Setup Tabel Buggy History di Supabase
+
+Jika Anda mendapatkan error "Could not find the table 'public.buggy_history' in the schema cache", ikuti langkah-langkah berikut:
+
+1. Login ke Supabase Dashboard Anda
+2. Buka SQL Editor
+3. Jalankan SQL berikut untuk membuat tabel:
+
+```sql
+-- Create the buggy_history table
+create table if not exists public.buggy_history (
+  id uuid default gen_random_uuid() primary key,
+  buggy_id text not null,
+  lat double precision not null,
+  lng double precision not null,
+  speed_kmh double precision,
+  accuracy double precision,
+  heading double precision,
+  altitude double precision,
+  source text,
+  recorded_at timestamp with time zone default now() not null
+);
+
+-- Create indexes for better query performance
+create index if not exists idx_buggy_history_buggy_id on public.buggy_history(buggy_id);
+create index if not exists idx_buggy_history_recorded_at on public.buggy_history(recorded_at);
+create index if not exists idx_buggy_history_location on public.buggy_history(lat, lng);
+
+-- Enable RLS (Row Level Security)
+alter table public.buggy_history enable row level security;
+
+-- Grant permissions
+grant usage on schema public to anon, authenticated;
+grant all on table public.buggy_history to anon, authenticated;
+```
+
+4. Pastikan environment variables berikut sudah diatur dengan nilai yang benar dari Supabase Dashboard:
+   - `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`
+   - `SUPABASE_SERVICE_ROLE_KEY`
+
+5. Restart server Next.js Anda

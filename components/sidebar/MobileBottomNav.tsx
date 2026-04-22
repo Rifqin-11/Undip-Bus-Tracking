@@ -5,11 +5,10 @@ import { usePathname, useRouter } from "next/navigation";
 import {
   BuggyIcon,
   HalteIcon,
-  BellIcon,
-  ReportIcon,
   LoginIcon,
   LogoutIcon,
   DataIcon,
+  ChatIcon,
 } from "@/components/ui/Icons";
 import type { PanelView } from "@/types/buggy";
 
@@ -35,7 +34,7 @@ const navItems: {
 }[] = [
   { view: "buggy", label: "Buggy", Icon: BuggyIcon },
   { view: "halte", label: "Halte", Icon: HalteIcon },
-  { view: "lapor", label: "Lapor", Icon: ReportIcon },
+  { view: "lapor", label: "Lapor", Icon: ChatIcon },
 ];
 
 export function MobileBottomNav({
@@ -65,7 +64,7 @@ export function MobileBottomNav({
 
   return (
     <nav
-      className="fixed bottom-4 left-1/2 z-50 flex w-[calc(100%-2rem)] max-w-sm -translate-x-1/2 items-center justify-around rounded-full border border-white/35 bg-transparent px-2 py-1.5 shadow-[0_18px_40px_rgba(0,0,0,0.35)] backdrop-blur-2xl xl:hidden"
+      className="fixed bottom-4 left-1/2 z-50 flex w-[calc(100%-5rem)] max-w-sm -translate-x-1/2 items-center justify-around rounded-full border border-white/35 bg-transparent px-2 py-1.5 shadow-[0_18px_40px_rgba(0,0,0,0.35)] backdrop-blur-2xl xl:hidden"
       style={{ bottom: "calc(1rem + var(--sai-bottom, 0px))" }}
     >
       {shouldShowDataButton && (
