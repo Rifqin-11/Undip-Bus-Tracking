@@ -55,12 +55,12 @@ export const HALTE_LOCATIONS: HaltePoint[] = [
     lat: -7.049832325888632,
     lng: 110.43849680096805,
   },
-  {
-    id: "h09",
-    name: "Teknik Elektro",
-    lat: -7.049445426133159,
-    lng: 110.43980141026086,
-  },
+  // {
+  //   id: "h09",
+  //   name: "Teknik Elektro",
+  //   lat: -7.049445426133159,
+  //   lng: 110.43980141026086,
+  // },
   {
     id: "h10",
     name: "SA-MWA & FSM Barat",

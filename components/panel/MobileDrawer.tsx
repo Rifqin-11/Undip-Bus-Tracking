@@ -60,14 +60,9 @@ export function MobileDrawer({ open, onClose, children }: MobileDrawerProps) {
    */
   const cardOpacity = useMotionValue(1);
 
-  /**
-   * Full-mode height in px.
-   * Extra 28px extends the card below the viewport so the rounded bottom
-   * corners are hidden by the screen edge — giving a true edge-to-edge look
-   * while the borderRadius stays constant (no jarring corner animation).
-   */
+  /** Helper – full mode height in px (allows spring animation without dvh unit issues) */
   const fullHeightPx = () =>
-    typeof window !== "undefined" ? window.innerHeight * 0.85 + 28 : 728;
+    typeof window !== "undefined" ? window.innerHeight * 0.85 : 700;
 
   // ── Sync open prop ↔ animate in / out ────────────────────────────────────────
   useEffect(() => {
@@ -205,20 +200,14 @@ export function MobileDrawer({ open, onClose, children }: MobileDrawerProps) {
         bottom: "calc(1rem + var(--sai-bottom, 0px))",
         left: `${CARD_MARGIN_X}px`,
         right: `${CARD_MARGIN_X}px`,
-        /**
-         * borderRadius stays CONSTANT at "28px" for BOTH states.
-         * This prevents the jarring bottom-corner animation during half → full.
-         * In full mode, the +28px height extension hides the rounded bottom
-         * corners below the viewport → edge-to-edge appearance.
-         */
-        borderRadius: "28px",
+        borderRadius: "24px",
         boxShadow: "0 8px 40px rgba(15,23,42,0.22)",
       }
     : {
-        bottom: "-28px", // extend 28px below viewport to hide rounded bottom corners
+        bottom: "0px",
         left: "0px",
         right: "0px",
-        borderRadius: "28px", // same as half → NO corner animation!
+        borderRadius: "28px 28px 0 0",
         boxShadow: "0 -16px 50px rgba(15,23,42,0.14)",
       };
 
