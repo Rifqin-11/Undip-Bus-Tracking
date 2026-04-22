@@ -8,6 +8,10 @@ import {
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
+// Membatasi insert ke Supabase maksimal 1 kali setiap 10 detik per buggy
+const HISTORY_INSERT_INTERVAL_MS = 10_000;
+const lastHistoryInsertPerBuggy: Record<number, number> = {};
+
 /**
  * POST /api/gps-beacon
  *
@@ -76,26 +80,34 @@ export async function POST(request: NextRequest) {
   }
 
   // Best effort persistence for admin trip history (do not block live ingest).
-  const supabase = createAdminClient();
-  if (supabase) {
-    const buggyIdNormalized = `buggy-${numericBuggyId}`;
-    const tableName = getBuggyHistoryTableName();
+  const now = Date.now();
+  const lastInsert = lastHistoryInsertPerBuggy[numericBuggyId] || 0;
 
-    const { error } = await supabase.from(tableName).insert({
-      buggy_id: buggyIdNormalized,
-      buggy_numeric_id: numericBuggyId,
-      lat: Number(lat),
-      lng: Number(lng),
-      accuracy: typeof accuracy === "number" ? accuracy : null,
-      speed_kmh: typeof speedKmh === "number" ? speedKmh : 0,
-      heading: typeof heading === "number" ? heading : null,
-      altitude: typeof altitude === "number" ? altitude : null,
-      source: "iphone_gps",
-      recorded_at: new Date().toISOString(),
-    });
+  if (now - lastInsert >= HISTORY_INSERT_INTERVAL_MS) {
+    // Segera perbarui timestamp agar request dalam 10 detik ke depan di-throttle
+    lastHistoryInsertPerBuggy[numericBuggyId] = now;
 
-    if (error) {
-      console.warn("Supabase history insert failed:", error.message);
+    const supabase = createAdminClient();
+    if (supabase) {
+      const buggyIdNormalized = `buggy-${numericBuggyId}`;
+      const tableName = getBuggyHistoryTableName();
+
+      const { error } = await supabase.from(tableName).insert({
+        buggy_id: buggyIdNormalized,
+        buggy_numeric_id: numericBuggyId,
+        lat: Number(lat),
+        lng: Number(lng),
+        accuracy: typeof accuracy === "number" ? accuracy : null,
+        speed_kmh: typeof speedKmh === "number" ? speedKmh : 0,
+        heading: typeof heading === "number" ? heading : null,
+        altitude: typeof altitude === "number" ? altitude : null,
+        source: "iphone_gps",
+        recorded_at: new Date().toISOString(),
+      });
+
+      if (error) {
+        console.warn("Supabase history insert failed:", error.message);
+      }
     }
   }
 
