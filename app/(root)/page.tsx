@@ -291,8 +291,6 @@ export default function DashboardPage() {
             : best;
         }, liveBuggies[0]);
 
-        if (!nearest) return;
-
         setFromInput("Lokasi Saya");
         setToInput(destinationHalte.name);
         setSearchStep("origin");
@@ -307,8 +305,8 @@ export default function DashboardPage() {
             lng: destinationHalte.lng,
           },
           routeStopNames,
-          nearestBuggyName: nearest.name,
-          nearestBuggyId: nearest.id,
+          nearestBuggyName: nearest?.name,
+          nearestBuggyId: nearest?.id,
           directionPath: busRoutePath,
           walkingToHalte: walkToOriginHalte
             ? {
@@ -320,8 +318,10 @@ export default function DashboardPage() {
             : undefined,
         });
 
-        setSelectedBuggyId(nearest.id);
-        setMapFollowingBuggyId(nearest.id);
+        if (nearest) {
+          setSelectedBuggyId(nearest.id);
+          setMapFollowingBuggyId(nearest.id);
+        }
         setActiveView("buggy");
         setPanelOpen(true);
       } catch (err) {
@@ -485,7 +485,7 @@ export default function DashboardPage() {
         destHalte!.lng,
       );
 
-      // Find nearest buggy
+      // Find nearest buggy (optional — direction works without active buggies)
       const nearest = liveBuggies.reduce((best, b) => {
         if (!best) return b;
         return dist(b.position, originHalte!) <
@@ -494,26 +494,23 @@ export default function DashboardPage() {
           : best;
       }, liveBuggies[0]);
 
-      if (!nearest) {
-        setIsSearching(false);
-        return;
-      }
-
       setDirectionResult({
         originName: fromInput,
         destinationName: toInput,
         originPosition: originPos,
         destinationPosition: destPos,
         routeStopNames,
-        nearestBuggyName: nearest.name,
-        nearestBuggyId: nearest.id,
+        nearestBuggyName: nearest?.name,
+        nearestBuggyId: nearest?.id,
         directionPath: busRoutePath,
         walkingToHalte,
         walkingFromHalte,
       });
 
-      setSelectedBuggyId(nearest.id);
-      setMapFollowingBuggyId(nearest.id);
+      if (nearest) {
+        setSelectedBuggyId(nearest.id);
+        setMapFollowingBuggyId(nearest.id);
+      }
       setActiveView("buggy");
       setPanelOpen(true);
     } catch (err) {

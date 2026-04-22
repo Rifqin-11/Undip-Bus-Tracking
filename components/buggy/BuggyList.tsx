@@ -111,6 +111,11 @@ export function BuggyList({
     return sortByDistance(userLocation);
   }, [buggies, userLocation, directionResult]);
 
+  const activeSortedBuggies = useMemo(
+    () => sortedBuggies.filter((buggy) => buggy.isActive),
+    [sortedBuggies],
+  );
+
   const selectedBuggy = selectedBuggyId
     ? (buggies.find((b) => b.id === selectedBuggyId) ?? null)
     : null;
@@ -167,23 +172,29 @@ export function BuggyList({
               Pilih Armada
             </h2>
             <span className="rounded-full bg-[#0f1a3b] px-2.5 py-1 text-[10px] font-semibold text-white">
-              {activeFleetLabel(buggies)}
+              {activeFleetLabel(activeSortedBuggies)}
             </span>
           </div>
-          <div className="space-y-3">
-            {sortedBuggies.map((buggy) => (
-              <BuggyCard
-                key={buggy.id}
-                buggy={buggy}
-                isSelected={selectedBuggyId === buggy.id}
-                onFocus={onFocusBuggy}
-                onSelect={(id) => {
-                  onSelectBuggy(id);
-                  setBuggyViewMode("detail");
-                }}
-              />
-            ))}
-          </div>
+          {activeSortedBuggies.length === 0 ? (
+            <p className="rounded-2xl border border-dashed border-slate-200 bg-slate-50 px-4 py-3 text-center text-[13px] text-slate-500">
+              tidak ada buggy yang aktif saat ini
+            </p>
+          ) : (
+            <div className="space-y-3">
+              {activeSortedBuggies.map((buggy) => (
+                <BuggyCard
+                  key={buggy.id}
+                  buggy={buggy}
+                  isSelected={selectedBuggyId === buggy.id}
+                  onFocus={onFocusBuggy}
+                  onSelect={(id) => {
+                    onSelectBuggy(id);
+                    setBuggyViewMode("detail");
+                  }}
+                />
+              ))}
+            </div>
+          )}
         </div>
       ) : null}
 
@@ -200,13 +211,19 @@ export function BuggyList({
       {activeView === "notifikasi" && (
         <div className="rounded-3xl border border-slate-200/80 bg-white/70 p-5 text-center">
           <p className="text-[15px] font-semibold text-slate-700">Notifikasi</p>
-          <p className="mt-1 text-[12px] text-slate-400">Belum ada notifikasi baru.</p>
+          <p className="mt-1 text-[12px] text-slate-400">
+            Belum ada notifikasi baru.
+          </p>
         </div>
       )}
       {activeView === "lapor" && (
         <div className="rounded-3xl border border-slate-200/80 bg-white/70 p-5 text-center">
-          <p className="text-[15px] font-semibold text-slate-700">Lapor Masalah</p>
-          <p className="mt-1 text-[12px] text-slate-400">Fitur pelaporan segera hadir.</p>
+          <p className="text-[15px] font-semibold text-slate-700">
+            Lapor Masalah
+          </p>
+          <p className="mt-1 text-[12px] text-slate-400">
+            Fitur pelaporan segera hadir.
+          </p>
         </div>
       )}
       {activeView === "data" && dataViewContent}
@@ -238,23 +255,29 @@ export function BuggyList({
               Pilih Armada
             </h2>
             <span className="rounded-full bg-[#0f1a3b] px-2.5 py-1 text-[10px] font-semibold text-white">
-              {activeFleetLabel(buggies)}
+              {activeFleetLabel(activeSortedBuggies)}
             </span>
           </div>
-          <div className="space-y-3">
-            {sortedBuggies.map((buggy) => (
-              <BuggyCard
-                key={buggy.id}
-                buggy={buggy}
-                isSelected={selectedBuggyId === buggy.id}
-                onFocus={onFocusBuggy}
-                onSelect={(id) => {
-                  onSelectBuggy(id);
-                  setBuggyViewMode("detail");
-                }}
-              />
-            ))}
-          </div>
+          {activeSortedBuggies.length === 0 ? (
+            <p className="rounded-2xl border border-dashed border-slate-200 bg-slate-50 px-4 py-3 text-center text-[13px] text-slate-500">
+              tidak ada buggy yang aktif saat ini
+            </p>
+          ) : (
+            <div className="space-y-3">
+              {activeSortedBuggies.map((buggy) => (
+                <BuggyCard
+                  key={buggy.id}
+                  buggy={buggy}
+                  isSelected={selectedBuggyId === buggy.id}
+                  onFocus={onFocusBuggy}
+                  onSelect={(id) => {
+                    onSelectBuggy(id);
+                    setBuggyViewMode("detail");
+                  }}
+                />
+              ))}
+            </div>
+          )}
         </div>
       ) : null}
 
@@ -272,13 +295,19 @@ export function BuggyList({
       {activeView === "notifikasi" && (
         <div className="rounded-3xl border border-slate-200/80 bg-white/70 p-5 text-center">
           <p className="text-[15px] font-semibold text-slate-700">Notifikasi</p>
-          <p className="mt-1 text-[12px] text-slate-400">Belum ada notifikasi baru.</p>
+          <p className="mt-1 text-[12px] text-slate-400">
+            Belum ada notifikasi baru.
+          </p>
         </div>
       )}
       {activeView === "lapor" && (
         <div className="rounded-3xl border border-slate-200/80 bg-white/70 p-5 text-center">
-          <p className="text-[15px] font-semibold text-slate-700">Lapor Masalah</p>
-          <p className="mt-1 text-[12px] text-slate-400">Fitur pelaporan segera hadir.</p>
+          <p className="text-[15px] font-semibold text-slate-700">
+            Lapor Masalah
+          </p>
+          <p className="mt-1 text-[12px] text-slate-400">
+            Fitur pelaporan segera hadir.
+          </p>
         </div>
       )}
       {activeView === "data" && dataViewContent}
