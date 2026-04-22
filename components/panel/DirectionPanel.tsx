@@ -92,14 +92,12 @@ export function DirectionPanel({ result, onClose }: DirectionPanelProps) {
 
         <div className="ml-3 border-l-2 border-amber-300 pl-3">
           <div className="rounded-lg border border-amber-200 bg-amber-50 px-2.5 py-2">
-            <div className="mb-1 flex items-center justify-between gap-2">
-              <div className="rounded-md bg-white p-1 text-amber-700">
-                <BuggyIcon
-                  className="h-3.5 w-3.5"
-                  aria-label="Perjalanan buggy"
-                />
-              </div>
-              <span className="rounded-md bg-white px-1.5 py-0.5 text-[9px] font-medium text-amber-700">
+            <div className="mb-1 flex items-center gap-1.5 text-amber-800">
+              <BuggyIcon
+                className="h-3.5 w-3.5 shrink-0"
+                aria-label="Perjalanan buggy"
+              />
+              <span className="text-[10px] font-medium">
                 {result.routeStopNames.length} halte
               </span>
             </div>
