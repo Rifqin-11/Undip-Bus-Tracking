@@ -62,13 +62,17 @@ function nowMs(): number {
   return Date.now();
 }
 
-const HALTE_ARRIVAL_RADIUS_METERS = 10;
+const HALTE_ARRIVAL_RADIUS_METERS = 20;
 // Keep progression directional to avoid jumping to opposite-side nearby haltes.
 const MAX_SKIP_AHEAD_STOPS = 0;
 const ACTIVE_TELEMETRY_WINDOW_MS = 15_000;
 // If the nearest halte (by route-cursor proximity) is this many steps OR MORE ahead
 // of currentStopIndex in the forward loop, auto-resync instead of staying stuck.
 const RESYNC_THRESHOLD_STOPS = 3;
+// Maximum physical distance (meters) to the candidate resync halte.
+// Even if the route cursor says we are near halte X, we only resync if the
+// buggy is within this radius of that halte geographically.
+const RESYNC_MAX_GEO_DISTANCE_METERS = 50;
 const HALTE_PATH_CURSORS = HALTE_LOCATIONS.map((halte) =>
   findNearestPathIndex(halte.lat, halte.lng),
 );
@@ -185,7 +189,21 @@ function resolveCurrentStopIndexFromPosition(
     forwardSteps >= RESYNC_THRESHOLD_STOPS &&
     forwardSteps <= maxForwardResync
   ) {
-    return nearestIndex;
+    // Guard: only commit the resync if the buggy is also physically close to
+    // the candidate halte. Without this check a buggy that is still hundreds
+    // of metres away but happens to share the nearest route-cursor segment
+    // would be incorrectly teleported to that halte.
+    const nearestHalte = HALTE_LOCATIONS[nearestIndex];
+    const geoDistanceToNearestHalte = nearestHalte
+      ? haversineMeters(
+          { lat, lng },
+          { lat: nearestHalte.lat, lng: nearestHalte.lng },
+        )
+      : Number.POSITIVE_INFINITY;
+
+    if (geoDistanceToNearestHalte <= RESYNC_MAX_GEO_DISTANCE_METERS) {
+      return nearestIndex;
+    }
   }
 
   // 3. Default: stay at current stop index (buggy is between haltes or behind us)
