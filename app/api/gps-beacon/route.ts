@@ -4,6 +4,11 @@ import {
   createAdminClient,
   getBuggyHistoryTableName,
 } from "@/lib/supabase/server";
+import {
+  startSession,
+  addPoint,
+  finalizeSession,
+} from "@/lib/realtime/session-store";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -28,11 +33,13 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
   }
 
+  // Allow sessionEnd requests without lat/lng
+  const b = body as Record<string, unknown>;
+  const isSessionEnd = b.sessionEnd === true;
+
   if (
-    typeof body !== "object" ||
-    body === null ||
-    typeof (body as Record<string, unknown>).lat !== "number" ||
-    typeof (body as Record<string, unknown>).lng !== "number"
+    !isSessionEnd &&
+    (typeof b.lat !== "number" || typeof b.lng !== "number")
   ) {
     return NextResponse.json(
       { error: "Missing required fields: lat, lng" },
@@ -49,10 +56,21 @@ export async function POST(request: NextRequest) {
     heading,
     altitude,
     forceResync,
-  } = body as Record<string, unknown>;
+    batteryLevel,
+    sessionStart,
+    sessionEnd,
+  } = b;
 
   const numericBuggyId = Number(buggyId);
+  const buggyIdNormalized = `buggy-${numericBuggyId}`;
 
+  // ── Session: handle end FIRST (no GPS data needed) ───────────────────────
+  if (sessionEnd === true) {
+    await finalizeSession(buggyIdNormalized);
+    return NextResponse.json({ ok: true, sessionEnded: true, buggyId: numericBuggyId });
+  }
+
+  // ── Live store ingest ─────────────────────────────────────────────────────
   const telemetryPayload = {
     telemetry: [
       {
@@ -101,6 +119,12 @@ export async function POST(request: NextRequest) {
         speed_kmh: typeof speedKmh === "number" ? speedKmh : 0,
         heading: typeof heading === "number" ? heading : null,
         altitude: typeof altitude === "number" ? altitude : null,
+        battery_level:
+          typeof batteryLevel === "number" &&
+          batteryLevel >= 0 &&
+          batteryLevel <= 100
+            ? Math.round(batteryLevel)
+            : null,
         source: "iphone_gps",
         recorded_at: new Date().toISOString(),
       });
@@ -110,6 +134,29 @@ export async function POST(request: NextRequest) {
       }
     }
   }
+
+  // ── Session store: start / accumulate ─────────────────────────────────────
+  const recordedAt = new Date().toISOString();
+
+  if (sessionStart === true) {
+    startSession(buggyIdNormalized, numericBuggyId);
+  }
+
+  addPoint(buggyIdNormalized, numericBuggyId, {
+    lat: Number(lat),
+    lng: Number(lng),
+    speedKmh: typeof speedKmh === "number" ? speedKmh : null,
+    accuracy: typeof accuracy === "number" ? accuracy : null,
+    heading: typeof heading === "number" ? heading : null,
+    altitude: typeof altitude === "number" ? altitude : null,
+    batteryLevel:
+      typeof batteryLevel === "number" &&
+      batteryLevel >= 0 &&
+      batteryLevel <= 100
+        ? Math.round(batteryLevel)
+        : null,
+    recordedAt,
+  });
 
   return NextResponse.json({
     ok: true,

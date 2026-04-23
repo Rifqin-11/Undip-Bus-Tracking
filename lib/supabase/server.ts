@@ -64,3 +64,10 @@ export function getBuggyHistoryTableName() {
     "buggy_history"
   );
 }
+
+export function getBuggySessionTableName() {
+  return (
+    process.env.SUPABASE_BUGGY_SESSION_TABLE ??
+    "buggy_session_history"
+  );
+}

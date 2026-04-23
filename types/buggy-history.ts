@@ -9,4 +9,6 @@ export type BuggyHistoryEntry = {
   altitude: number | null;
   source: string | null;
   recordedAt: string;
+  /** Battery level 0–100 (%), null if not reported */
+  batteryLevel: number | null;
 };

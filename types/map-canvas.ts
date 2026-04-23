@@ -92,4 +92,6 @@ export type MapCanvasProps = {
   onBuggyMarkerClick?: (buggyId: string) => void;
   onHalteMarkerClick?: (halteId: string) => void;
   focusHaltes?: boolean;
+  /** GPS history trail path to render on the map as a coloured polyline */
+  historyPath?: [number, number][];
 };

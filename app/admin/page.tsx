@@ -7,6 +7,7 @@ import { FloatingSidebar } from "@/components/sidebar/FloatingSidebar";
 import { MobileBottomNav } from "@/components/sidebar/MobileBottomNav";
 import { LiveSearchBar } from "@/components/search/LiveSearchBar";
 import { AdminDataSection } from "@/components/panel/AdminDataSection";
+import { HistoryPanel } from "@/components/panel/HistoryPanel";
 import { ToastStack } from "@/components/ui/ToastStack";
 import type { ToastItem } from "@/components/ui/ToastStack";
 import {
@@ -137,6 +138,7 @@ export default function DashboardPage() {
   const [toasts, setToasts] = useState<ToastItem[]>([]);
   const [browserNotificationEnabled, setBrowserNotificationEnabled] =
     useState(false);
+  const [historyPath, setHistoryPath] = useState<[number, number][]>([]);
 
   const geofenceMembershipRef = useRef<Map<string, boolean>>(new Map());
   const geofenceCooldownRef = useRef<Map<string, number>>(new Map());
@@ -180,6 +182,10 @@ export default function DashboardPage() {
   const handleSelectView = (view: PanelView) => {
     setActiveView(view);
     setPanelOpen(true);
+    // Clear history path when leaving history view
+    if (view !== "history") {
+      setHistoryPath([]);
+    }
   };
 
   const handleInfoWindowClose = useCallback(() => {
@@ -706,6 +712,7 @@ export default function DashboardPage() {
   const mapRoutePath = activeView === "buggy" ? OFFICIAL_ROUTE_PATH : [];
   const mapDirectionPath =
     activeView === "buggy" ? (directionResult?.directionPath ?? []) : [];
+  const mapHistoryPath = activeView === "history" ? historyPath : [];
 
   return (
     <main className="relative h-screen w-screen overflow-hidden bg-slate-100">
@@ -727,6 +734,7 @@ export default function DashboardPage() {
         onBuggyMarkerClick={handleBuggyMarkerClick}
         onHalteMarkerClick={handleHalteMarkerClick}
         focusHaltes={activeView === "halte"}
+        historyPath={mapHistoryPath}
       />
 
       <ToastStack toasts={toasts} />
@@ -788,6 +796,14 @@ export default function DashboardPage() {
             onToggleGeofence={handleToggleGeofence}
             onDeleteGeofence={handleDeleteGeofence}
             onToggleBrowserNotification={handleToggleBrowserNotification}
+          />
+        }
+        historyViewContent={
+          <HistoryPanel
+            buggies={liveBuggies}
+            onShowPath={(path) => {
+              setHistoryPath(path);
+            }}
           />
         }
       />

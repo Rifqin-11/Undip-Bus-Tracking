@@ -9,6 +9,7 @@ import {
   LogoutIcon,
   DataIcon,
   ChatIcon,
+  HistoryIcon,
 } from "@/components/ui/Icons";
 import type { PanelView } from "@/types/buggy";
 
@@ -75,6 +76,17 @@ export function MobileBottomNav({
           onClick={() => onSelectView("data")}
         >
           <DataIcon className="h-6 w-6" />
+        </button>
+      )}
+
+      {shouldShowDataButton && (
+        <button
+          type="button"
+          className={`${navButtonBase} ${activeView === "history" ? activeButtonClass : inactiveButtonClass}`}
+          aria-label="History"
+          onClick={() => onSelectView("history")}
+        >
+          <HistoryIcon className="h-6 w-6" />
         </button>
       )}
 

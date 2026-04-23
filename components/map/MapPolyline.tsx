@@ -38,3 +38,13 @@ export const WALKING_POLYLINE_OPTIONS = {
     },
   ],
 } as const;
+
+/** GPS history trail: bright magenta/purple line shown in "history" admin view */
+export const HISTORY_POLYLINE_OPTIONS = {
+  geodesic: true,
+  strokeColor: "#e11d48",
+  strokeOpacity: 0.85,
+  strokeWeight: 3,
+  clickable: false,
+  zIndex: 7,
+} as const;

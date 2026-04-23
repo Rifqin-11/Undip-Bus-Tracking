@@ -23,6 +23,7 @@ type ApiStatus = "idle" | "sending" | "ok" | "error";
 
 type SendGpsOptions = {
   forceResync?: boolean;
+  batteryLevel?: number | null;
 };
 
 // ─── Component ────────────────────────────────────────────────────────────────
@@ -35,6 +36,7 @@ export default function GpsTrackerPage() {
   const [lastSent, setLastSent] = useState<string | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [log, setLog] = useState<string[]>([]);
+  const [batteryLevel, setBatteryLevel] = useState<number | null>(null);
 
   // Settings
   const [buggyId, setBuggyId] = useState(DEFAULT_BUGGY_ID);
@@ -46,10 +48,32 @@ export default function GpsTrackerPage() {
   const isTrackingRef = useRef(false);
   const gpsSignalLostRef = useRef(false);
   const forceResyncNextSendRef = useRef(false);
+  const batteryLevelRef = useRef<number | null>(null);
+  /** Next GPS send will include sessionStart: true to start a new session */
+  const sessionStartNextSendRef = useRef(false);
 
   const addLog = useCallback((msg: string) => {
     const time = new Date().toLocaleTimeString("id-ID");
     setLog((prev) => [`[${time}] ${msg}`, ...prev].slice(0, 50));
+  }, []);
+
+  // ── Battery API ───────────────────────────────────────────────────────────
+
+  useEffect(() => {
+    if (typeof navigator === "undefined" || !("getBattery" in navigator)) return;
+    type BatteryManager = { level: number; addEventListener: (e: string, h: () => void) => void };
+    void (navigator as unknown as { getBattery: () => Promise<BatteryManager> })
+      .getBattery()
+      .then((battery) => {
+        const update = () => {
+          const pct = Math.round(battery.level * 100);
+          setBatteryLevel(pct);
+          batteryLevelRef.current = pct;
+        };
+        update();
+        battery.addEventListener("levelchange", update);
+      })
+      .catch(() => { /* Battery API not available */ });
   }, []);
 
   // ── Send GPS to API ───────────────────────────────────────────────────────
@@ -57,6 +81,8 @@ export default function GpsTrackerPage() {
   const sendGps = useCallback(
     async (c: GpsCoords, id: number, options?: SendGpsOptions) => {
       const shouldForceResync = options?.forceResync === true;
+      const shouldStartSession = sessionStartNextSendRef.current;
+      if (shouldStartSession) sessionStartNextSendRef.current = false; // consume flag
       setApiStatus("sending");
       try {
         const res = await fetch("/api/gps-beacon", {
@@ -71,6 +97,8 @@ export default function GpsTrackerPage() {
             heading: c.heading,
             altitude: c.altitude,
             forceResync: shouldForceResync,
+            batteryLevel: batteryLevelRef.current,
+            sessionStart: shouldStartSession || undefined,
           }),
         });
 
@@ -118,6 +146,7 @@ export default function GpsTrackerPage() {
     isTrackingRef.current = true;
     gpsSignalLostRef.current = false;
     forceResyncNextSendRef.current = false;
+    sessionStartNextSendRef.current = true; // flag: next ping starts a new session
 
     watchIdRef.current = navigator.geolocation.watchPosition(
       (pos) => {
@@ -195,10 +224,20 @@ export default function GpsTrackerPage() {
     coordsRef.current = null;
     gpsSignalLostRef.current = false;
     forceResyncNextSendRef.current = false;
+    sessionStartNextSendRef.current = false;
     setTrackStatus("idle");
     setApiStatus("idle");
-    addLog("🛑 Tracking dihentikan");
-  }, [addLog]);
+    addLog("🛑 Tracking dihentikan — menyimpan sesi...");
+
+    // Signal session end to server (fire-and-forget)
+    void fetch("/api/gps-beacon", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ buggyId, sessionEnd: true }),
+    })
+      .then(() => addLog("💾 Sesi berhasil disimpan ke history"))
+      .catch(() => addLog("⚠️ Gagal menyimpan sesi — akan otomatis tersimpan dalam 5 menit"));
+  }, [addLog, buggyId]);
 
   useEffect(
     () => () => {
@@ -252,6 +291,12 @@ export default function GpsTrackerPage() {
           />
           <Pill label={`API ${apiDot}`} value={apiStatus} />
           <Pill label="📤" value={`${sendCount}x`} highlight />
+          {batteryLevel !== null && (
+            <Pill
+              label={batteryLevel > 20 ? "🔋" : "🪫"}
+              value={`${batteryLevel}%`}
+            />
+          )}
         </div>
       </header>
 

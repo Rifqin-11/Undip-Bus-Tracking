@@ -68,6 +68,9 @@ export function mapBuggyHistoryRow(
     altitude: asNumber(row.altitude),
     source: asString(getFirstDefined([row.source, row.tag])),
     recordedAt,
+    batteryLevel: asNumber(
+      getFirstDefined([row.battery_level, row.batteryLevel, row.battery]),
+    ),
   };
 }
 

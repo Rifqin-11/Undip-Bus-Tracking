@@ -9,6 +9,7 @@ import {
   LogoutIcon,
   DataIcon,
   ChatIcon,
+  HistoryIcon,
 } from "@/components/ui/Icons";
 import { DESKTOP_LAYOUT } from "@/lib/presenters/layout-metrics";
 import type { PanelView } from "@/types/buggy";
@@ -75,6 +76,16 @@ export function FloatingSidebar({
             onClick={() => onSelectView("data")}
           >
             <DataIcon className="h-5 w-5" />
+          </button>
+        ) : null}
+        {shouldShowDataButton ? (
+          <button
+            className={`${actionButtonClass} ${activeView === "history" ? "bg-[#0f1a3b] text-white" : "text-slate-600 hover:bg-slate-100"}`}
+            aria-label="History"
+            type="button"
+            onClick={() => onSelectView("history")}
+          >
+            <HistoryIcon className="h-5 w-5" />
           </button>
         ) : null}
         <button

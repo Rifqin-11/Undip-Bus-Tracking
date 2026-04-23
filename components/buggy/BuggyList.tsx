@@ -33,6 +33,7 @@ type BuggyListProps = {
   directionResult?: DirectionResult | null;
   onCloseDirection?: () => void;
   dataViewContent?: ReactNode;
+  historyViewContent?: ReactNode;
 };
 
 export function BuggyList({
@@ -48,6 +49,7 @@ export function BuggyList({
   directionResult = null,
   onCloseDirection,
   dataViewContent,
+  historyViewContent,
 }: BuggyListProps) {
   const [buggyViewMode, setBuggyViewMode] = useState<"list" | "detail">("list");
   const [halteViewMode, setHalteViewMode] = useState<"list" | "detail">("list");
@@ -227,6 +229,7 @@ export function BuggyList({
         </div>
       )}
       {activeView === "data" && dataViewContent}
+      {activeView === "history" && historyViewContent}
     </>
   );
 
@@ -311,6 +314,7 @@ export function BuggyList({
         </div>
       )}
       {activeView === "data" && dataViewContent}
+      {activeView === "history" && historyViewContent}
     </>
   );
 

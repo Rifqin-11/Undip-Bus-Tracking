@@ -22,8 +22,8 @@ export const HALTE_LOCATIONS: HaltePoint[] = [
   {
     id: "h03",
     name: "Pos Satpam Astina Undip",
-    lat: -7.0556189,
-    lng: 110.4393167,
+    lat: -7.0556100,
+    lng: 110.4391,
   },
   {
     id: "h04",

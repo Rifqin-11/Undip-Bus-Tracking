@@ -21,6 +21,7 @@ import {
 } from "@/components/map/MapMarker";
 import {
   DIRECTION_POLYLINE_OPTIONS,
+  HISTORY_POLYLINE_OPTIONS,
   ROUTE_POLYLINE_OPTIONS,
   WALKING_POLYLINE_OPTIONS,
 } from "@/components/map/MapPolyline";
@@ -87,6 +88,7 @@ export function MapCanvas({
   geofences = [],
   geofenceCreateMode = false,
   focusHaltes = false,
+  historyPath = [],
   selectedBuggyId,
   selectedHalteId,
   centerTarget,
@@ -108,6 +110,7 @@ export function MapCanvas({
   const directionPolylineRef = useRef<PolylineHandle | null>(null);
   const walkingToPolylineRef = useRef<PolylineHandle | null>(null);
   const walkingFromPolylineRef = useRef<PolylineHandle | null>(null);
+  const historyPolylineRef = useRef<PolylineHandle | null>(null);
   const originMarkerRef = useRef<MarkerHandle | null>(null);
   const destinationMarkerRef = useRef<MarkerHandle | null>(null);
   const geofenceCirclesRef = useRef<Map<string, CircleHandle>>(new Map());
@@ -197,6 +200,7 @@ export function MapCanvas({
       directionPolylineRef.current?.setMap(null);
       walkingToPolylineRef.current?.setMap(null);
       walkingFromPolylineRef.current?.setMap(null);
+      historyPolylineRef.current?.setMap(null);
       originMarkerRef.current?.setMap(null);
       destinationMarkerRef.current?.setMap(null);
       geofenceCircles.forEach((circle) => circle.setMap(null));
@@ -266,6 +270,25 @@ export function MapCanvas({
           })
         : null;
   }, [directionPath, mapReady, walkingFromHaltePath, walkingToHaltePath]);
+
+  // ── Render GPS history trail polyline ────────────────────────────────────
+
+  useEffect(() => {
+    if (!mapReady || !mapInstanceRef.current || !mapsApiRef.current) return;
+
+    const map = mapInstanceRef.current;
+    const maps = mapsApiRef.current;
+
+    historyPolylineRef.current?.setMap(null);
+    historyPolylineRef.current =
+      historyPath.length > 1
+        ? new maps.Polyline({
+            map,
+            path: historyPath.map(([lat, lng]) => ({ lat, lng })),
+            ...HISTORY_POLYLINE_OPTIONS,
+          })
+        : null;
+  }, [historyPath, mapReady]);
 
   // ── Render geofence circles ───────────────────────────────────────────────
 
