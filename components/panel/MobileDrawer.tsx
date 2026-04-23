@@ -1,6 +1,12 @@
 "use client";
 
-import { useEffect, useState, useCallback, useRef, type ReactNode } from "react";
+import {
+  useEffect,
+  useState,
+  useCallback,
+  useRef,
+  type ReactNode,
+} from "react";
 import {
   motion,
   useMotionValue,
@@ -24,10 +30,15 @@ type MobileDrawerProps = {
 };
 
 const CARD_MARGIN_X = 12; // px each side in half mode
-const CARD_HEIGHT = 300;  // px – fixed card height in half mode
+const CARD_HEIGHT = 300; // px – fixed card height in half mode
 
 /** Spring config – snappy but not bouncy */
-const SPRING = { type: "spring", stiffness: 440, damping: 40, mass: 0.85 } as const;
+const SPRING = {
+  type: "spring",
+  stiffness: 440,
+  damping: 40,
+  mass: 0.85,
+} as const;
 /**
  * Close spring – overdamped (damping > 2*sqrt(stiffness)) so height
  * never overshoots below 0, which would cause a backdrop-filter flash.
@@ -38,8 +49,8 @@ const CLOSE_SPRING = { type: "spring", stiffness: 360, damping: 52 } as const;
  * Sensitivity thresholds – intentionally LOW so even slow drags register.
  * Velocity: px/s  |  Distance: px
  */
-const VEL = 120;  // px/s  (was 300)
-const DIST = 20;  // px    (was 50)
+const VEL = 120; // px/s  (was 300)
+const DIST = 20; // px    (was 50)
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Component
@@ -152,7 +163,10 @@ export function MobileDrawer({ open, onClose, children }: MobileDrawerProps) {
     (_: PointerEvent, info: PanInfo) => {
       if (snap === "half") {
         /** Drag down = shrink height; drag up = grow (capped at CARD_HEIGHT for half) */
-        const next = Math.max(0, Math.min(CARD_HEIGHT, CARD_HEIGHT - info.offset.y));
+        const next = Math.max(
+          0,
+          Math.min(CARD_HEIGHT, CARD_HEIGHT - info.offset.y),
+        );
         cardHeight.set(next);
       } else {
         /** In full mode also shrink from top (same visual as sliding down) */
@@ -179,7 +193,10 @@ export function MobileDrawer({ open, onClose, children }: MobileDrawerProps) {
   const onContentPan = useCallback(
     (_: PointerEvent, info: PanInfo) => {
       if (snap !== "half") return;
-      const next = Math.max(0, Math.min(CARD_HEIGHT, CARD_HEIGHT - info.offset.y));
+      const next = Math.max(
+        0,
+        Math.min(CARD_HEIGHT, CARD_HEIGHT - info.offset.y),
+      );
       cardHeight.set(next);
     },
     [snap, cardHeight],
@@ -228,7 +245,10 @@ export function MobileDrawer({ open, onClose, children }: MobileDrawerProps) {
       {/* ── Backdrop ──────────────────────────────────────────────────── */}
       <motion.div
         className="fixed inset-0 z-40 bg-black/30 backdrop-blur-[2px] xl:hidden"
-        animate={{ opacity: showBackdrop ? 1 : 0, pointerEvents: showBackdrop ? "auto" : "none" }}
+        animate={{
+          opacity: showBackdrop ? 1 : 0,
+          pointerEvents: showBackdrop ? "auto" : "none",
+        }}
         transition={{ duration: 0.22 }}
         onClick={goToHalf}
         aria-hidden="true"
@@ -244,6 +264,7 @@ export function MobileDrawer({ open, onClose, children }: MobileDrawerProps) {
            */
           height: cardHeight,
           opacity: cardOpacity,
+          pointerEvents: open ? "auto" : "none",
           // Frosted glass
           backdropFilter: "blur(20px) saturate(1.8)",
           WebkitBackdropFilter: "blur(20px) saturate(1.8)",
@@ -257,13 +278,15 @@ export function MobileDrawer({ open, onClose, children }: MobileDrawerProps) {
         }}
         animate={shapeAnimate}
         transition={SPRING}
-        className="z-[80] flex flex-col xl:hidden"
+        className="z-80 flex flex-col xl:hidden"
       >
         {/* ── Drag handle ──────────────────────────────────────────────── */}
         <motion.div
           onPan={onHandlePan}
           onPanEnd={onHandlePanEnd}
-          onTap={() => { if (snap === "half") goToFull(); }}
+          onTap={() => {
+            if (snap === "half") goToFull();
+          }}
           className="absolute inset-x-0 top-0 z-10 flex shrink-0 touch-none select-none flex-col cursor-grab active:cursor-grabbing"
           aria-label="Seret atau ketuk untuk membuka panel"
         >
@@ -289,9 +312,11 @@ export function MobileDrawer({ open, onClose, children }: MobileDrawerProps) {
               </h2>
             </motion.div>
             <div className="flex items-center gap-2">
-              <span className="rounded-full bg-emerald-100 px-2.5 py-1 text-[11px] font-semibold text-emerald-700">
-                Live
-              </span>
+              <motion.div style={{ opacity: headerTextOpacity }}>
+                <span className="rounded-full bg-emerald-100 px-2.5 py-1 text-[11px] font-semibold text-emerald-700">
+                  Live
+                </span>
+              </motion.div>
               <button
                 type="button"
                 onPointerDown={(e) => e.stopPropagation()}

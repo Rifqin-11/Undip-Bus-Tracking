@@ -3,6 +3,7 @@ import type { Geofence } from "@/types/geofence";
 import type { LatLngLiteral } from "@/types/map-canvas";
 import { TrashIcon, PencilIcon } from "@/components/ui/Icons";
 import { DeleteConfirmModal } from "@/components/ui/DeleteConfirmModal";
+import { Plus, X } from "lucide-react";
 
 type GeofenceManagerProps = {
   geofences: Geofence[];
@@ -76,7 +77,7 @@ export function GeofenceManager({
                 : "bg-[#0f1a3b] text-white hover:bg-[#162656]"
             }`}
           >
-            {geofenceCreateMode ? "Batal" : "+"}
+            {geofenceCreateMode ? <X className="size-4"/> : <Plus className="size-4"/>}
           </button>
         </div>
       </div>

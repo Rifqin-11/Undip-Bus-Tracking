@@ -142,14 +142,17 @@ export function HalteDetailView({
   };
 
   return (
-    <section className="mt-4 w-full min-w-0 overflow-x-hidden rounded-3xl border border-slate-200/80 bg-white/80 p-3">
-      <div className="mb-3 flex min-w-0 items-start gap-3 rounded-2xl bg-slate-100 p-3">
-        <div className="grid h-10 w-10 shrink-0 place-items-center rounded-2xl bg-emerald-500 text-sm font-bold text-white">
+    <section className="mt-3 min-w-0 items-start">
+      <div className="mb-3 flex items-start gap-3 rounded-[20px] border border-white/60 bg-white/40 backdrop-blur-md p-3 shadow-sm transition-all">
+        <div className="grid h-10 w-10 shrink-0 place-items-center rounded-2xl bg-[#0f1a3b] shadow-md text-sm font-bold text-white transition-transform hover:scale-105">
           <BusStopIcon className="h-5 w-5" />
         </div>
 
-        <div className="min-w-0 flex-1">
-          <h3 className=" wrap-break-words text-lg leading-tight font-bold text-slate-900">
+        <div className="min-w-0 flex-1 flex flex-col justify-center">
+          <p className="text-[10px] font-semibold uppercase tracking-widest text-slate-500 mb-0.5">
+            Detail Halte
+          </p>
+          <h3 className="truncate text-lg leading-tight font-bold text-slate-900 tracking-tight">
             {halte.name}
           </h3>
         </div>
@@ -158,107 +161,111 @@ export function HalteDetailView({
           type="button"
           aria-label="Kembali"
           onClick={onBack}
-          className="grid h-9 w-9 shrink-0 place-items-center rounded-full border border-slate-300 bg-white text-slate-700 shadow-sm transition hover:bg-slate-50"
+          className="grid h-9 w-9 shrink-0 place-items-center rounded-xl border border-slate-300/60 bg-white/60 text-slate-700 shadow-sm transition hover:bg-white active:scale-95"
         >
           <ChevronLeftIcon className="h-4 w-4" />
         </button>
       </div>
 
-      <figure className="relative mb-3 overflow-hidden rounded-2xl border border-slate-200 bg-slate-100">
-        {/* Skeleton saat Street View belum dimuat */}
-        {!imageUrl && !svError && (
-          <div className="flex h-44 w-full animate-pulse items-center justify-center bg-slate-200">
-            <MapPinOutlineIcon className="h-8 w-8 text-slate-400" />
-          </div>
-        )}
+      <div className="mt-4 w-full min-w-0 overflow-x-hidden rounded-3xl border border-slate-200/80 bg-white/70 p-3">
+        <figure className="relative mb-3 overflow-hidden rounded-[20px] border border-white/60 bg-white/70 backdrop-blur-md shadow-sm">
+          {/* Skeleton saat Street View belum dimuat */}
+          {!imageUrl && !svError && (
+            <div className="flex h-44 w-full animate-pulse items-center justify-center bg-white/40">
+              <MapPinOutlineIcon className="h-8 w-8 text-slate-400" />
+            </div>
+          )}
 
-        {/* Street View dimuat setelah panel terbuka */}
-        {imageUrl && !svError && (
-          <img
-            src={imageUrl}
-            alt={`Street View ${halte.name}`}
-            className="h-44 w-full object-cover"
-            onError={() => setSvError(true)}
-          />
-        )}
+          {/* Street View dimuat setelah panel terbuka */}
+          {imageUrl && !svError && (
+            <img
+              src={imageUrl}
+              alt={`Street View ${halte.name}`}
+              className="h-44 w-full object-cover mix-blend-multiply opacity-95"
+              onError={() => setSvError(true)}
+            />
+          )}
 
-        {/* Fallback jika gambar gagal dimuat */}
-        {svError && (
-          <div className="flex h-44 w-full flex-col items-center justify-center gap-2 bg-slate-100 text-slate-400">
-            <EyeIcon className="h-8 w-8" />
-            <p className="text-[12px]">Gambar tidak tersedia</p>
-          </div>
-        )}
+          {/* Fallback jika gambar gagal dimuat */}
+          {svError && (
+            <div className="flex h-44 w-full flex-col items-center justify-center gap-2 bg-white/40 text-slate-400">
+              <EyeIcon className="h-8 w-8" />
+              <p className="text-[12px] font-medium">Gambar tidak tersedia</p>
+            </div>
+          )}
 
-        <figcaption className="absolute inset-x-0 bottom-0 bg-linear-to-t from-black/60 to-transparent p-3">
-          <p className="text-[14px] font-semibold text-white">{halte.name}</p>
-          <p className="text-[11px] text-white/80">
-            {imageType === "streetview"
-              ? "Street View · Google Maps"
-              : "Citra Satelit · Google Maps"}
-          </p>
-        </figcaption>
-      </figure>
+          <figcaption className="absolute inset-x-0 bottom-0 bg-linear-to-t from-black/70 to-transparent p-3 pt-6">
+            <p className="text-[14px] font-bold tracking-tight text-white">
+              {halte.name}
+            </p>
+            <p className="text-[11px] font-medium text-white/80">
+              {imageType === "streetview"
+                ? "Street View · Google Maps"
+                : "Citra Satelit · Google Maps"}
+            </p>
+          </figcaption>
+        </figure>
 
-      <div className="mb-3 grid w-full min-w-0 grid-cols-3 gap-2 min-[360px]:gap-2.5">
-        <a
-          href={mapsUrl}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="flex items-center justify-center gap-1.5 rounded-xl border border-slate-200 bg-white p-2.5 text-[12px] font-semibold text-slate-700 transition hover:bg-slate-50"
-        >
-          <NavigateIcon className="h-4 w-4" />
-          <span className="truncate">Arahkan</span>
-        </a>
+        <div className="mb-3 grid w-full min-w-0 grid-cols-3 gap-2 min-[360px]:gap-2.5">
+          <a
+            href={mapsUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center justify-center gap-1.5 rounded-[16px] border border-white/60 bg-white/60 backdrop-blur-md p-2.5 text-[12px] font-bold text-slate-800 shadow-sm transition hover:bg-white hover:shadow-md active:scale-95"
+          >
+            <NavigateIcon className="h-4 w-4" />
+            <span className="truncate">Arahkan</span>
+          </a>
 
-        <button
-          type="button"
-          onClick={handleShare}
-          className="flex min-w-0 items-center justify-center gap-1 rounded-xl border border-slate-200 bg-white p-2 text-[11px] font-semibold text-slate-700 transition hover:bg-slate-50 min-[360px]:gap-1.5 min-[360px]:p-2.5 min-[360px]:text-[12px]"
-        >
-          <ShareIcon className="h-4 w-4" />
-          <span className="truncate">Bagikan</span>
-        </button>
+          <button
+            type="button"
+            onClick={handleShare}
+            className="flex min-w-0 items-center justify-center gap-1 rounded-[16px] border border-white/60 bg-white/60 backdrop-blur-md p-2 text-[11px] font-bold text-slate-800 shadow-sm transition hover:bg-white hover:shadow-md active:scale-95 min-[360px]:gap-1.5 min-[360px]:p-2.5 min-[360px]:text-[12px]"
+          >
+            <ShareIcon className="h-4 w-4" />
+            <span className="truncate">Bagikan</span>
+          </button>
 
-        <a
-          href={`https://www.google.com/maps/@${halte.lat},${halte.lng},18z`}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="flex min-w-0 items-center justify-center gap-1 rounded-xl border border-slate-200 bg-white p-2 text-[11px] font-semibold text-slate-700 transition hover:bg-slate-50 min-[360px]:gap-1.5 min-[360px]:p-2.5 min-[360px]:text-[12px]"
-        >
-          <MapPinIcon className="h-4 w-4" />
-          <span className="truncate">Maps</span>
-        </a>
-      </div>
-
-      <div className="mb-3 grid grid-cols-2 gap-2">
-        <div className="rounded-xl border border-slate-200 bg-slate-50 p-2.5">
-          <p className="text-[10px] font-medium tracking-wide text-slate-400">
-            STATUS
-          </p>
-          <div className="mt-1 flex items-center gap-1.5">
-            <div className="h-2 w-2 rounded-full bg-emerald-500" />
-            <p className="text-[13px] font-semibold text-slate-800">Aktif</p>
-          </div>
+          <a
+            href={`https://www.google.com/maps/@${halte.lat},${halte.lng},18z`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex min-w-0 items-center justify-center gap-1 rounded-[16px] border border-white/60 bg-white/60 backdrop-blur-md p-2 text-[11px] font-bold text-slate-800 shadow-sm transition hover:bg-white hover:shadow-md active:scale-95 min-[360px]:gap-1.5 min-[360px]:p-2.5 min-[360px]:text-[12px]"
+          >
+            <MapPinIcon className="h-4 w-4" />
+            <span className="truncate">Maps</span>
+          </a>
         </div>
 
-        <div className="rounded-xl border border-slate-200 bg-slate-50 p-2.5">
-          <p className="text-[10px] font-medium tracking-wide text-slate-400">
-            RUTE
-          </p>
-          <p className="mt-1 text-[13px] font-semibold text-slate-800">
-            Loop Utama
-          </p>
+        <div className="mb-3 grid grid-cols-2 gap-2">
+          <div className="rounded-[20px] border border-white/60 bg-white/50 backdrop-blur-md p-3 shadow-sm">
+            <p className="text-[10px] font-bold tracking-widest uppercase text-slate-400">
+              STATUS
+            </p>
+            <div className="mt-1 flex items-center gap-1.5">
+              <div className="h-2.5 w-2.5 rounded-full bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.6)]" />
+              <p className="text-[13px] font-bold text-slate-800">Aktif</p>
+            </div>
+          </div>
+
+          <div className="rounded-[20px] border border-white/60 bg-white/50 backdrop-blur-md p-3 shadow-sm">
+            <p className="text-[10px] font-bold tracking-widest uppercase text-slate-400">
+              RUTE
+            </p>
+            <p className="mt-1 text-[13px] font-bold text-slate-800">
+              Loop Utama
+            </p>
+          </div>
         </div>
       </div>
 
-      <div className="rounded-2xl border border-slate-200 bg-slate-50 p-3">
-        <div className="mb-2.5 flex items-center justify-between">
-          <p className="text-[13px] font-semibold text-slate-700">
+      <div className="mt-3 rounded-[20px] border border-white/60 bg-white/70 backdrop-blur-md p-3.5 shadow-sm">
+        <div className="mb-3 flex items-center justify-between">
+          <p className="text-[14px] font-bold text-slate-800 tracking-tight">
             Jadwal Hari Ini
           </p>
-          <span className="rounded-md bg-emerald-100 px-2 py-0.5 text-[10px] font-medium text-emerald-700">
-            Aktif
+          <span className="rounded-lg bg-emerald-100 px-2 py-0.5 text-[10px] font-bold tracking-wide text-emerald-700">
+            AKTIF
           </span>
         </div>
 
@@ -266,35 +273,35 @@ export function HalteDetailView({
           {schedule.map((time, idx) => (
             <div
               key={idx}
-              className="flex items-center justify-center rounded-lg border border-slate-200 bg-white py-1.5"
+              className="flex items-center justify-center rounded-xl border border-white/80 bg-white/80 py-1.5 shadow-sm transition hover:bg-white"
             >
-              <span className="font-mono text-[12px] font-medium text-slate-700">
+              <span className="font-mono text-[12px] font-bold text-slate-700">
                 {time}
               </span>
             </div>
           ))}
         </div>
 
-        <p className="mt-2.5 rounded-lg bg-slate-100 p-2 text-center text-[10px] leading-relaxed text-slate-600">
-          *Estimasi keberangkatan dapat berubah tergantung pada lalu lintas.
+        <p className="mt-3 text-center text-[10px] font-medium leading-relaxed text-slate-500">
+          *Estimasi keberangkatan dapat berubah tergantung kondisi jalan.
         </p>
       </div>
 
-      <div className="mt-3 rounded-2xl border border-slate-200 bg-slate-50 p-3">
-        <p className="mb-2 text-[13px] font-semibold text-slate-700">
+      <div className="mt-3 rounded-[20px] border border-white/60 bg-white/70 backdrop-blur-md p-3.5 shadow-sm">
+        <p className="mb-2.5 text-[13px] font-bold text-slate-800 tracking-tight">
           Fasilitas Terdekat
         </p>
-        <div className="space-y-1.5">
-          <div className="flex items-center gap-2 text-[12px] text-slate-600">
-            <span className="h-1.5 w-1.5 rounded-full bg-slate-400" />
+        <div className="space-y-2">
+          <div className="flex items-center gap-2.5 text-[12px] font-medium text-slate-600">
+            <span className="h-1.5 w-1.5 rounded-full bg-[#0f1a3b]/60" />
             <span>Gedung kuliah terdekat</span>
           </div>
-          <div className="flex items-center gap-2 text-[12px] text-slate-600">
-            <span className="h-1.5 w-1.5 rounded-full bg-slate-400" />
+          <div className="flex items-center gap-2.5 text-[12px] font-medium text-slate-600">
+            <span className="h-1.5 w-1.5 rounded-full bg-[#0f1a3b]/60" />
             <span>Area parkir tersedia</span>
           </div>
-          <div className="flex items-center gap-2 text-[12px] text-slate-600">
-            <span className="h-1.5 w-1.5 rounded-full bg-slate-400" />
+          <div className="flex items-center gap-2.5 text-[12px] font-medium text-slate-600">
+            <span className="h-1.5 w-1.5 rounded-full bg-[#0f1a3b]/60" />
             <span>Akses ramah disabilitas</span>
           </div>
         </div>

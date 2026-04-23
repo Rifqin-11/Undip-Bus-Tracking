@@ -513,3 +513,41 @@ export function ingestBuggyPayload(payload: unknown): BuggyIngestResult | null {
 
   return null;
 }
+
+export function adminAddBuggyToStore(buggy: Buggy): void {
+  const current = getMutableState();
+  const exists = current.buggies.some((b) => b.id === buggy.id || b.code === buggy.code);
+  if (!exists) {
+    setState({
+      ...current,
+      buggies: [...current.buggies, buggy],
+    });
+  }
+}
+
+export function adminUpdateBuggyInStore(buggyId: string, updates: Partial<Buggy>): void {
+  const current = getMutableState();
+  let updated = false;
+  const nextBuggies = current.buggies.map((b) => {
+    if (b.id === buggyId) {
+      updated = true;
+      return { ...b, ...updates };
+    }
+    return b;
+  });
+
+  if (updated) {
+    setState({
+      ...current,
+      buggies: nextBuggies,
+    });
+  }
+}
+
+export function adminRemoveBuggyFromStore(buggyId: string): void {
+  const current = getMutableState();
+  setState({
+    ...current,
+    buggies: current.buggies.filter((b) => b.id !== buggyId),
+  });
+}
