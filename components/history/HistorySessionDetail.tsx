@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { ChevronLeftIcon, TrashIcon, SpinnerIcon } from "@/components/ui/Icons";
+import { ChevronLeftIcon, TrashIcon } from "@/components/ui/Icons";
+import { DeleteConfirmModal } from "@/components/ui/DeleteConfirmModal";
 import { fmtDate, fmtTime, fmtTimestamp, fmtDuration } from "@/lib/utils/format-time";
 import type { Buggy } from "@/types/buggy";
 import type { BuggySession } from "@/types/buggy-session";
@@ -153,7 +154,7 @@ export function HistorySessionDetail({
           <p className="mb-2 text-[10px] font-semibold uppercase tracking-widest text-slate-400">
             Jalur GPS · {s.path.length} titik
           </p>
-          <div className="max-h-[260px] space-y-1 overflow-y-auto pr-1">
+          <div className="max-h-65 space-y-1 overflow-y-auto pr-1">
             {s.path.map(([lat, lng, tsMs], idx) => (
               <div
                 key={`${lat}-${lng}-${idx}`}
@@ -172,42 +173,16 @@ export function HistorySessionDetail({
         </div>
       )}
 
-      {/* Delete Modal */}
-      {showDeleteModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4 backdrop-blur-sm">
-          <div className="w-full max-w-sm shrink-0 animate-in fade-in zoom-in-95 rounded-[24px] bg-white p-5 shadow-2xl">
-            <div className="mb-4 flex flex-col items-center text-center">
-              <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-rose-100 text-rose-600 shadow-sm">
-                <TrashIcon className="h-6 w-6" />
-              </div>
-              <h3 className="text-[17px] font-bold text-slate-900">Hapus Riwayat Sesi?</h3>
-              <p className="mt-1 text-[13px] text-slate-500 leading-relaxed max-w-[280px]">
-                Data rekaman GPS untuk sesi ini akan dihapus secara permanen dari server. Tindakan ini tidak dapat dibatalkan.
-              </p>
-            </div>
-            
-            <div className="flex gap-2">
-              <button
-                type="button"
-                disabled={isDeleting}
-                onClick={() => setShowDeleteModal(false)}
-                className="flex-1 rounded-xl bg-slate-100 py-2.5 text-[13px] font-semibold text-slate-700 transition hover:bg-slate-200 active:scale-95 disabled:opacity-50"
-              >
-                Batal
-              </button>
-              <button
-                type="button"
-                disabled={isDeleting}
-                onClick={handleDelete}
-                className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-rose-600 py-2.5 text-[13px] font-semibold text-white shadow-md shadow-rose-600/20 transition hover:bg-rose-700 active:scale-95 disabled:opacity-50"
-              >
-                {isDeleting && <SpinnerIcon className="h-4 w-4" />}
-                {isDeleting ? "Menghapus..." : "Ya, Hapus Sesi"}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <DeleteConfirmModal
+        open={showDeleteModal}
+        title="Hapus Riwayat Sesi?"
+        description="Data rekaman GPS untuk sesi ini akan dihapus secara permanen dari server. Tindakan ini tidak dapat dibatalkan."
+        confirmLabel="Ya, Hapus Sesi"
+        loadingLabel="Menghapus..."
+        isLoading={isDeleting}
+        onClose={() => setShowDeleteModal(false)}
+        onConfirm={handleDelete}
+      />
     </section>
   );
 }

@@ -85,6 +85,12 @@ export async function GET(request: NextRequest) {
   const buggyIdFilter = params.get("buggyId") ?? "";
   const limit = Math.min(Math.max(Number.parseInt(params.get("limit") ?? "100", 10), 1), 500);
 
+  // Background Cleanup: Auto-hapus data mentah GPS (buggy_history) yang usianya lebih dari 3 hari.
+  // Dilakukan tanpa blocking thread (fire-and-forget) agar dashboard tetap kencang.
+  const threeDaysAgo = new Date(Date.now() - 3 * 24 * 3600 * 1000).toISOString();
+  // eslint-disable-next-line @typescript-eslint/no-floating-promises
+  supabase.from(getBuggyHistoryTableName()).delete().lt("recorded_at", threeDaysAgo).then(() => {});
+
   const tableName = getBuggySessionTableName();
 
   let query = supabase
@@ -197,16 +203,21 @@ export async function GET(request: NextRequest) {
             path: sum.path,
         };
 
+        // Abaikan sesi miniatur (drift GPS) yang bergerak kurang dari 50 meter (0.05 km)
+        // Kita juga mengabaikannya dari database agar tidak buang-buang tempat (ia akan terhapus otomatis dalam 3 hari)
+        const isValidSession = sum.totalDistanceKm !== null && sum.totalDistanceKm >= 0.05;
+
         if (isIdle || !isLatest) {
             // Sesi sudah terputus. Kita FINALISASIKAN ke database di background agar permanen.
             // (Minimal 3 titik baru pantas disimpan permanen)
-            if (group.length >= 3) {
+            if (group.length >= 3 && isValidSession) {
                 saves.push(saveSessionPointsToDb(bId, numericId, group).catch(e => console.error("Auto-finalize error:", e)));
                 completed.push(syntheticSession);
             }
         } else {
             // Sesi ini masih berjalan (ping terakhir kurang dari 5 menit lalu)
             syntheticSession.isOngoing = true;
+            // Tampilkan sesi aktif selalu agar buggy yang baru diam menyala tetap terlihat di UI (Nanti ia gugur sendiri kalau dimatikan sebelum 50m)
             synthesizedOngoing.push(syntheticSession);
         }
     }

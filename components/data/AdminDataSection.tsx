@@ -25,7 +25,7 @@ type AdminDataSectionProps = {
   onCancelDraft: () => void;
   onToggleGeofence: (id: string, enabled: boolean) => void;
   onEditGeofence: (geofence: Geofence) => void;
-  onDeleteGeofence: (id: string) => void;
+  onDeleteGeofence: (id: string) => Promise<boolean> | boolean;
   onToggleBrowserNotification: () => void;
 };
 

@@ -1,6 +1,8 @@
+import { useState } from "react";
 import type { Geofence } from "@/types/geofence";
 import type { LatLngLiteral } from "@/types/map-canvas";
 import { TrashIcon, PencilIcon } from "@/components/ui/Icons";
+import { DeleteConfirmModal } from "@/components/ui/DeleteConfirmModal";
 
 type GeofenceManagerProps = {
   geofences: Geofence[];
@@ -16,7 +18,7 @@ type GeofenceManagerProps = {
   onCancelDraft: () => void;
   onToggleGeofence: (id: string, enabled: boolean) => void;
   onEditGeofence: (geofence: Geofence) => void;
-  onDeleteGeofence: (id: string) => void;
+  onDeleteGeofence: (id: string) => Promise<boolean> | boolean;
   onToggleBrowserNotification: () => void;
 };
 
@@ -37,6 +39,25 @@ export function GeofenceManager({
   onDeleteGeofence,
   onToggleBrowserNotification,
 }: GeofenceManagerProps) {
+  const [pendingDeleteGeofence, setPendingDeleteGeofence] = useState<Geofence | null>(null);
+  const [isDeletingGeofence, setIsDeletingGeofence] = useState(false);
+
+  async function handleConfirmDeleteGeofence() {
+    if (!pendingDeleteGeofence) {
+      return;
+    }
+
+    setIsDeletingGeofence(true);
+    try {
+      const success = await onDeleteGeofence(pendingDeleteGeofence.id);
+      if (success) {
+        setPendingDeleteGeofence(null);
+      }
+    } finally {
+      setIsDeletingGeofence(false);
+    }
+  }
+
   return (
     <div className="rounded-3xl border border-slate-200/80 bg-white/70 p-3">
       {/* Header + action buttons */}
@@ -196,7 +217,7 @@ export function GeofenceManager({
                 </button>
                 
                 {/* Actions Separator */}
-                <div className="mx-1 h-4 w-[1px] bg-slate-200" />
+                <div className="mx-1 h-4 w-px bg-slate-200" />
                 
                 {/* Edit Button */}
                 <button
@@ -211,7 +232,7 @@ export function GeofenceManager({
                 {/* Delete Button */}
                 <button
                   type="button"
-                  onClick={() => onDeleteGeofence(geofence.id)}
+                  onClick={() => setPendingDeleteGeofence(geofence)}
                   className="rounded-lg p-1.5 text-rose-400 transition hover:bg-rose-50 hover:text-rose-600 active:scale-95"
                   title="Hapus Geofence"
                 >
@@ -222,6 +243,29 @@ export function GeofenceManager({
           ))}
         </div>
       )}
+
+      <DeleteConfirmModal
+        open={pendingDeleteGeofence !== null}
+        title="Hapus Geofence?"
+        description="Data geofence di bawah ini akan dihapus permanen dari server. Tindakan ini tidak dapat dibatalkan."
+        confirmLabel="Ya, Hapus Geofence"
+        loadingLabel="Menghapus..."
+        isLoading={isDeletingGeofence}
+        onClose={() => setPendingDeleteGeofence(null)}
+        onConfirm={handleConfirmDeleteGeofence}
+      >
+        {pendingDeleteGeofence ? (
+          <div className="rounded-2xl border border-rose-100 bg-rose-50/60 p-3 text-left">
+            <p className="truncate text-[13px] font-semibold text-slate-800">{pendingDeleteGeofence.name}</p>
+            <p className="mt-1 text-[11px] text-slate-500">
+              {pendingDeleteGeofence.center.lat.toFixed(5)}, {pendingDeleteGeofence.center.lng.toFixed(5)}
+            </p>
+            <p className="mt-1 inline-flex rounded-full border border-rose-200 bg-white px-2 py-0.5 text-[10px] font-semibold text-rose-600">
+              Radius {Math.round(pendingDeleteGeofence.radiusMeters)} m
+            </p>
+          </div>
+        ) : null}
+      </DeleteConfirmModal>
     </div>
   );
 }

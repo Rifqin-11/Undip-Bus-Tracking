@@ -233,26 +233,6 @@ export default function DashboardPage() {
     setSelectedHalteId(halteId);
   }, []);
 
-  const handleMapClickForGeofence = useCallback(
-    (position: LatLngLiteral) => {
-      if (!geofenceCreateMode) return;
-      setPendingGeofenceCenter(position);
-      setPendingGeofenceRadiusMeters(GEOFENCE_DEFAULT_RADIUS_METERS);
-      setPendingGeofenceName((prev) =>
-        prev.trim()
-          ? prev
-          : `Zona ${String(geofences.length + 1).padStart(2, "0")}`,
-      );
-      setPanelOpen(true);
-      setActiveView("data");
-      pushToast(
-        "Titik geofence dipilih",
-        `${position.lat.toFixed(5)}, ${position.lng.toFixed(5)}`,
-        "info",
-      );
-    },
-    [geofenceCreateMode, geofences.length, pushToast],
-  );
 
   const handleToggleCreateMode = useCallback(() => {
     setGeofenceCreateMode((prev) => {
@@ -409,6 +389,7 @@ export default function DashboardPage() {
           }
         });
         pushToast("Geofence dihapus", target?.name, "success");
+        return true;
       } catch (error) {
         console.error("Delete geofence error:", error);
         pushToast(
@@ -416,6 +397,7 @@ export default function DashboardPage() {
           error instanceof Error ? error.message : "Terjadi kesalahan.",
           "warning",
         );
+        return false;
       }
     },
     [geofences, pushToast],

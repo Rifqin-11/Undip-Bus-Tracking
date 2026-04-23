@@ -62,6 +62,8 @@ declare global {
   var __BUGGY_SESSIONS__: Map<string, ActiveSession> | undefined;
   // eslint-disable-next-line no-var
   var __SESSION_GC_INTERVAL__: ReturnType<typeof setInterval> | undefined;
+  // eslint-disable-next-line no-var
+  var __SESSION_SAVE_INFLIGHT__: Map<string, Promise<void>> | undefined;
 }
 
 function getSessionMap(): Map<string, ActiveSession> {
@@ -76,6 +78,13 @@ function makeId(): string {
     return crypto.randomUUID();
   }
   return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
+}
+
+function getSaveInflightMap(): Map<string, Promise<void>> {
+  if (!globalThis.__SESSION_SAVE_INFLIGHT__) {
+    globalThis.__SESSION_SAVE_INFLIGHT__ = new Map();
+  }
+  return globalThis.__SESSION_SAVE_INFLIGHT__;
 }
 
 // ── Background auto-finalize ──────────────────────────────────────────────────
@@ -337,40 +346,86 @@ export async function saveSessionPointsToDb(
   }
 
   const tableName = getBuggySessionTableName();
+  const dedupeKey = `${buggyId}|${startedAt}|${endedAt}`;
+  const inflight = getSaveInflightMap();
 
-  // Determine session number for this buggy on this date
-  const { count } = await supabase
-    .from(tableName)
-    .select("*", { count: "exact", head: true })
-    .eq("buggy_id", buggyId)
-    .eq("session_date", sessionDate);
+  const running = inflight.get(dedupeKey);
+  if (running) {
+    await running;
+    return;
+  }
 
-  const sessionNumber = (count ?? 0) + 1;
+  const persistPromise = (async () => {
+    // Hard guard idempotensi: jika sesi dengan rentang waktu yang sama sudah ada, skip.
+    const { data: existingRows, error: existingError } = await supabase
+      .from(tableName)
+      .select("id")
+      .eq("buggy_id", buggyId)
+      .eq("started_at", startedAt)
+      .eq("ended_at", endedAt)
+      .limit(1);
 
-  const { error } = await supabase.from(tableName).insert({
-    buggy_id: buggyId,
-    buggy_numeric_id: buggyNumericId,
-    session_date: sessionDate,
-    session_number: sessionNumber,
-    started_at: startedAt,
-    ended_at: endedAt,
-    duration_minutes: Number(durationMinutes.toFixed(1)),
-    point_count: points.length,
-    total_distance_km: Number((totalDistanceM / 1000).toFixed(3)),
-    avg_speed_kmh: avgSpeedKmh !== null ? Number(avgSpeedKmh.toFixed(1)) : null,
-    max_speed_kmh: maxSpeedKmh !== null ? Number(maxSpeedKmh.toFixed(1)) : null,
-    battery_start: batteryStart,
-    battery_end: batteryEnd,
-    battery_used: batteryUsed,
-    path,
-  });
+    if (existingError) {
+      console.warn(
+        `[session-store] Existing-session check failed for ${buggyId}: ${existingError.message}`,
+      );
+    }
 
-  if (error) {
-    console.error(`[session-store] Save failed for ${buggyId}:`, error.message);
-  } else {
-    console.log(
-      `[session-store] Saved session #${sessionNumber} for ${buggyId}: ` +
-        `${points.length} pts, ${(totalDistanceM / 1000).toFixed(2)} km`,
-    );
+    if (Array.isArray(existingRows) && existingRows.length > 0) {
+      console.log(
+        `[session-store] Skip duplicate session for ${buggyId} (${startedAt} -> ${endedAt})`,
+      );
+      return;
+    }
+
+    // Determine session number for this buggy on this date
+    const { count } = await supabase
+      .from(tableName)
+      .select("*", { count: "exact", head: true })
+      .eq("buggy_id", buggyId)
+      .eq("session_date", sessionDate);
+
+    const sessionNumber = (count ?? 0) + 1;
+
+    const sessionRow = {
+      buggy_id: buggyId,
+      buggy_numeric_id: buggyNumericId,
+      session_date: sessionDate,
+      session_number: sessionNumber,
+      started_at: startedAt,
+      ended_at: endedAt,
+      duration_minutes: Number(durationMinutes.toFixed(1)),
+      point_count: points.length,
+      total_distance_km: Number((totalDistanceM / 1000).toFixed(3)),
+      avg_speed_kmh: avgSpeedKmh !== null ? Number(avgSpeedKmh.toFixed(1)) : null,
+      max_speed_kmh: maxSpeedKmh !== null ? Number(maxSpeedKmh.toFixed(1)) : null,
+      battery_start: batteryStart,
+      battery_end: batteryEnd,
+      battery_used: batteryUsed,
+      path,
+    };
+
+    const { error } = await supabase
+      .from(tableName)
+      .upsert(sessionRow, {
+        onConflict: "buggy_id,started_at,ended_at",
+        ignoreDuplicates: true,
+      });
+
+    if (error) {
+      console.error(`[session-store] Save failed for ${buggyId}:`, error.message);
+    } else {
+      console.log(
+        `[session-store] Saved session #${sessionNumber} for ${buggyId}: ` +
+          `${points.length} pts, ${(totalDistanceM / 1000).toFixed(2)} km`,
+      );
+    }
+  })();
+
+  inflight.set(dedupeKey, persistPromise);
+  try {
+    await persistPromise;
+  } finally {
+    inflight.delete(dedupeKey);
   }
 }
