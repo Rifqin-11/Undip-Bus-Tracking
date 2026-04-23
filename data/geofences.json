@@ -1,13 +1,13 @@
 [
   {
-    "id": "7b843015-0e37-4dd9-b4e7-00d8ebea0c17",
-    "name": "Zona 01",
+    "id": "6b17a028-13bc-411c-98f7-32fc900be79a",
+    "name": "Kampus Tembalang",
     "center": {
-      "lat": -7.050997792832162,
-      "lng": 110.43947932954718
+      "lat": -7.051820313956664,
+      "lng": 110.44055789947511
     },
-    "radiusMeters": 800,
+    "radiusMeters": 649.9741427446287,
     "enabled": true,
-    "createdAt": "2026-04-19T17:31:04.940Z"
+    "createdAt": "2026-04-23T08:47:50.951Z"
   }
 ]

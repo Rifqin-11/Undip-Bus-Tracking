@@ -163,66 +163,81 @@ export function getActiveSessionSummaries(): ActiveSessionSummary[] {
   const summaries: ActiveSessionSummary[] = [];
 
   for (const [, session] of sessions) {
-    const { points } = session;
-
-    // Distance so far
-    let totalDistanceM = 0;
-    for (let i = 1; i < points.length; i++) {
-      totalDistanceM += haversineMeters(
-        { lat: points[i - 1].lat, lng: points[i - 1].lng },
-        { lat: points[i].lat, lng: points[i].lng },
-      );
-    }
-
-    // Speed
-    const speeds = points
-      .filter((p) => p.speedKmh !== null && p.speedKmh > 0.5)
-      .map((p) => p.speedKmh as number);
-    const avgSpeedKmh =
-      speeds.length > 0 ? speeds.reduce((a, b) => a + b, 0) / speeds.length : null;
-
-    // Battery
-    const withBattery = points.filter((p) => p.batteryLevel !== null);
-    const batteryStart =
-      withBattery.length > 0 ? (withBattery[0].batteryLevel as number) : null;
-    const currentBattery =
-      withBattery.length > 0
-        ? (withBattery[withBattery.length - 1].batteryLevel as number)
-        : null;
-    const batteryUsed =
-      batteryStart !== null && currentBattery !== null
-        ? batteryStart - currentBattery
-        : null;
-
-    // Elapsed duration
     const durationMinutes =
       (Date.now() - new Date(session.startedAt).getTime()) / 60_000;
 
-    // Path (all points — ongoing sessions are typically short)
-    // Store [lat, lng, unixMs] for per-point timestamp display
-    const path: [number, number, number][] = points.map((p) => [
-      p.lat,
-      p.lng,
-      new Date(p.recordedAt).getTime(),
-    ]);
-
-    summaries.push({
-      id: session.sessionId,
-      buggyId: session.buggyId,
-      startedAt: session.startedAt,
-      lastPingAt: new Date(session.lastPingAt).toISOString(),
-      pointCount: points.length,
-      durationMinutes,
-      totalDistanceKm: totalDistanceM / 1000,
-      avgSpeedKmh,
-      batteryStart,
-      currentBattery,
-      batteryUsed,
-      path,
-    });
+    summaries.push(
+      buildSessionSummary(
+        session.sessionId,
+        session.buggyId,
+        session.startedAt,
+        new Date(session.lastPingAt).toISOString(),
+        durationMinutes,
+        session.points,
+      ),
+    );
   }
 
   return summaries;
+}
+
+/**
+ * Reusable function to build session stats from raw points.
+ */
+export function buildSessionSummary(
+  sessionId: string,
+  buggyId: string,
+  startedAt: string,
+  lastPingAtIso: string,
+  durationMinutes: number,
+  points: SessionPoint[],
+): ActiveSessionSummary {
+  let totalDistanceM = 0;
+  for (let i = 1; i < points.length; i++) {
+    totalDistanceM += haversineMeters(
+      { lat: points[i - 1].lat, lng: points[i - 1].lng },
+      { lat: points[i].lat, lng: points[i].lng },
+    );
+  }
+
+  const speeds = points
+    .map((p) => p.speedKmh)
+    .filter((s): s is number => s !== null && s > 0.5);
+  const avgSpeedKmh =
+    speeds.length > 0 ? speeds.reduce((a, b) => a + b, 0) / speeds.length : null;
+
+  const withBattery = points.filter((p) => p.batteryLevel !== null);
+  const batteryStart =
+    withBattery.length > 0 ? (withBattery[0].batteryLevel as number) : null;
+  const currentBattery =
+    withBattery.length > 0
+      ? (withBattery[withBattery.length - 1].batteryLevel as number)
+      : null;
+  const batteryUsed =
+    batteryStart !== null && currentBattery !== null
+      ? batteryStart - currentBattery
+      : null;
+
+  const path: [number, number, number][] = points.map((p) => [
+    p.lat,
+    p.lng,
+    new Date(p.recordedAt).getTime(),
+  ]);
+
+  return {
+    id: sessionId,
+    buggyId,
+    startedAt,
+    lastPingAt: lastPingAtIso,
+    pointCount: points.length,
+    durationMinutes,
+    totalDistanceKm: totalDistanceM / 1000,
+    avgSpeedKmh,
+    batteryStart,
+    currentBattery,
+    batteryUsed,
+    path,
+  };
 }
 export async function finalizeSession(buggyId: string): Promise<void> {
   const sessions = getSessionMap();
@@ -240,7 +255,19 @@ export async function finalizeSession(buggyId: string): Promise<void> {
     return;
   }
 
-  const endedAt = new Date().toISOString();
+  await saveSessionPointsToDb(buggyId, session.buggyNumericId, points);
+}
+
+/**
+ * Direct entry point for saving a purely DB-synthesized session.
+ */
+export async function saveSessionPointsToDb(
+  buggyId: string,
+  buggyNumericId: number | null,
+  points: SessionPoint[],
+): Promise<void> {
+  const startedAt = points[0]?.recordedAt || new Date().toISOString();
+  const endedAt = points[points.length - 1]?.recordedAt || new Date().toISOString();
 
   // ── Compute stats ────────────────────────────────────────────────────────
 
@@ -277,12 +304,12 @@ export async function finalizeSession(buggyId: string): Promise<void> {
       : null;
 
   // Duration
-  const startMs = new Date(session.startedAt).getTime();
+  const startMs = new Date(startedAt).getTime();
   const endMs = new Date(endedAt).getTime();
-  const durationMinutes = (endMs - startMs) / 60_000;
+  const durationMinutes = Math.max(0, (endMs - startMs) / 60_000);
 
   // Session date (UTC, YYYY-MM-DD)
-  const sessionDate = session.startedAt.slice(0, 10);
+  const sessionDate = startedAt.slice(0, 10);
 
   // Path (downsample to max 500 points to keep Supabase row small)
   const MAX_PATH_POINTS = 500;
@@ -322,10 +349,10 @@ export async function finalizeSession(buggyId: string): Promise<void> {
 
   const { error } = await supabase.from(tableName).insert({
     buggy_id: buggyId,
-    buggy_numeric_id: session.buggyNumericId,
+    buggy_numeric_id: buggyNumericId,
     session_date: sessionDate,
     session_number: sessionNumber,
-    started_at: session.startedAt,
+    started_at: startedAt,
     ended_at: endedAt,
     duration_minutes: Number(durationMinutes.toFixed(1)),
     point_count: points.length,
@@ -335,7 +362,7 @@ export async function finalizeSession(buggyId: string): Promise<void> {
     battery_start: batteryStart,
     battery_end: batteryEnd,
     battery_used: batteryUsed,
-    path: JSON.stringify(path),
+    path,
   });
 
   if (error) {

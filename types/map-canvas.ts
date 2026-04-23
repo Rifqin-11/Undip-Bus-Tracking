@@ -24,6 +24,7 @@ export type LatLngBoundsHandle = {
 export type MapHandle = {
   panTo: (position: LatLngLiteral) => void;
   setZoom: (zoom: number) => void;
+  getCenter: () => { lat: () => number; lng: () => number } | null;
   fitBounds: (bounds: LatLngBoundsHandle, padding?: number) => void;
   addListener: (
     eventName: string,
@@ -47,6 +48,14 @@ export type PolylineHandle = {
 
 export type CircleHandle = {
   setMap: (map: unknown | null) => void;
+  setCenter: (center: LatLngLiteral) => void;
+  setRadius: (radius: number) => void;
+  getCenter: () => { lat: () => number; lng: () => number } | null;
+  getRadius: () => number;
+  addListener: (
+    eventName: string,
+    handler: () => void,
+  ) => { remove: () => void };
 };
 
 export type MapsApi = {
@@ -87,6 +96,10 @@ export type MapCanvasProps = {
   centerTarget?: { lat: number; lng: number } | null;
   geofences?: Geofence[];
   geofenceCreateMode?: boolean;
+  /** Draft geofence circle shown while user is creating a new geofence */
+  draftGeofence?: { center: LatLngLiteral; radiusMeters: number } | null;
+  /** Called whenever the user drags or resizes the draft circle */
+  onDraftGeofenceChange?: (center: LatLngLiteral, radiusMeters: number) => void;
   onInfoWindowClose?: () => void;
   onMapClick?: (position: LatLngLiteral) => void;
   onBuggyMarkerClick?: (buggyId: string) => void;

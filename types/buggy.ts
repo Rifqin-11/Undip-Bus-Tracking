@@ -30,4 +30,4 @@ export type HaltePoint = {
   lng: number;
 };
 
-export type PanelView = "buggy" | "halte" | "notifikasi" | "lapor" | "data" | "history";
+export type PanelView = "buggy" | "halte" | "notifikasi" | "lapor" | "data" | "data-detail" | "history";

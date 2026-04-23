@@ -87,6 +87,8 @@ export function MapCanvas({
   destinationMarkerPosition,
   geofences = [],
   geofenceCreateMode = false,
+  draftGeofence = null,
+  onDraftGeofenceChange,
   focusHaltes = false,
   historyPath = [],
   selectedBuggyId,
@@ -114,6 +116,8 @@ export function MapCanvas({
   const originMarkerRef = useRef<MarkerHandle | null>(null);
   const destinationMarkerRef = useRef<MarkerHandle | null>(null);
   const geofenceCirclesRef = useRef<Map<string, CircleHandle>>(new Map());
+  const draftCircleRef = useRef<CircleHandle | null>(null);
+  const draftCircleListenersRef = useRef<{ remove: () => void }[]>([]);
   const infoWindowCloseListenerRef = useRef<{ remove: () => void } | null>(
     null,
   );
@@ -365,26 +369,93 @@ export function MapCanvas({
       : null;
   }, [destinationMarkerPosition, mapReady, originMarkerPosition]);
 
-  // ── Map click callback for geofence creation ──────────────────────────────
+  // ── Draft circle for geofence creation ───────────────────────────────────
+
+  useEffect(() => {
+    if (!mapReady || !mapInstanceRef.current || !mapsApiRef.current) return;
+
+    // Cleanup previous draft
+    draftCircleListenersRef.current.forEach((l) => l.remove());
+    draftCircleListenersRef.current = [];
+    draftCircleRef.current?.setMap(null);
+    draftCircleRef.current = null;
+
+    if (!draftGeofence) return;
+
+    const map = mapInstanceRef.current;
+    const maps = mapsApiRef.current;
+
+    const circle = new maps.Circle({
+      map,
+      center: draftGeofence.center,
+      radius: draftGeofence.radiusMeters,
+      draggable: true,
+      editable: true,
+      strokeColor: "#16a34a",
+      strokeOpacity: 0.9,
+      strokeWeight: 2,
+      fillColor: "#22c55e",
+      fillOpacity: 0.15,
+      zIndex: 10,
+    });
+    draftCircleRef.current = circle;
+
+    // Pan map to draft center
+    map.panTo(draftGeofence.center);
+
+    const fireCenterCb = () => {
+      if (!onDraftGeofenceChange) return;
+      const c = circle.getCenter();
+      if (!c) return;
+      onDraftGeofenceChange(
+        { lat: c.lat(), lng: c.lng() },
+        circle.getRadius(),
+      );
+    };
+
+    const fireRadiusCb = () => {
+      if (!onDraftGeofenceChange) return;
+      const c = circle.getCenter();
+      if (!c) return;
+      onDraftGeofenceChange(
+        { lat: c.lat(), lng: c.lng() },
+        circle.getRadius(),
+      );
+    };
+
+    draftCircleListenersRef.current = [
+      // Update center only after drag finishes — avoids React re-render loop
+      circle.addListener("dragend", fireCenterCb),
+      // Update radius live as user drags the resize handle
+      circle.addListener("radius_changed", fireRadiusCb),
+    ];
+
+    return () => {
+      draftCircleListenersRef.current.forEach((l) => l.remove());
+      draftCircleListenersRef.current = [];
+      draftCircleRef.current?.setMap(null);
+      draftCircleRef.current = null;
+    };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [draftGeofence?.center.lat, draftGeofence?.center.lng, draftGeofence?.radiusMeters, mapReady, onDraftGeofenceChange]);
+
+  // ── Sync draft circle radius when slider changes ──────────────────────────
+
+  useEffect(() => {
+    if (!draftCircleRef.current || !draftGeofence) return;
+    const current = draftCircleRef.current.getRadius();
+    if (Math.abs(current - draftGeofence.radiusMeters) < 0.5) return;
+    draftCircleRef.current.setRadius(draftGeofence.radiusMeters);
+  }, [draftGeofence?.radiusMeters]);
+
+  // ── Map click callback (kept for legacy fallback, inactive in create mode) ─
 
   useEffect(() => {
     if (!mapReady || !mapInstanceRef.current || !onMapClick) return;
+    if (geofenceCreateMode) return; // draft circle mode — no click handler needed
 
     mapClickListenerRef.current?.remove();
     mapClickListenerRef.current = null;
-
-    if (!geofenceCreateMode) return;
-
-    mapClickListenerRef.current = mapInstanceRef.current.addListener(
-      "click",
-      (event) => {
-        const lat = event.latLng?.lat();
-        const lng = event.latLng?.lng();
-        if (typeof lat !== "number" || typeof lng !== "number") return;
-        onMapClick({ lat, lng });
-      },
-    );
-
     return () => {
       mapClickListenerRef.current?.remove();
       mapClickListenerRef.current = null;

@@ -6,11 +6,13 @@ import { BuggyList } from "@/components/buggy/BuggyList";
 import { FloatingSidebar } from "@/components/sidebar/FloatingSidebar";
 import { MobileBottomNav } from "@/components/sidebar/MobileBottomNav";
 import { LiveSearchBar } from "@/components/search/LiveSearchBar";
-import { AdminDataSection } from "@/components/panel/AdminDataSection";
-import { HistoryPanel } from "@/components/panel/HistoryPanel";
+import { AdminDataSection } from "@/components/data/AdminDataSection";
+import { BuggyOperationalDetail } from "@/components/data/BuggyOperationalDetail";
+import { HistoryPanel } from "@/components/history/HistoryPanel";
 import { ToastStack } from "@/components/ui/ToastStack";
 import type { ToastItem } from "@/components/ui/ToastStack";
 import {
+  CENTER_UNDIP,
   createInitialBuggies,
   HALTE_LOCATIONS,
   OFFICIAL_ROUTE_PATH,
@@ -129,16 +131,18 @@ export default function DashboardPage() {
   const [geofences, setGeofences] = useState<Geofence[]>([]);
   const [geofenceLoading, setGeofenceLoading] = useState(true);
   const [geofenceCreateMode, setGeofenceCreateMode] = useState(false);
-  const [pendingGeofenceCenter, setPendingGeofenceCenter] =
+  const [editingGeofenceId, setEditingGeofenceId] = useState<string | null>(null);
+  const [draftGeofenceCenter, setDraftGeofenceCenter] =
     useState<LatLngLiteral | null>(null);
-  const [pendingGeofenceName, setPendingGeofenceName] = useState("");
-  const [pendingGeofenceRadiusMeters, setPendingGeofenceRadiusMeters] =
+  const [draftGeofenceName, setDraftGeofenceName] = useState("");
+  const [draftGeofenceRadius, setDraftGeofenceRadius] =
     useState(GEOFENCE_DEFAULT_RADIUS_METERS);
   const [geofenceEvents, setGeofenceEvents] = useState<GeofenceEvent[]>([]);
   const [toasts, setToasts] = useState<ToastItem[]>([]);
   const [browserNotificationEnabled, setBrowserNotificationEnabled] =
     useState(false);
   const [historyPath, setHistoryPath] = useState<[number, number][]>([]);
+  const [selectedAdminBuggyId, setSelectedAdminBuggyId] = useState<string | null>(null);
 
   const geofenceMembershipRef = useRef<Map<string, boolean>>(new Map());
   const geofenceCooldownRef = useRef<Map<string, number>>(new Map());
@@ -186,7 +190,17 @@ export default function DashboardPage() {
     if (view !== "history") {
       setHistoryPath([]);
     }
+    // Clear admin detail when explicitly navigating away
+    if (view !== "data-detail") {
+      setSelectedAdminBuggyId(null);
+    }
   };
+
+  const handleSelectAdminBuggy = useCallback((buggyId: string) => {
+    setSelectedAdminBuggyId(buggyId);
+    setActiveView("data-detail");
+    setPanelOpen(true);
+  }, []);
 
   const handleInfoWindowClose = useCallback(() => {
     setMapFollowingBuggyId(null);
@@ -243,88 +257,102 @@ export default function DashboardPage() {
   const handleToggleCreateMode = useCallback(() => {
     setGeofenceCreateMode((prev) => {
       const next = !prev;
-      if (!next) {
-        setPendingGeofenceCenter(null);
-        setPendingGeofenceName("");
-        setPendingGeofenceRadiusMeters(GEOFENCE_DEFAULT_RADIUS_METERS);
+      if (next) {
+        setEditingGeofenceId(null);
+        // Place draft at current map center (CENTER_UNDIP as fallback)
+        setDraftGeofenceCenter({ lat: CENTER_UNDIP[0], lng: CENTER_UNDIP[1] });
+        setDraftGeofenceRadius(GEOFENCE_DEFAULT_RADIUS_METERS);
+        setDraftGeofenceName(
+          `Zona ${String(geofences.length + 1).padStart(2, "0")}`,
+        );
+      } else {
+        setEditingGeofenceId(null);
+        setDraftGeofenceCenter(null);
+        setDraftGeofenceName("");
+        setDraftGeofenceRadius(GEOFENCE_DEFAULT_RADIUS_METERS);
       }
       return next;
     });
     setPanelOpen(true);
     setActiveView("data");
+  }, [geofences.length]);
+
+  const handleEditGeofence = useCallback((geofence: Geofence) => {
+    setEditingGeofenceId(geofence.id);
+    setDraftGeofenceCenter(geofence.center);
+    setDraftGeofenceName(geofence.name);
+    setDraftGeofenceRadius(geofence.radiusMeters);
+    setGeofenceCreateMode(true);
+    setPanelOpen(true);
+    setActiveView("data");
   }, []);
 
-  const handleCancelPendingGeofence = useCallback(() => {
-    setPendingGeofenceCenter(null);
-    setPendingGeofenceName("");
-    setPendingGeofenceRadiusMeters(GEOFENCE_DEFAULT_RADIUS_METERS);
+  const handleDraftGeofenceChange = useCallback(
+    (center: LatLngLiteral, radiusMeters: number) => {
+      setDraftGeofenceCenter(center);
+      setDraftGeofenceRadius(radiusMeters);
+    },
+    [],
+  );
+
+  const handleCancelDraft = useCallback(() => {
+    setEditingGeofenceId(null);
+    setDraftGeofenceCenter(null);
+    setDraftGeofenceName("");
+    setDraftGeofenceRadius(GEOFENCE_DEFAULT_RADIUS_METERS);
+    setGeofenceCreateMode(false);
   }, []);
 
-  const handleSavePendingGeofence = useCallback(async () => {
-    if (!pendingGeofenceCenter) {
-      pushToast(
-        "Pusat geofence belum dipilih",
-        "Klik peta terlebih dahulu.",
-        "warning",
-      );
-      return;
-    }
-
-    const name = pendingGeofenceName.trim();
+  const handleSaveDraft = useCallback(async () => {
+    if (!draftGeofenceCenter) return;
+    const name = draftGeofenceName.trim();
     if (!name) {
-      pushToast("Nama geofence wajib diisi", undefined, "warning");
+      pushToast("Nama zona wajib diisi", undefined, "warning");
       return;
     }
-
-    if (
-      !Number.isFinite(pendingGeofenceRadiusMeters) ||
-      pendingGeofenceRadiusMeters <= 0
-    ) {
-      pushToast(
-        "Radius geofence tidak valid",
-        "Isi radius > 0 meter.",
-        "warning",
-      );
+    if (!Number.isFinite(draftGeofenceRadius) || draftGeofenceRadius <= 0) {
+      pushToast("Radius tidak valid", "Isi radius > 0 meter.", "warning");
       return;
     }
-
     try {
-      const response = await fetch("/api/geofences", {
-        method: "POST",
+      const isEdit = !!editingGeofenceId;
+      const url = isEdit ? `/api/geofences/${editingGeofenceId}` : "/api/geofences";
+      const response = await fetch(url, {
+        method: isEdit ? "PATCH" : "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           name,
-          center: pendingGeofenceCenter,
-          radiusMeters: pendingGeofenceRadiusMeters,
+          center: draftGeofenceCenter,
+          radiusMeters: draftGeofenceRadius,
         }),
       });
-
       if (!response.ok) {
         const data = (await response.json()) as { message?: string };
         throw new Error(data.message ?? "Gagal menyimpan geofence.");
       }
-
-      const created = (await response.json()) as Geofence;
-      setGeofences((prev) => [...prev, created]);
-      setPendingGeofenceCenter(null);
-      setPendingGeofenceName("");
-      setPendingGeofenceRadiusMeters(GEOFENCE_DEFAULT_RADIUS_METERS);
+      const createdOrUpdated = (await response.json()) as Geofence;
+      
+      if (isEdit) {
+        setGeofences((prev) => prev.map(g => g.id === editingGeofenceId ? createdOrUpdated : g));
+      } else {
+        setGeofences((prev) => [...prev, createdOrUpdated]);
+      }
+      
+      setDraftGeofenceCenter(null);
+      setDraftGeofenceName("");
+      setDraftGeofenceRadius(GEOFENCE_DEFAULT_RADIUS_METERS);
       setGeofenceCreateMode(false);
-      pushToast("Geofence berhasil dibuat", created.name, "success");
+      setEditingGeofenceId(null);
+      pushToast(isEdit ? "Zona berhasil diperbarui" : "Zona berhasil dibuat", createdOrUpdated.name, "success");
     } catch (error) {
-      console.error("Create geofence error:", error);
+      console.error("Save geofence error:", error);
       pushToast(
-        "Gagal membuat geofence",
+        "Gagal menyimpan zona",
         error instanceof Error ? error.message : "Terjadi kesalahan.",
         "warning",
       );
     }
-  }, [
-    pendingGeofenceCenter,
-    pendingGeofenceName,
-    pendingGeofenceRadiusMeters,
-    pushToast,
-  ]);
+  }, [draftGeofenceCenter, draftGeofenceName, draftGeofenceRadius, editingGeofenceId, pushToast]);
 
   const handleToggleGeofence = useCallback(
     async (id: string, enabled: boolean) => {
@@ -729,7 +757,12 @@ export default function DashboardPage() {
         selectedHalteId={selectedHalteId}
         geofences={geofences}
         geofenceCreateMode={geofenceCreateMode}
-        onMapClick={handleMapClickForGeofence}
+        draftGeofence={
+          geofenceCreateMode && draftGeofenceCenter
+            ? { center: draftGeofenceCenter, radiusMeters: draftGeofenceRadius }
+            : null
+        }
+        onDraftGeofenceChange={handleDraftGeofenceChange}
         onInfoWindowClose={handleInfoWindowClose}
         onBuggyMarkerClick={handleBuggyMarkerClick}
         onHalteMarkerClick={handleHalteMarkerClick}
@@ -784,19 +817,39 @@ export default function DashboardPage() {
             geofenceStatuses={geofenceStatuses}
             geofenceLoading={geofenceLoading}
             geofenceCreateMode={geofenceCreateMode}
-            pendingCenter={pendingGeofenceCenter}
-            pendingName={pendingGeofenceName}
-            pendingRadiusMeters={pendingGeofenceRadiusMeters}
+            draftGeofence={
+              geofenceCreateMode && draftGeofenceCenter
+                ? { center: draftGeofenceCenter, radiusMeters: draftGeofenceRadius }
+                : null
+            }
+            draftName={draftGeofenceName}
             browserNotificationEnabled={browserNotificationEnabled}
+            onSelectBuggy={handleSelectAdminBuggy}
             onToggleCreateMode={handleToggleCreateMode}
-            onPendingNameChange={setPendingGeofenceName}
-            onPendingRadiusChange={setPendingGeofenceRadiusMeters}
-            onSavePending={handleSavePendingGeofence}
-            onCancelPending={handleCancelPendingGeofence}
+            onDraftNameChange={setDraftGeofenceName}
+            onDraftRadiusChange={setDraftGeofenceRadius}
+            onSaveDraft={handleSaveDraft}
+            onCancelDraft={handleCancelDraft}
             onToggleGeofence={handleToggleGeofence}
+            onEditGeofence={handleEditGeofence}
             onDeleteGeofence={handleDeleteGeofence}
             onToggleBrowserNotification={handleToggleBrowserNotification}
           />
+        }
+        dataDetailViewContent={
+          selectedAdminBuggyId ? (
+            <BuggyOperationalDetail
+              buggy={
+                liveBuggies.find((b) => b.id === selectedAdminBuggyId) ??
+                liveBuggies[0]
+              }
+              activeZones={geofenceStatuses[selectedAdminBuggyId] ?? []}
+              onBack={() => {
+                setSelectedAdminBuggyId(null);
+                setActiveView("data");
+              }}
+            />
+          ) : null
         }
         historyViewContent={
           <HistoryPanel

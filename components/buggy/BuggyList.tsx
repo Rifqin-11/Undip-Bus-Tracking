@@ -12,13 +12,12 @@ type LatLng = {
 };
 import { BuggyCard } from "@/components/buggy/BuggyCard";
 import { BuggyDetailView } from "@/components/buggy/BuggyDetailView";
-import { PanelShell } from "@/components/panel/PanelShell";
-import { MobileDrawer } from "@/components/panel/MobileDrawer";
-import { HalteSection } from "@/components/panel/HalteSection";
-import { HalteDetailView } from "@/components/panel/HalteDetailView";
+import { PanelContainer } from "@/components/panel/PanelContainer";
+import { HalteSection } from "@/components/halte/HalteSection";
+import { HalteDetailView } from "@/components/halte/HalteDetailView";
 import { DirectionPanel } from "@/components/panel/DirectionPanel";
 import type { DirectionResult } from "@/components/panel/DirectionPanel";
-import { activeFleetLabel } from "@/lib/presenters/crowd-presenter";
+
 
 type BuggyListProps = {
   buggies: Buggy[];
@@ -33,6 +32,7 @@ type BuggyListProps = {
   directionResult?: DirectionResult | null;
   onCloseDirection?: () => void;
   dataViewContent?: ReactNode;
+  dataDetailViewContent?: ReactNode;
   historyViewContent?: ReactNode;
 };
 
@@ -49,6 +49,7 @@ export function BuggyList({
   directionResult = null,
   onCloseDirection,
   dataViewContent,
+  dataDetailViewContent,
   historyViewContent,
 }: BuggyListProps) {
   const [buggyViewMode, setBuggyViewMode] = useState<"list" | "detail">("list");
@@ -149,186 +150,88 @@ export function BuggyList({
     setHalteViewMode("detail");
   }, [activeView, selectedHalteId]);
 
-  // ── Desktop Layout ──────────────────────────────────────────────────────────
-  const desktopMainContent = (
-    <>
-      {directionResult && onCloseDirection && (
-        <div className="mb-3">
-          <DirectionPanel
-            result={directionResult}
-            buggies={buggies}
-            onClose={onCloseDirection}
-          />
-        </div>
-      )}
-
-      {activeView === "buggy" && buggyViewMode === "detail" && selectedBuggy ? (
-        <BuggyDetailView
-          buggy={selectedBuggy}
-          onBack={() => setBuggyViewMode("list")}
-        />
-      ) : activeView === "buggy" ? (
-        <div className="rounded-3xl border border-slate-200/80 bg-white/70 p-3">
-          <div className="mb-3 flex items-center justify-between">
-            <h2 className="text-[17px] font-semibold text-slate-900">
-              Pilih Armada
-            </h2>
-            <span className="rounded-full bg-[#0f1a3b] px-2.5 py-1 text-[10px] font-semibold text-white">
-              {activeFleetLabel(activeSortedBuggies)}
-            </span>
-          </div>
-          {activeSortedBuggies.length === 0 ? (
-            <p className="rounded-2xl border border-dashed border-slate-200 bg-slate-50 px-4 py-3 text-center text-[13px] text-slate-500">
-              tidak ada buggy yang aktif saat ini
-            </p>
-          ) : (
-            <div className="space-y-3">
-              {activeSortedBuggies.map((buggy) => (
-                <BuggyCard
-                  key={buggy.id}
-                  buggy={buggy}
-                  isSelected={selectedBuggyId === buggy.id}
-                  onFocus={onFocusBuggy}
-                  onSelect={(id) => {
-                    onSelectBuggy(id);
-                    setBuggyViewMode("detail");
-                  }}
-                />
-              ))}
-            </div>
-          )}
-        </div>
-      ) : null}
-
-      {/* On desktop, Detail view replaces Halte list (same flow as mobile) */}
-      {activeView === "halte" && halteViewMode === "detail" && selectedHalte ? (
-        <HalteDetailView
-          halte={selectedHalte}
-          halteIndex={selectedHalteIndex}
-          onBack={handleBackToHalteList}
-        />
-      ) : activeView === "halte" ? (
-        <HalteSection onSelectHalte={handleSelectHalte} />
-      ) : null}
-      {activeView === "notifikasi" && (
-        <div className="rounded-3xl border border-slate-200/80 bg-white/70 p-5 text-center">
-          <p className="text-[15px] font-semibold text-slate-700">Notifikasi</p>
-          <p className="mt-1 text-[12px] text-slate-400">
-            Belum ada notifikasi baru.
-          </p>
-        </div>
-      )}
-      {activeView === "lapor" && (
-        <div className="rounded-3xl border border-slate-200/80 bg-white/70 p-5 text-center">
-          <p className="text-[15px] font-semibold text-slate-700">
-            Lapor Masalah
-          </p>
-          <p className="mt-1 text-[12px] text-slate-400">
-            Fitur pelaporan segera hadir.
-          </p>
-        </div>
-      )}
-      {activeView === "data" && dataViewContent}
-      {activeView === "history" && historyViewContent}
-    </>
-  );
-
-  // ── Mobile Layout (Inline Detail View for Halte) ───────────────────────────
-  const mobileContent = (
-    <>
-      {directionResult && onCloseDirection && (
-        <div className="mb-3">
-          <DirectionPanel
-            result={directionResult}
-            buggies={buggies}
-            onClose={onCloseDirection}
-          />
-        </div>
-      )}
-
-      {activeView === "buggy" && buggyViewMode === "detail" && selectedBuggy ? (
-        <BuggyDetailView
-          buggy={selectedBuggy}
-          onBack={() => setBuggyViewMode("list")}
-        />
-      ) : activeView === "buggy" ? (
-        <div className="rounded-3xl border border-slate-200/80 bg-white/70 p-3">
-          <div className="mb-3 flex items-center justify-between">
-            <h2 className="text-[17px] font-semibold text-slate-900">
-              Pilih Armada
-            </h2>
-            <span className="rounded-full bg-[#0f1a3b] px-2.5 py-1 text-[10px] font-semibold text-white">
-              {activeFleetLabel(activeSortedBuggies)}
-            </span>
-          </div>
-          {activeSortedBuggies.length === 0 ? (
-            <p className="rounded-2xl border border-dashed border-slate-200 bg-slate-50 px-4 py-3 text-center text-[13px] text-slate-500">
-              tidak ada buggy yang aktif saat ini
-            </p>
-          ) : (
-            <div className="space-y-3">
-              {activeSortedBuggies.map((buggy) => (
-                <BuggyCard
-                  key={buggy.id}
-                  buggy={buggy}
-                  isSelected={selectedBuggyId === buggy.id}
-                  onFocus={onFocusBuggy}
-                  onSelect={(id) => {
-                    onSelectBuggy(id);
-                    setBuggyViewMode("detail");
-                  }}
-                />
-              ))}
-            </div>
-          )}
-        </div>
-      ) : null}
-
-      {/* On mobile, Detail view REPLACES the List view */}
-      {activeView === "halte" && halteViewMode === "detail" && selectedHalte ? (
-        <HalteDetailView
-          halte={selectedHalte}
-          halteIndex={selectedHalteIndex}
-          onBack={handleBackToHalteList}
-        />
-      ) : activeView === "halte" ? (
-        <HalteSection onSelectHalte={handleSelectHalte} />
-      ) : null}
-
-      {activeView === "notifikasi" && (
-        <div className="rounded-3xl border border-slate-200/80 bg-white/70 p-5 text-center">
-          <p className="text-[15px] font-semibold text-slate-700">Notifikasi</p>
-          <p className="mt-1 text-[12px] text-slate-400">
-            Belum ada notifikasi baru.
-          </p>
-        </div>
-      )}
-      {activeView === "lapor" && (
-        <div className="rounded-3xl border border-slate-200/80 bg-white/70 p-5 text-center">
-          <p className="text-[15px] font-semibold text-slate-700">
-            Lapor Masalah
-          </p>
-          <p className="mt-1 text-[12px] text-slate-400">
-            Fitur pelaporan segera hadir.
-          </p>
-        </div>
-      )}
-      {activeView === "data" && dataViewContent}
-      {activeView === "history" && historyViewContent}
-    </>
-  );
-
   return (
-    <>
-      {/* Desktop — main panel */}
-      {panelOpen && (
-        <PanelShell onClose={onClose}>{desktopMainContent}</PanelShell>
+    <PanelContainer open={panelOpen} onClose={onClose}>
+      {directionResult && onCloseDirection && (
+        <div className="mb-3">
+          <DirectionPanel
+            result={directionResult}
+            buggies={buggies}
+            onClose={onCloseDirection}
+          />
+        </div>
       )}
 
-      {/* Mobile — bottom drawer (hidden on desktop) */}
-      <MobileDrawer open={panelOpen} onClose={onClose}>
-        {mobileContent}
-      </MobileDrawer>
-    </>
+      {activeView === "buggy" && buggyViewMode === "detail" && selectedBuggy ? (
+        <BuggyDetailView
+          buggy={selectedBuggy}
+          onBack={() => setBuggyViewMode("list")}
+        />
+      ) : activeView === "buggy" ? (
+        <div className="rounded-3xl border border-slate-200/80 bg-white/70 p-3">
+          <div className="mb-3 flex items-center justify-between">
+            <h2 className="text-[17px] font-semibold text-slate-900">
+              Pilih Armada
+            </h2>
+            <span className="rounded-full bg-[#0f1a3b] px-2.5 py-1 text-[10px] font-semibold text-white">
+              {`${activeSortedBuggies.length} unit`}
+            </span>
+          </div>
+          {activeSortedBuggies.length === 0 ? (
+            <p className="rounded-2xl border border-dashed border-slate-200 bg-slate-50 px-4 py-3 text-center text-[13px] text-slate-500">
+              tidak ada buggy yang aktif saat ini
+            </p>
+          ) : (
+            <div className="space-y-3">
+              {activeSortedBuggies.map((buggy) => (
+                <BuggyCard
+                  key={buggy.id}
+                  buggy={buggy}
+                  isSelected={selectedBuggyId === buggy.id}
+                  onFocus={onFocusBuggy}
+                  onSelect={(id) => {
+                    onSelectBuggy(id);
+                    setBuggyViewMode("detail");
+                  }}
+                />
+              ))}
+            </div>
+          )}
+        </div>
+      ) : null}
+
+      {/* On desktop and mobile, Detail view replaces Halte list */}
+      {activeView === "halte" && halteViewMode === "detail" && selectedHalte ? (
+        <HalteDetailView
+          halte={selectedHalte}
+          halteIndex={selectedHalteIndex}
+          onBack={handleBackToHalteList}
+        />
+      ) : activeView === "halte" ? (
+        <HalteSection onSelectHalte={handleSelectHalte} />
+      ) : null}
+
+      {activeView === "notifikasi" && (
+        <div className="rounded-3xl border border-slate-200/80 bg-white/70 p-5 text-center">
+          <p className="text-[15px] font-semibold text-slate-700">Notifikasi</p>
+          <p className="mt-1 text-[12px] text-slate-400">
+            Belum ada notifikasi baru.
+          </p>
+        </div>
+      )}
+      {activeView === "lapor" && (
+        <div className="rounded-3xl border border-slate-200/80 bg-white/70 p-5 text-center">
+          <p className="text-[15px] font-semibold text-slate-700">
+            Lapor Masalah
+          </p>
+          <p className="mt-1 text-[12px] text-slate-400">
+            Fitur pelaporan segera hadir.
+          </p>
+        </div>
+      )}
+      {activeView === "data" && dataViewContent}
+      {activeView === "data-detail" && dataDetailViewContent}
+      {activeView === "history" && historyViewContent}
+    </PanelContainer>
   );
 }

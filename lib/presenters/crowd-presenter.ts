@@ -27,5 +27,3 @@ const crowdConfigMap: Record<CrowdLevel, CrowdConfig> = {
 export const toCrowdConfig = (crowdLevel: CrowdLevel): CrowdConfig =>
   crowdConfigMap[crowdLevel];
 
-export const activeFleetLabel = (buggies: Buggy[]): string =>
-  `${buggies.length} unit`;
