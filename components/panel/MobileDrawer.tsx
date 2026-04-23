@@ -266,7 +266,7 @@ export function MobileDrawer({ open, onClose, children }: MobileDrawerProps) {
           opacity: cardOpacity,
           pointerEvents: open ? "auto" : "none",
           // Frosted glass
-          backdropFilter: "blur(20px) saturate(1.8)",
+          backdropFilter: "blur(5px) saturate(1.8)",
           WebkitBackdropFilter: "blur(20px) saturate(1.8)",
           backgroundColor: "rgba(255,255,255,0.62)",
           border: isHalf
