@@ -53,15 +53,31 @@ export function AdminDataSection({
   return (
     <section className="space-y-3">
       {/* ── Data Operasional Buggy ─────────────────────────────────────── */}
-      <div className="rounded-3xl border border-slate-200/80 bg-white/70 p-3">
-        <div className="mb-3 flex items-center justify-between gap-2">
-          <h2 className="text-[17px] font-semibold text-slate-900">
-            Data Operasional Buggy
+      <div className="rounded-3xl border border-slate-200/80 bg-white/70 p-3 lg:p-4">
+        <div className="mb-4 flex items-center justify-between gap-2">
+          <h2 className="text-[17px] font-bold text-slate-900 tracking-tight">
+            Data Operasional
           </h2>
           <span className="rounded-full bg-[#0f1a3b] px-2.5 py-1 text-[10px] font-semibold text-white">
             {buggies.length} armada
           </span>
         </div>
+
+        {/* Filters */}
+        {/* <div className="mb-4 flex gap-2 overflow-x-auto pb-1 scrollbar-hide">
+          <button type="button" className="flex items-center gap-2 rounded-full bg-white border-2 border-slate-100 px-4 py-1.5 hover:bg-slate-50 transition active:scale-95 shrink-0 text-slate-400">
+             <span className="text-[10px]">🚍</span>
+             <span className="text-[12px] font-semibold">Bus</span>
+          </button>
+          <button type="button" className="flex items-center gap-2 rounded-full bg-slate-800 border-2 border-slate-800 shadow-md px-4 py-1.5 hover:bg-slate-700 transition active:scale-95 shrink-0 text-white">
+             <span className="text-[10px]">🛺</span>
+             <span className="text-[12px] font-semibold tracking-wide">Buggy</span>
+          </button>
+          <button type="button" className="flex items-center gap-2 rounded-full bg-white border-2 border-slate-100 px-4 py-1.5 hover:bg-slate-50 transition active:scale-95 shrink-0 text-slate-400">
+             <span className="text-[10px]">🚐</span>
+             <span className="text-[12px] font-semibold">Minibus</span>
+          </button>
+        </div> */}
 
         {buggies.length === 0 ? (
           <p className="py-4 text-center text-[12px] text-slate-400">

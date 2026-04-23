@@ -6,23 +6,62 @@ type IconProps = SVGProps<SVGSVGElement>;
 
 export function BuggyIcon(props: IconProps) {
   return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" {...props}>
-      <rect x="3" y="8" width="18" height="8" rx="2" />
-      <circle cx="7.5" cy="17.5" r="1.5" />
-      <circle cx="16.5" cy="17.5" r="1.5" />
-      <path d="M7 8V6h10v2" />
-      <path d="M10 12h4" />
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.8"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      {...props}
+    >
+      {/* Wheels */}
+      <circle cx="6" cy="17" r="2" />
+      <circle cx="18" cy="17" r="2" />
+
+      {/* Body */}
+      <path d="M4 17H2V6a1 1 0 0 1 1-1h14a5 7 0 0 1 5 7v5h-2" />
+
+      {/* Bottom connector */}
+      <path d="M8 17h8" />
+
+      {/* Front glass shape */}
+      <path d="M16 5l1.5 7H22" />
+
+      {/* Window divider */}
+      <path d="M2 10h15" />
+
+      {/* Window pillars */}
+      <path d="M7 5v5M12 5v5" />
     </svg>
   );
 }
 
 export function HalteIcon(props: IconProps) {
   return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" {...props}>
-      <path d="M12 3v18" />
-      <path d="M12 6h7" />
-      <path d="M5 10h14l-2 4H7l-2-4Z" />
-      <path d="M8 18h8" />
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      {...props}
+    >
+      {/* Roof */}
+      <path d="M2 7h20" />
+
+      {/* Frame */}
+      <path d="M5 7v11M19 7v11" />
+
+      {/* Bench */}
+      <path d="M7 15h10" />
+
+      {/* Seat supports */}
+      <path d="M9 15v3M15 15v3" />
+
+      {/* Ground line */}
+      <path d="M2 18h20" />
     </svg>
   );
 }
@@ -87,13 +126,14 @@ export function LogoutIcon(props: IconProps) {
 
 export function DataIcon(props: IconProps) {
   return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}>
-      <path stroke="none" d="M0 0h24v24H0z" fill="none" />
-      <path d="M3 13v-8a2 2 0 0 1 2 -2h14a2 2 0 0 1 2 2v14a2 2 0 0 1 -2 2h-8" />
-      <path d="M3 10h18" />
-      <path d="M10 3v11" />
-      <path d="M2 22l5 -5" />
-      <path d="M7 21.5v-4.5h-4.5" />
+    <svg viewBox="0 0 24 24" fill="currentColor" {...props}>
+      {/* Bars */}
+      <rect x="4" y="5" width="3" height="11" />
+      <rect x="10" y="9" width="3" height="7" />
+      <rect x="16" y="7" width="3" height="9" />
+
+      {/* Baseline */}
+      <rect x="3" y="18" width="18" height="2" />
     </svg>
   );
 }
@@ -151,8 +191,20 @@ export function ArrowRightIcon(props: IconProps) {
 /** ↑ navigate / directions */
 export function NavigateIcon(props: IconProps) {
   return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" {...props}>
-      <path d="M12 2L6 8l1.41 1.41L11 5.83V22h2V5.83l3.59 3.58L18 8z" />
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      {...props}
+    >
+      <circle cx="13" cy="4" r="2" />
+      <path d="M13 6v6l4 2" />
+      <path d="M13 10l-4 2" />
+      <path d="M9 22l2-6" />
+      <path d="M15 14l3 8" />
     </svg>
   );
 }
@@ -311,3 +363,30 @@ export function PencilIcon(props: IconProps) {
   );
 }
 
+export function SeatIcon(props: IconProps) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.8"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      {...props}
+    >
+      {/* Head */}
+      <circle cx="14" cy="6" r="2" />
+
+      {/* Seat shell */}
+      <path d="M6 10c0-3 2-5 5-5h3" />
+      <path d="M6 10v6a4 4 0 0 0 4 4h4" />
+
+      {/* Body / child */}
+      <path d="M13 8v4" />
+      <path d="M13 10l-2 2" />
+
+      {/* Base */}
+      <path d="M8 20h8" />
+    </svg>
+  );
+}

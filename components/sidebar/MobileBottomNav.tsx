@@ -35,7 +35,7 @@ const navItems: {
 }[] = [
   { view: "buggy", label: "Buggy", Icon: BuggyIcon },
   { view: "halte", label: "Halte", Icon: HalteIcon },
-  { view: "lapor", label: "Lapor", Icon: ChatIcon },
+  // { view: "lapor", label: "Lapor", Icon: ChatIcon },
 ];
 
 export function MobileBottomNav({
@@ -71,7 +71,7 @@ export function MobileBottomNav({
       {shouldShowDataButton && (
         <button
           type="button"
-          className={`${navButtonBase} ${activeView === "data" ? activeButtonClass : inactiveButtonClass}`}
+          className={`${navButtonBase} ${activeView === "data" || activeView === "data-detail" ? activeButtonClass : inactiveButtonClass}`}
           aria-label="Data"
           onClick={() => onSelectView("data")}
         >

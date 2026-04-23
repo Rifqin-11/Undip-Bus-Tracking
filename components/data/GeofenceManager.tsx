@@ -76,18 +76,7 @@ export function GeofenceManager({
                 : "bg-[#0f1a3b] text-white hover:bg-[#162656]"
             }`}
           >
-            {geofenceCreateMode ? "Batal" : "Buat"}
-          </button>
-          <button
-            type="button"
-            onClick={onToggleBrowserNotification}
-            className={`rounded-xl px-3 py-1.5 text-[12px] font-semibold transition active:scale-95 ${
-              browserNotificationEnabled
-                ? "bg-emerald-500 text-white hover:bg-emerald-600"
-                : "border border-slate-200 bg-white text-slate-600 hover:bg-slate-50"
-            }`}
-          >
-            🔔
+            {geofenceCreateMode ? "Batal" : "+"}
           </button>
         </div>
       </div>
@@ -215,10 +204,10 @@ export function GeofenceManager({
                     }`}
                   />
                 </button>
-                
+
                 {/* Actions Separator */}
                 <div className="mx-1 h-4 w-px bg-slate-200" />
-                
+
                 {/* Edit Button */}
                 <button
                   type="button"
@@ -228,7 +217,7 @@ export function GeofenceManager({
                 >
                   <PencilIcon className="h-3.5 w-3.5" />
                 </button>
-                
+
                 {/* Delete Button */}
                 <button
                   type="button"

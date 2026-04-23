@@ -249,6 +249,15 @@ const STOP_NAMES = HALTE_LOCATIONS.map((h) => h.name);
 
 const SOURCE_BUGGIES: SeedBuggy[] = [
   {
+    id: 1,
+    name: "Buggy 01",
+    eta: 5,
+    passengers: 7,
+    capacity: 8,
+    tag: "Real GPS",
+    currentStopIndex: 4,
+  },
+  {
     id: 2,
     name: "Buggy 02",
     eta: 5,
@@ -265,6 +274,24 @@ const SOURCE_BUGGIES: SeedBuggy[] = [
     capacity: 8,
     tag: "Real GPS",
     currentStopIndex: 3,
+  },
+  {
+    id: 4,
+    name: "Buggy 04",
+    eta: 7,
+    passengers: 8,
+    capacity: 8,
+    tag: "Real GPS",
+    currentStopIndex: 2,
+  },
+  {
+    id: 5,
+    name: "Buggy 05",
+    eta: 7,
+    passengers: 0,
+    capacity: 8,
+    tag: "Real GPS",
+    currentStopIndex: 6,
   },
 ];
 

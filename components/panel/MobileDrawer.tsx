@@ -1,9 +1,11 @@
 "use client";
 
-import { useEffect, useState, useCallback, type ReactNode } from "react";
+import { useEffect, useState, useCallback, useRef, type ReactNode } from "react";
 import {
   motion,
   useMotionValue,
+  useScroll,
+  useTransform,
   animate,
   type PanInfo,
 } from "motion/react";
@@ -58,7 +60,15 @@ export function MobileDrawer({ open, onClose, children }: MobileDrawerProps) {
    * the `backdrop-filter: blur()` effect also fades out cleanly
    * and does not leave a ghosted blur layer as height → 0.
    */
-  const cardOpacity = useMotionValue(1);
+  const cardOpacity = useMotionValue(open ? 1 : 0);
+
+  /**
+   * Scroll tracking to smoothly fade out header text and pop in a gradient
+   */
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const { scrollY } = useScroll({ container: scrollRef });
+  const headerTextOpacity = useTransform(scrollY, [0, 45], [1, 0]);
+  const headerBgOpacity = useTransform(scrollY, [0, 45], [0, 1]);
 
   /** Helper – full mode height in px (allows spring animation without dvh unit issues) */
   const fullHeightPx = () =>
@@ -254,24 +264,30 @@ export function MobileDrawer({ open, onClose, children }: MobileDrawerProps) {
           onPan={onHandlePan}
           onPanEnd={onHandlePanEnd}
           onTap={() => { if (snap === "half") goToFull(); }}
-          className="flex shrink-0 touch-none select-none flex-col cursor-grab active:cursor-grabbing"
+          className="absolute inset-x-0 top-0 z-10 flex shrink-0 touch-none select-none flex-col cursor-grab active:cursor-grabbing"
           aria-label="Seret atau ketuk untuk membuka panel"
         >
+          {/* Gradient backdrop that fades in when scrolled */}
+          <motion.div
+            className="pointer-events-none absolute inset-0 -bottom-4 z-[-1] bg-gradient-to-b from-slate-200 via-slate-100/60 to-transparent"
+            style={{ opacity: headerBgOpacity }}
+          />
+
           {/* Pill indicator */}
           <div className="flex justify-center pb-2 pt-3">
             <div className="h-1 w-10 rounded-full bg-slate-400/50" />
           </div>
 
           {/* Header */}
-          <div className="flex items-center justify-between px-5 pb-3">
-            <div>
+          <div className="relative flex items-center justify-between px-5 pb-3">
+            <motion.div style={{ opacity: headerTextOpacity }}>
               <p className="text-[8px] font-semibold uppercase tracking-[0.18em] text-slate-500">
                 Smart Mobility UNDIP
               </p>
               <h2 className="text-[20px] font-bold leading-tight text-slate-900">
                 Buggy Monitoring
               </h2>
-            </div>
+            </motion.div>
             <div className="flex items-center gap-2">
               <span className="rounded-full bg-emerald-100 px-2.5 py-1 text-[11px] font-semibold text-emerald-700">
                 Live
@@ -283,7 +299,7 @@ export function MobileDrawer({ open, onClose, children }: MobileDrawerProps) {
                   e.stopPropagation();
                   goToClose();
                 }}
-                className="grid h-8 w-8 place-items-center rounded-full border border-slate-200 bg-white text-slate-500 transition active:bg-slate-100"
+                className="grid h-8 w-8 place-items-center rounded-full border border-slate-200 bg-white text-slate-500 transition hover:bg-slate-50 active:bg-slate-100"
                 aria-label="Tutup panel"
               >
                 <XIcon className="h-4 w-4" />
@@ -294,10 +310,11 @@ export function MobileDrawer({ open, onClose, children }: MobileDrawerProps) {
 
         {/* ── Scrollable content ────────────────────────────────────────── */}
         <motion.div
+          ref={scrollRef}
           onPan={onContentPan}
           onPanEnd={onContentPanEnd}
           onWheel={onContentWheel}
-          className="flex-1 overscroll-contain px-4 pb-6"
+          className="flex-1 overscroll-contain px-4 pb-6 pt-[72px]"
           style={{
             overflow: snap === "half" ? "hidden" : "auto",
             touchAction: snap === "half" ? "none" : "pan-y",

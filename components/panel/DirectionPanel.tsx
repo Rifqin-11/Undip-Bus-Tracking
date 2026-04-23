@@ -1,5 +1,6 @@
 import {
   BuggyIcon,
+  HalteIcon,
   MapPinIcon,
   NavigateIcon,
   XIcon,
@@ -78,7 +79,7 @@ export function DirectionPanel({ result, onClose }: DirectionPanelProps) {
                   className="h-3.5 w-3.5 shrink-0"
                   aria-label="Jalan kaki"
                 />
-                <p className="text-[10px] font-medium">
+                <p className="text-[10px] font-bold">
                   {result.walkingToHalte.originHalteName}
                 </p>
               </div>
@@ -93,27 +94,16 @@ export function DirectionPanel({ result, onClose }: DirectionPanelProps) {
         <div className="ml-3 border-l-2 border-amber-300 pl-3">
           <div className="rounded-lg border border-amber-200 bg-amber-50 px-2.5 py-2">
             <div className="mb-1 flex items-center gap-1.5 text-amber-800">
-              <BuggyIcon
+              <HalteIcon
                 className="h-3.5 w-3.5 shrink-0"
                 aria-label="Perjalanan buggy"
               />
-              <span className="text-[10px] font-medium">
-                {result.routeStopNames.length} halte
+              <span className="text-[10px] font-bold">
+                {result.routeStopNames[0]}
               </span>
             </div>
             <p className="text-[10px] text-amber-800">
-              {result.nearestBuggyName ? (
-                <>
-                  Armada terdekat:{" "}
-                  <span className="font-semibold">
-                    {result.nearestBuggyName}
-                  </span>
-                </>
-              ) : (
-                <span className="italic text-slate-500">
-                  Tidak ada buggy aktif saat ini, rute tetap tersedia
-                </span>
-              )}
+              Halte yang dilewati: {result.routeStopNames.length} halte
             </p>
 
             <details className="mt-1.5 rounded-md border border-amber-200 bg-white px-2 py-1.5">

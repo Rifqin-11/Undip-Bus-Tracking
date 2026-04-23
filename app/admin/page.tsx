@@ -8,6 +8,7 @@ import { MobileBottomNav } from "@/components/sidebar/MobileBottomNav";
 import { LiveSearchBar } from "@/components/search/LiveSearchBar";
 import { AdminDataSection } from "@/components/data/AdminDataSection";
 import { BuggyOperationalDetail } from "@/components/data/BuggyOperationalDetail";
+import { GeofenceManager } from "@/components/data/GeofenceManager";
 import { HistoryPanel } from "@/components/history/HistoryPanel";
 import { ToastStack } from "@/components/ui/ToastStack";
 import type { ToastItem } from "@/components/ui/ToastStack";
@@ -25,6 +26,7 @@ import type { PanelView } from "@/types/buggy";
 import type { DirectionResult } from "@/components/panel/DirectionPanel";
 import type { LatLngLiteral } from "@/types/map-canvas";
 import type { Geofence, GeofenceEvent } from "@/types/geofence";
+import { BellIcon, MapPinSolidIcon } from "@/components/ui/Icons";
 
 const FALLBACK_BUGGIES = createInitialBuggies();
 const GEOFENCE_DEFAULT_RADIUS_METERS = 100;
@@ -143,6 +145,178 @@ export default function DashboardPage() {
     useState(false);
   const [historyPath, setHistoryPath] = useState<[number, number][]>([]);
   const [selectedAdminBuggyId, setSelectedAdminBuggyId] = useState<string | null>(null);
+
+  const [userPosition, setUserPosition] = useState<{
+    lat: number;
+    lng: number;
+  } | null>(null);
+
+  useEffect(() => {
+    if (typeof window === "undefined" || !("geolocation" in navigator)) return;
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        setUserPosition({
+          lat: position.coords.latitude,
+          lng: position.coords.longitude,
+        });
+      },
+      () => {},
+      { enableHighAccuracy: false, timeout: 8000, maximumAge: 60_000 }
+    );
+  }, []);
+
+  const nearestHalteRecommendations = useMemo(() => {
+    const fallbackPos = liveBuggies[0]?.position ?? {
+      lat: HALTE_LOCATIONS[0].lat,
+      lng: HALTE_LOCATIONS[0].lng,
+    };
+    const sourcePos = userPosition ?? fallbackPos;
+
+    return HALTE_LOCATIONS.map((halte) => ({
+      ...halte,
+      distanceMeters: haversineMeters(sourcePos, {
+        lat: halte.lat,
+        lng: halte.lng,
+      }),
+    }))
+      .sort((a, b) => a.distanceMeters - b.distanceMeters)
+      .slice(0, 3);
+  }, [liveBuggies, userPosition]);
+
+  const getLatestUserPosition = useCallback(async () => {
+    if (typeof window === "undefined" || !("geolocation" in navigator)) {
+      return userPosition;
+    }
+    return new Promise<{ lat: number; lng: number } | null>((resolve) => {
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          const latest = {
+            lat: position.coords.latitude,
+            lng: position.coords.longitude,
+          };
+          setUserPosition(latest);
+          resolve(latest);
+        },
+        () => resolve(userPosition),
+        { enableHighAccuracy: true, timeout: 8000, maximumAge: 15_000 }
+      );
+    });
+  }, [userPosition]);
+
+  const handleRecommendedHalteDirection = useCallback(
+    async (halteId: string) => {
+      const destinationHalte =
+        HALTE_LOCATIONS.find((halte) => halte.id === halteId) ?? null;
+      if (!destinationHalte) return;
+
+      setIsSearching(true);
+
+      try {
+        if (
+          !(window as Window & { google?: { maps?: unknown } }).google?.maps
+        ) {
+          alert("Google Maps belum loading. Coba lagi.");
+          return;
+        }
+
+        const currentPos = await getLatestUserPosition();
+        if (!currentPos) {
+          alert(
+            "Lokasi pengguna belum tersedia. Aktifkan izin lokasi lalu coba lagi.",
+          );
+          return;
+        }
+
+        const mapsService = GoogleMapsService.fromWindow();
+        const originHalte = mapsService.findNearestHalte(
+          currentPos,
+          HALTE_LOCATIONS,
+        );
+        if (!originHalte) {
+          alert("Halte asal terdekat tidak ditemukan.");
+          return;
+        }
+
+        const walkToOriginHalte = await mapsService.getWalkingDirections(
+          currentPos,
+          { lat: originHalte.lat, lng: originHalte.lng },
+        );
+
+        const originIdx = HALTE_LOCATIONS.findIndex(
+          (h) => h.id === originHalte.id,
+        );
+        const destIdx = HALTE_LOCATIONS.findIndex(
+          (h) => h.id === destinationHalte.id,
+        );
+        if (originIdx < 0 || destIdx < 0) {
+          return;
+        }
+
+        const routeStopNames: string[] = [];
+        let cursor = originIdx;
+        while (true) {
+          routeStopNames.push(HALTE_LOCATIONS[cursor].name);
+          if (cursor === destIdx) break;
+          cursor = (cursor + 1) % HALTE_LOCATIONS.length;
+        }
+
+        const busRoutePath = getRouteBetweenHaltes(
+          originHalte.lat,
+          originHalte.lng,
+          destinationHalte.lat,
+          destinationHalte.lng,
+        );
+
+        const nearest = liveBuggies.reduce((best, buggy) => {
+          if (!best) return buggy;
+          return dist(buggy.position, originHalte) <
+            dist(best.position, originHalte)
+            ? buggy
+            : best;
+        }, liveBuggies[0]);
+
+        setFromInput("Lokasi Saya");
+        setToInput(destinationHalte.name);
+        setSearchStep("origin");
+        setSelectedHalteId(destinationHalte.id);
+
+        setDirectionResult({
+          originName: "Lokasi Saya",
+          destinationName: destinationHalte.name,
+          originPosition: currentPos,
+          destinationPosition: {
+            lat: destinationHalte.lat,
+            lng: destinationHalte.lng,
+          },
+          routeStopNames,
+          nearestBuggyName: nearest?.name,
+          nearestBuggyId: nearest?.id,
+          directionPath: busRoutePath,
+          walkingToHalte: walkToOriginHalte
+            ? {
+                originHalteName: originHalte.name,
+                distance: walkToOriginHalte.totalDistance,
+                duration: walkToOriginHalte.totalDuration,
+                path: walkToOriginHalte.decodedPath,
+              }
+            : undefined,
+        });
+
+        if (nearest) {
+          setSelectedBuggyId(nearest.id);
+          setMapFollowingBuggyId(nearest.id);
+        }
+        setActiveView("buggy");
+        setPanelOpen(true);
+      } catch (err) {
+        console.error("Recommendation direction error:", err);
+        alert("Terjadi kesalahan saat membuat rute dari lokasi Anda.");
+      } finally {
+        setIsSearching(false);
+      }
+    },
+    [getLatestUserPosition, liveBuggies],
+  );
 
   const geofenceMembershipRef = useRef<Map<string, boolean>>(new Map());
   const geofenceCooldownRef = useRef<Map<string, number>>(new Map());
@@ -311,13 +485,13 @@ export default function DashboardPage() {
         throw new Error(data.message ?? "Gagal menyimpan geofence.");
       }
       const createdOrUpdated = (await response.json()) as Geofence;
-      
+
       if (isEdit) {
         setGeofences((prev) => prev.map(g => g.id === editingGeofenceId ? createdOrUpdated : g));
       } else {
         setGeofences((prev) => [...prev, createdOrUpdated]);
       }
-      
+
       setDraftGeofenceCenter(null);
       setDraftGeofenceName("");
       setDraftGeofenceRadius(GEOFENCE_DEFAULT_RADIUS_METERS);
@@ -581,7 +755,40 @@ export default function DashboardPage() {
       let walkingToHalte: DirectionResult["walkingToHalte"];
       let originPos: { lat: number; lng: number };
 
-      if (!originHalte) {
+      // Jika fromInput kosong, otomatis gunakan posisi GPS user
+      const effectiveFrom = normalize(fromInput);
+      if (!effectiveFrom) {
+        const currentPos = await getLatestUserPosition();
+        if (currentPos) {
+          originPos = currentPos;
+          setFromInput("Lokasi Saya");
+          originHalte = mapsService.findNearestHalte(
+            currentPos,
+            HALTE_LOCATIONS,
+          );
+          if (!originHalte) {
+            alert("Halte terdekat dari lokasi Anda tidak ditemukan.");
+            setIsSearching(false);
+            return;
+          }
+          const walk = await mapsService.getWalkingDirections(currentPos, {
+            lat: originHalte.lat,
+            lng: originHalte.lng,
+          });
+          if (walk) {
+            walkingToHalte = {
+              originHalteName: originHalte.name,
+              distance: walk.totalDistance,
+              duration: walk.totalDuration,
+              path: walk.decodedPath,
+            };
+          }
+        } else {
+          alert("Aktifkan izin lokasi atau ketik lokasi asal Anda.");
+          setIsSearching(false);
+          return;
+        }
+      } else if (!originHalte) {
         const geocoded = await mapsService.geocodePlace(fromInput);
         if (!geocoded) {
           alert(
@@ -752,6 +959,48 @@ export default function DashboardPage() {
         historyPath={mapHistoryPath}
       />
 
+      {/* Gradient overlay for mobile view */}
+      <div className="pointer-events-none absolute inset-x-0 top-0 z-20 h-52 bg-linear-to-b from-slate-900/45 via-slate-900/20 to-transparent xl:hidden" />
+
+      <section
+        className="absolute inset-x-0 z-40 flex items-center justify-between px-4 xl:hidden"
+        style={{ top: "calc(0.75rem + var(--sai-top, 0px))" }}
+      >
+        <h1 className="text-[26px] font-bold tracking-tight text-white drop-shadow-md">
+          SIMOBI
+        </h1>
+
+        <button
+          type="button"
+          aria-label="Notifikasi"
+          className="relative flex h-10 w-10 items-center justify-center rounded-full border border-white/20 bg-slate-900/50 text-white backdrop-blur-md transition active:scale-95"
+        >
+          <BellIcon className="h-5 w-5" />
+        </button>
+      </section>
+
+      <section
+        className={`absolute left-1/2 z-40 w-[min(92vw,420px)] -translate-x-1/2 xl:hidden ${
+          searchStep === "origin" ? "top-40" : "top-28"
+        }`}
+      >
+        <div className="flex gap-2 overflow-x-auto pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+          {nearestHalteRecommendations.map((halte) => (
+            <button
+              key={halte.id}
+              type="button"
+              className="shrink-0 flex items-center gap-2 rounded-full border border-white/35 bg-slate-900/50 px-3 py-1.5 text-white backdrop-blur-md transition active:scale-[0.98]"
+              onClick={() => void handleRecommendedHalteDirection(halte.id)}
+            >
+              <MapPinSolidIcon className="h-4 w-4 shrink-0 text-white" />
+              <p className="text-[12px] font-bold leading-none">{halte.name}</p>
+            </button>
+          ))}
+        </div>
+      </section>
+
+
+
       <ToastStack toasts={toasts} />
 
       <div className="absolute right-3 top-3 z-20 rounded-full border border-emerald-200 bg-emerald-100/90 px-2 py-0.5 text-xs font-semibold text-emerald-700 shadow-sm backdrop-blur-sm xl:right-4 xl:top-4 xl:px-3 xl:py-1 xl:text-sm">
@@ -777,6 +1026,7 @@ export default function DashboardPage() {
         onBackToDestination={handleBackToDestination}
         panelOpen={panelOpen}
         isSearching={isSearching}
+        mobileTopClass="top-14"
       />
 
       <BuggyList
@@ -801,7 +1051,10 @@ export default function DashboardPage() {
             geofenceCreateMode={geofenceCreateMode}
             draftGeofence={
               geofenceCreateMode && draftGeofenceCenter
-                ? { center: draftGeofenceCenter, radiusMeters: draftGeofenceRadius }
+                ? {
+                    center: draftGeofenceCenter,
+                    radiusMeters: draftGeofenceRadius,
+                  }
                 : null
             }
             draftName={draftGeofenceName}

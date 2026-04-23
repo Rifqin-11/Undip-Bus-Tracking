@@ -7,12 +7,14 @@ type BuggyOperationalDetailProps = {
   buggy: Buggy;
   activeZones: string[];
   onBack: () => void;
+  geofenceManagerNode?: React.ReactNode;
 };
 
 export function BuggyOperationalDetail({
   buggy,
   activeZones,
   onBack,
+  geofenceManagerNode,
 }: BuggyOperationalDetailProps) {
   const currentStop = getBuggyStopNameAtOffset(buggy, 0);
   const nextStop = getBuggyStopNameAtOffset(buggy, 1);
@@ -92,6 +94,59 @@ export function BuggyOperationalDetail({
         </span>
       </div>
 
+      {/* ── Buggy Visual & Energy (Redesigned) ─────────────────────────── */}
+      <div className="rounded-3xl border border-slate-200/80 bg-slate-50/50 p-4">
+        {/* Cover Image */}
+        <div className="relative h-44 w-full flex justify-center mb-3">
+           <img
+              src="/buggy.webp"
+              alt="Buggy EV"
+              className="h-full w-full object-contain mix-blend-multiply drop-shadow-xl opacity-95"
+           />
+        </div>
+
+        {/* 3 Stats Boxes */}
+        <div className="grid grid-cols-3 gap-2 mb-2">
+          <div className="rounded-2xl border border-slate-200/80 bg-white p-3 flex flex-col justify-center shadow-sm">
+            <p className="text-[10px] font-semibold text-slate-400 mb-0.5">Sisa Jarak</p>
+            <p className="text-[14px] font-bold text-slate-800">120 <span className="font-bold text-slate-400 text-[10px]">km</span></p>
+          </div>
+          <div className="rounded-2xl border border-slate-200/80 bg-white p-3 flex flex-col justify-center shadow-sm">
+            <p className="text-[10px] font-semibold text-slate-400 mb-0.5">Konsumsi</p>
+            <p className="text-[14px] font-bold text-slate-800">142 <span className="font-bold text-slate-400 text-[10px]">wh/km</span></p>
+          </div>
+          <div className="rounded-2xl border border-slate-200/80 bg-white p-3 flex flex-col justify-center shadow-sm">
+            <p className="text-[10px] font-semibold text-slate-400 mb-0.5">Kapasitas</p>
+            <p className="text-[14px] font-bold text-slate-800">35.5 <span className="font-bold text-slate-400 text-[10px]">kWh</span></p>
+          </div>
+        </div>
+
+        {/* Battery & Action Row */}
+        <div className="flex gap-2">
+          <div className="relative flex-1 rounded-2xl bg-slate-100 overflow-hidden flex items-center justify-center p-3 shadow-inner border border-slate-200/60 cursor-default">
+            {/* Battery Fill Bar */}
+            <div className="absolute left-0 top-0 bottom-0 bg-[#d2f34c] transition-all" style={{ width: '85%' }} />
+
+            {/* Battery Inner Content */}
+            <div className="relative z-10 flex items-center">
+              <svg className="w-5 h-5 text-slate-900 mr-2 drop-shadow-sm" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M4 7h14a2 2 0 012 2v6a2 2 0 01-2 2H4a2 2 0 01-2-2V9c0-1.1.9-2 2-2z" />
+                <path strokeLinecap="round" strokeLinejoin="round" d="M22 11v2" />
+                <path strokeLinecap="round" strokeLinejoin="round" d="M6 11h2v2H6z M10 11h2v2h-2z M14 11h2v2h-2z" />
+              </svg>
+              <span className="text-[14px] font-bold text-slate-900 tracking-wide drop-shadow-sm">85% Baterai</span>
+            </div>
+          </div>
+          <button type="button" className="w-[52px] shrink-0 rounded-2xl bg-white border border-slate-200 flex items-center justify-center shadow-sm hover:bg-slate-50 transition active:scale-95">
+            {/* Track/Location Icon */}
+            <svg className="w-5 h-5 text-slate-700" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+              <path strokeLinecap="round" strokeLinejoin="round" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+            </svg>
+          </button>
+        </div>
+      </div>
+
       {/* ── Occupancy ──────────────────────────────────────────────────── */}
       <div className="rounded-3xl border border-slate-200/80 bg-white/70 p-3">
         <div className="mb-2 flex items-center justify-between text-[12px]">
@@ -137,10 +192,10 @@ export function BuggyOperationalDetail({
       </div>
 
       {/* ── Geofence Zones ─────────────────────────────────────────────── */}
-      {activeZones.length > 0 && (
+      {activeZones.length > 0 ? (
         <div className="rounded-3xl border border-blue-200/80 bg-blue-50/70 p-3">
           <p className="mb-2 text-[10px] font-semibold uppercase tracking-widest text-blue-500">
-            Zona Aktif
+            Terdeteksi Memasuki Zona:
           </p>
           <div className="flex flex-wrap gap-1.5">
             {activeZones.map((zone) => (
@@ -152,6 +207,17 @@ export function BuggyOperationalDetail({
               </span>
             ))}
           </div>
+        </div>
+      ) : (
+        <div className="rounded-3xl border border-slate-200/80 bg-slate-50/70 p-3">
+          <p className="text-[12px] font-medium text-slate-500 text-center">Armada berada di luar jangkauan seluruh zona.</p>
+        </div>
+      )}
+
+      {/* ── Embedded Geofence Manager ──────────────────────────────────── */}
+      {geofenceManagerNode && (
+        <div className="pt-2">
+           {geofenceManagerNode}
         </div>
       )}
     </section>

@@ -70,7 +70,7 @@ export function FloatingSidebar({
       <nav className="flex flex-col gap-2 rounded-2xl bg-white/70 p-2">
         {shouldShowDataButton ? (
           <button
-            className={`${actionButtonClass} ${activeView === "data" ? "bg-[#0f1a3b] text-white" : "text-slate-600 hover:bg-slate-100"}`}
+            className={`${actionButtonClass} ${activeView === "data" || activeView === "data-detail" ? "bg-[#0f1a3b] text-white" : "text-slate-600 hover:bg-slate-100"}`}
             aria-label="Data"
             type="button"
             onClick={() => onSelectView("data")}
@@ -112,14 +112,14 @@ export function FloatingSidebar({
         >
           <BellIcon className="h-5 w-5" />
         </button>
-        <button
+        {/* <button
           className={`${actionButtonClass} ${activeView === "lapor" ? "bg-[#0f1a3b] text-white" : "text-slate-600 hover:bg-slate-100"}`}
           aria-label="Lapor"
           type="button"
           onClick={() => onSelectView("lapor")}
         >
           <ChatIcon className="h-5 w-5" />
-        </button>
+        </button> */}
       </nav>
 
       <button
