@@ -52,7 +52,7 @@ export type ActiveSessionSummary = {
   batteryStart: number | null;
   currentBattery: number | null;
   batteryUsed: number | null;
-  path: [number, number][];
+  path: [number, number, number][];
 };
 
 // ── Global state (survives HMR in dev) ───────────────────────────────────────
