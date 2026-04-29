@@ -637,6 +637,7 @@ export default function DashboardPage() {
       <MobileBottomNav
         activeView={activeView}
         onSelectView={handleSelectView}
+        onDragOpenPanel={() => setPanelOpen(true)}
       />
     </main>
   );

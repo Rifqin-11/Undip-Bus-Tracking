@@ -16,6 +16,7 @@ import type { PanelView } from "@/types/buggy";
 type MobileBottomNavProps = {
   activeView: PanelView;
   onSelectView: (view: PanelView) => void;
+  onDragOpenPanel?: () => void;
   showDataButton?: boolean;
 };
 
@@ -41,12 +42,37 @@ const navItems: {
 export function MobileBottomNav({
   activeView,
   onSelectView,
+  onDragOpenPanel,
   showDataButton = false,
 }: MobileBottomNavProps) {
   const pathname = usePathname();
   const router = useRouter();
   const isOnAdminPage = pathname.startsWith("/admin");
   const shouldShowDataButton = isOnAdminPage && showDataButton;
+  const dragStartYRef = React.useRef<number | null>(null);
+  const dragTriggeredRef = React.useRef(false);
+
+  const DRAG_OPEN_THRESHOLD = 28;
+
+  const handlePointerDown = (event: React.PointerEvent<HTMLButtonElement>) => {
+    dragStartYRef.current = event.clientY;
+    dragTriggeredRef.current = false;
+  };
+
+  const handlePointerMove = (event: React.PointerEvent<HTMLButtonElement>) => {
+    if (dragStartYRef.current == null || dragTriggeredRef.current) return;
+    const deltaY = event.clientY - dragStartYRef.current;
+
+    if (deltaY <= -DRAG_OPEN_THRESHOLD) {
+      dragTriggeredRef.current = true;
+      onDragOpenPanel?.();
+    }
+  };
+
+  const resetDragState = () => {
+    dragStartYRef.current = null;
+    dragTriggeredRef.current = false;
+  };
 
   const handleAdminButtonClick = async () => {
     if (isOnAdminPage) {
@@ -65,9 +91,21 @@ export function MobileBottomNav({
 
   return (
     <nav
-      className="fixed bottom-4 left-1/2 z-50 flex w-[calc(100%-5rem)] max-w-sm -translate-x-1/2 items-center justify-around rounded-full border border-white/35 bg-transparent px-2 py-1.5 shadow-[0_18px_40px_rgba(0,0,0,0.35)] backdrop-blur-2xl xl:hidden"
+      className="fixed bottom-4 left-1/2 z-50 flex w-[calc(100%-5rem)] max-w-sm -translate-x-1/2 items-center justify-around rounded-full border border-white/35 bg-transparent px-2 pb-1.5 pt-4 shadow-[0_18px_40px_rgba(0,0,0,0.35)] backdrop-blur-2xl xl:hidden"
       style={{ bottom: "calc(1rem + var(--sai-bottom, 0px))" }}
     >
+      <button
+        type="button"
+        aria-label="Tarik ke atas untuk membuka panel"
+        className="absolute inset-x-0 top-0 flex h-6 items-start justify-center rounded-t-full pt-2 touch-none"
+        onPointerDown={handlePointerDown}
+        onPointerMove={handlePointerMove}
+        onPointerUp={resetDragState}
+        onPointerCancel={resetDragState}
+      >
+        <span className="h-1 w-10 rounded-full bg-slate-400/50" />
+      </button>
+
       {shouldShowDataButton && (
         <button
           type="button"

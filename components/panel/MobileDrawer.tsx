@@ -292,7 +292,7 @@ export function MobileDrawer({ open, onClose, children }: MobileDrawerProps) {
         >
           {/* Gradient backdrop that fades in when scrolled */}
           <motion.div
-            className="pointer-events-none absolute inset-0 -bottom-4 z-[-1] bg-gradient-to-b from-slate-200 via-slate-100/60 to-transparent"
+            className="pointer-events-none absolute inset-0 -bottom-4 z-[-1] bg-linear-to-b from-slate-200 via-slate-100/60 to-transparent"
             style={{ opacity: headerBgOpacity }}
           />
 
