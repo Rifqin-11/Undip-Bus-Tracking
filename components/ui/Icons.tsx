@@ -209,6 +209,23 @@ export function NavigateIcon(props: IconProps) {
   );
 }
 
+/** GPS / "My Location" navigation arrow icon */
+export function NavigationIcon(props: IconProps) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      {...props}
+    >
+      <polygon points="3 11 22 2 13 21 11 13 3 11" />
+    </svg>
+  );
+}
+
 // ─── Search ───────────────────────────────────────────────────────────────────
 
 export function SearchIcon(props: IconProps) {

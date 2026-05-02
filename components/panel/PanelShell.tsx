@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { XIcon } from "@/components/ui/Icons";
 import { DESKTOP_LAYOUT } from "@/lib/presenters/layout-metrics";
 
 type PanelShellProps = {
@@ -24,10 +25,10 @@ function PanelHeader({ onClose }: { onClose: () => void }) {
         <button
           type="button"
           onClick={onClose}
-          className="grid h-8 w-8 place-items-center rounded-full border border-slate-200 bg-white text-slate-500 transition hover:bg-slate-50 hover:text-slate-800"
+          className="grid h-8 w-8 place-items-center rounded-full border border-slate-200 bg-white text-slate-500 transition hover:border-slate-900 hover:bg-slate-900 hover:text-white"
           aria-label="Tutup panel"
         >
-          X
+          <XIcon className="h-4 w-4" />
         </button>
       </div>
     </div>

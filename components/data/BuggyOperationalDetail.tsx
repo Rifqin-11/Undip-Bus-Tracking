@@ -91,7 +91,7 @@ export function BuggyOperationalDetail({
         <button
           type="button"
           onClick={onBack}
-          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-600 shadow-sm transition hover:bg-slate-50 active:scale-95"
+          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-600 shadow-sm transition hover:border-slate-900 hover:bg-slate-900 hover:text-white active:scale-95"
           aria-label="Kembali ke daftar buggy"
         >
           <ChevronLeft className="size-5" />
@@ -116,7 +116,7 @@ export function BuggyOperationalDetail({
             <button
               type="button"
               onClick={() => setIsEditOpen(true)}
-              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-slate-400 bg-slate-200 text-slate-600 shadow-sm transition hover:bg-slate-50 active:scale-95"
+              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-600 shadow-sm transition hover:border-slate-900 hover:bg-slate-900 hover:text-white active:scale-95"
             >
               <Edit2Icon className="size-3.5" />
             </button>
@@ -303,7 +303,8 @@ export function BuggyOperationalDetail({
         <button
           type="button"
           onClick={() => setIsDeleteOpen(true)}
-          className="text-red-500 transition hover:bg-red-100 hover:text-red-600 active:scale-95"
+          className="flex h-8 w-8 items-center justify-center rounded-lg border border-rose-100 bg-rose-50 text-rose-500 transition hover:bg-rose-100 hover:text-rose-600 active:scale-95"
+          aria-label="Hapus armada"
         >
           <TrashIcon className="size-3.5" />
         </button>

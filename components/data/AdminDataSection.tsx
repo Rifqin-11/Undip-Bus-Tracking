@@ -69,7 +69,7 @@ export function AdminDataSection({
 
       {/* ── Data Operasional Buggy ─────────────────────────────────────── */}
       <div className="rounded-3xl border border-slate-200/80 bg-white/70 p-3 lg:p-4">
-        <div className="group w-full rounded-[20px] border border-white/60 bg-white/40 backdrop-blur-md py-3 px-3.5 text-left shadow-[0_8px_20px_rgba(15,23,42,0.04)] transition-all hover:bg-white/60 hover:shadow-[0_8px_24px_rgba(15,23,42,0.06)] hover:border-slate-300/50 mb-3">
+        <div className="mb-3 w-full rounded-[20px] border border-white/60 bg-white/40 backdrop-blur-md py-3 px-3.5 shadow-[0_8px_20px_rgba(15,23,42,0.04)]">
           <div className="flex items-center justify-between gap-2">
             <h2 className="text-[17px] font-bold text-slate-900 tracking-tight">
               Data Operasional
@@ -81,7 +81,7 @@ export function AdminDataSection({
               <button
                 type="button"
                 onClick={() => setIsAddModalOpen(true)}
-                className="flex items-center gap-1 rounded-full bg-[#0f1a3b] px-3 py-2 text-[11px] font-bold text-white shadow-sm transition hover:bg-[#1a2b59] active:scale-95"
+                className="flex items-center gap-1 rounded-full border border-[#0f1a3b] bg-[#0f1a3b] px-3 py-2 text-[11px] font-bold text-white shadow-sm transition hover:bg-white hover:text-[#0f1a3b] active:scale-95"
               >
                 <PlusIcon className="size-3" />
               </button>

@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import { HALTE_LOCATIONS } from "@/lib/transit/buggy-data";
 import {
   XIcon,
@@ -6,6 +6,7 @@ import {
   SpinnerIcon,
   ArrowRightIcon,
   MapPinIcon,
+  NavigationIcon,
 } from "@/components/ui/Icons";
 
 type LiveSearchBarProps = {
@@ -35,6 +36,9 @@ export function LiveSearchBar({
 }: LiveSearchBarProps) {
   const [isFocused, setIsFocused] = useState(false);
   const [focusedField, setFocusedField] = useState<"from" | "to" | null>(null);
+  const [locationState, setLocationState] = useState<
+    "idle" | "loading" | "done" | "error"
+  >("idle");
   const wrapperRef = useRef<HTMLFormElement>(null);
 
   const currentInput = focusedField === "from" ? fromValue : toValue;
@@ -42,10 +46,35 @@ export function LiveSearchBar({
   const suggestions = trimmed
     ? HALTE_LOCATIONS.filter((h) =>
         h.name.toLowerCase().includes(trimmed),
-      ).slice(0, 6)
-    : [];
+      ).slice(0, 8)
+    : HALTE_LOCATIONS.slice(0, 8);
 
-  const showDropdown = isFocused && suggestions.length > 0;
+  // Show dropdown whenever a field is focused (even when input is empty)
+  const showDropdown = isFocused;
+
+  const handleUseMyLocation = useCallback(() => {
+    if (!navigator.geolocation) {
+      setLocationState("error");
+      return;
+    }
+    setLocationState("loading");
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        const { latitude, longitude } = pos.coords;
+        const locationString = `${latitude.toFixed(6)}, ${longitude.toFixed(6)}`;
+        if (focusedField === "from") {
+          onFromChange(locationString);
+        } else {
+          onToChange(locationString);
+        }
+        setLocationState("done");
+        setIsFocused(false);
+        setFocusedField(null);
+      },
+      () => setLocationState("error"),
+      { enableHighAccuracy: true, timeout: 8000 },
+    );
+  }, [focusedField, onFromChange, onToChange]);
 
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
@@ -156,23 +185,57 @@ export function LiveSearchBar({
       {/* Suggestions dropdown */}
       {showDropdown && (
         <div className="mt-1.5 overflow-hidden rounded-2xl border border-white/50 bg-white/80 shadow-[0_12px_40px_rgba(15,23,42,0.12)] backdrop-blur-xl">
-          {suggestions.map((halte) => (
-            <button
-              key={halte.id}
-              type="button"
-              className="flex w-full items-center gap-2.5 px-3 py-2.5 text-left transition-colors first:rounded-t-2xl last:rounded-b-2xl hover:bg-slate-50/80"
-              onClick={() => handleSuggestionClick(halte.name)}
-            >
-              <div className="grid h-7 w-7 shrink-0 place-items-center rounded-lg bg-emerald-100 text-emerald-600">
-                <MapPinIcon className="h-3.5 w-3.5" />
-              </div>
-              <div className="min-w-0 flex-1">
-                <p className="truncate text-[13px] font-medium text-slate-800">
-                  {halte.name}
-                </p>
-              </div>
-            </button>
-          ))}
+          {/* "Lokasi Saya" — item pertama, sama seperti halte lain */}
+          <button
+            type="button"
+            disabled={locationState === "loading"}
+            className="flex w-full items-center gap-2.5 rounded-t-2xl px-3 py-2.5 text-left transition-colors hover:bg-slate-50/80 disabled:opacity-60"
+            onClick={handleUseMyLocation}
+          >
+            <div className="grid h-7 w-7 shrink-0 place-items-center rounded-lg bg-blue-100 text-blue-600">
+              {locationState === "loading" ? (
+                <SpinnerIcon className="h-3.5 w-3.5 animate-spin" />
+              ) : (
+                <NavigationIcon className="h-3.5 w-3.5" />
+              )}
+            </div>
+            <div className="min-w-0 flex-1">
+              <p className="truncate text-[13px] font-medium text-slate-800">
+                {locationState === "loading"
+                  ? "Mendapatkan lokasi…"
+                  : locationState === "error"
+                    ? "Gagal mendapatkan lokasi"
+                    : "Lokasi Saya"}
+              </p>
+            </div>
+          </button>
+
+          {/* Halte list */}
+          {suggestions.length > 0 ? (
+            suggestions.map((halte, idx) => (
+              <button
+                key={halte.id}
+                type="button"
+                className={`flex w-full items-center gap-2.5 px-3 py-2.5 text-left transition-colors hover:bg-slate-50/80 ${
+                  idx === suggestions.length - 1 ? "rounded-b-2xl" : ""
+                }`}
+                onClick={() => handleSuggestionClick(halte.name)}
+              >
+                <div className="grid h-7 w-7 shrink-0 place-items-center rounded-lg bg-emerald-100 text-emerald-600">
+                  <MapPinIcon className="h-3.5 w-3.5" />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-[13px] font-medium text-slate-800">
+                    {halte.name}
+                  </p>
+                </div>
+              </button>
+            ))
+          ) : (
+            <div className="rounded-b-2xl px-3 py-3 text-center text-[12px] text-slate-400">
+              Halte tidak ditemukan
+            </div>
+          )}
         </div>
       )}
     </form>

@@ -209,20 +209,29 @@ export function BuggyList({
       ) : null}
 
       {activeView === "notifikasi" && (
-        <div className="rounded-3xl border border-slate-200/80 bg-white/70 p-5 text-center">
+        <div className="rounded-3xl border border-slate-200/80 bg-white/70 p-6 text-center">
+          <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-2xl bg-slate-100 text-slate-400">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="h-6 w-6">
+              <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
+              <path d="M13.73 21a2 2 0 0 1-3.46 0" />
+            </svg>
+          </div>
           <p className="text-[15px] font-semibold text-slate-700">Notifikasi</p>
-          <p className="mt-1 text-[12px] text-slate-400">
-            Belum ada notifikasi baru.
+          <p className="mt-1 text-[12px] leading-relaxed text-slate-400">
+            Belum ada notifikasi baru.<br />Informasi real-time akan muncul di sini.
           </p>
         </div>
       )}
       {activeView === "lapor" && (
-        <div className="rounded-3xl border border-slate-200/80 bg-white/70 p-5 text-center">
-          <p className="text-[15px] font-semibold text-slate-700">
-            Lapor Masalah
-          </p>
-          <p className="mt-1 text-[12px] text-slate-400">
-            Fitur pelaporan segera hadir.
+        <div className="rounded-3xl border border-slate-200/80 bg-white/70 p-6 text-center">
+          <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-2xl bg-slate-100 text-slate-400">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="h-6 w-6">
+              <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+            </svg>
+          </div>
+          <p className="text-[15px] font-semibold text-slate-700">Lapor Masalah</p>
+          <p className="mt-1 text-[12px] leading-relaxed text-slate-400">
+            Fitur pelaporan segera hadir.<br />Anda dapat melaporkan kondisi halte atau armada.
           </p>
         </div>
       )}

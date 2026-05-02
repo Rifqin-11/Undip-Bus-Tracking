@@ -83,7 +83,7 @@ export function BuggyDetailView({ buggy, onBack }: BuggyDetailViewProps) {
           type="button"
           aria-label="Kembali"
           onClick={onBack}
-          className="grid h-9 w-9 shrink-0 place-items-center rounded-full border border-slate-300 bg-white text-slate-700 shadow-sm transition hover:bg-slate-50"
+          className="grid h-9 w-9 shrink-0 place-items-center rounded-full border border-slate-300 bg-white text-slate-700 shadow-sm transition hover:border-slate-900 hover:bg-slate-900 hover:text-white"
         >
           <ChevronLeftIcon className="h-4 w-4" />
         </button>

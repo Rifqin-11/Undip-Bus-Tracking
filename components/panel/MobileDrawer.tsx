@@ -339,7 +339,7 @@ export function MobileDrawer({ open, onClose, children }: MobileDrawerProps) {
           onPan={onContentPan}
           onPanEnd={onContentPanEnd}
           onWheel={onContentWheel}
-          className="flex-1 overscroll-contain px-4 pb-6 pt-[72px]"
+          className="flex-1 overscroll-contain px-4 pb-6 pt-18"
           style={{
             overflow: snap === "half" ? "hidden" : "auto",
             touchAction: snap === "half" ? "none" : "pan-y",

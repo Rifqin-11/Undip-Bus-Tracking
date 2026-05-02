@@ -56,7 +56,7 @@ export function DirectionPanel({ result, onClose }: DirectionPanelProps) {
         <button
           type="button"
           onClick={onClose}
-          className="grid h-7 w-7 place-items-center rounded-full border border-slate-200 bg-white text-slate-400 transition hover:bg-slate-50 hover:text-slate-700"
+          className="grid h-7 w-7 place-items-center rounded-full border border-slate-200 bg-white text-slate-400 transition hover:border-slate-900 hover:bg-slate-900 hover:text-white"
           aria-label="Tutup"
         >
           <XIcon className="h-3.5 w-3.5" />

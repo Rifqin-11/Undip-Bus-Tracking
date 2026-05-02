@@ -28,7 +28,7 @@ export function HistorySessionList({
           <button
             type="button"
             onClick={onBack}
-            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-600 shadow-sm transition hover:bg-slate-50 active:scale-95"
+            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-600 shadow-sm transition hover:border-slate-900 hover:bg-slate-900 hover:text-white active:scale-95"
             aria-label="Kembali ke daftar armada"
           >
             <ChevronLeftIcon className="h-4 w-4" />
@@ -50,7 +50,7 @@ export function HistorySessionList({
             type="button"
             disabled={refreshing}
             onClick={onRefresh}
-            className="shrink-0 rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-[11px] font-medium text-slate-600 transition hover:bg-slate-50 disabled:opacity-50"
+            className="shrink-0 rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-[11px] font-medium text-slate-600 transition hover:border-slate-900 hover:bg-slate-900 hover:text-white disabled:opacity-50"
           >
             {refreshing ? "…" : "Refresh"}
           </button>

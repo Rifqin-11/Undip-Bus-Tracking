@@ -162,7 +162,7 @@ export default function LoginForm() {
               <button
                 type="submit"
                 disabled={isSubmitting}
-                className="liquid-glass-cta mt-1 h-11 w-full rounded-2xl text-[14px] font-semibold text-white bg-blue-900  transition disabled:cursor-not-allowed disabled:opacity-70"
+                className="liquid-glass-cta mt-1 h-11 w-full rounded-2xl text-[14px] font-semibold text-white bg-blue-900 transition hover:bg-slate-200 hover:text-blue-900  disabled:cursor-not-allowed disabled:opacity-70"
               >
                 {isSubmitting ? "Loading..." : "Login"}
               </button>

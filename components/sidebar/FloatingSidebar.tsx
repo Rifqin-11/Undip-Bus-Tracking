@@ -123,7 +123,7 @@ export function FloatingSidebar({
       </nav>
 
       <button
-        className="grid h-11 w-11 place-items-center rounded-2xl bg-[#0f1a3b] text-white transition hover:bg-[#162656]"
+        className="grid h-11 w-11 place-items-center rounded-2xl border border-[#0f1a3b] bg-[#0f1a3b] text-white transition hover:bg-white hover:text-[#0f1a3b]"
         aria-label={isOnAdminPage ? "Logout admin" : "Login admin"}
         type="button"
         onClick={handleAdminButtonClick}

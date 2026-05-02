@@ -63,7 +63,7 @@ export function AdminBuggyCard({
 
         {/* Right: Detail Button (Chevron) */}
         <div className="shrink-0 flex items-center justify-center mr-0.5">
-          <div className="flex h-7 w-7 items-center justify-center rounded-full bg-slate-100/80 shadow-sm text-slate-400 transition-colors group-hover:bg-slate-200/80 group-hover:text-slate-600">
+          <div className="flex h-7 w-7 items-center justify-center rounded-full bg-slate-100/80 shadow-sm text-slate-400 transition-all group-hover:bg-slate-900 group-hover:text-white">
             <ChevronRight className="size-5 ml-[1px]" />
           </div>
         </div>

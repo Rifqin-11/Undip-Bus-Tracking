@@ -83,9 +83,9 @@ export function HistoryBuggyList({
 
                     {/* Right: Detail Button */}
                     <div className="shrink-0 self-start mt-0.5">
-                      <span className="flex items-center gap-1 rounded-full border-[1.5px] border-slate-200/80 bg-slate-100/50 backdrop-blur-md px-3 py-1 text-[10px] font-bold text-slate-700 shadow-sm transition-all hover:bg-slate-200/60 group-hover:border-slate-300">
+                      <span className="flex items-center gap-1 rounded-full border-[1.5px] border-slate-200/80 bg-slate-100/50 backdrop-blur-md px-3 py-1 text-[10px] font-bold text-slate-700 shadow-sm transition-all group-hover:border-slate-900 group-hover:bg-slate-900 group-hover:text-white">
                         View
-                        <ChevronRight className="w-3 h-3 text-slate-500" />
+                        <ChevronRight className="w-3 h-3 text-slate-500 group-hover:text-white" />
                       </span>
                     </div>
                   </div>

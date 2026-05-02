@@ -73,8 +73,8 @@ export function GeofenceManager({
             onClick={onToggleCreateMode}
             className={`rounded-xl px-3 py-1.5 text-[12px] font-semibold transition active:scale-95 ${
               geofenceCreateMode
-                ? "bg-rose-500 text-white hover:bg-rose-600"
-                : "bg-[#0f1a3b] text-white hover:bg-[#162656]"
+                ? "border border-rose-500 bg-rose-500 text-white hover:bg-white hover:text-rose-500"
+                : "border border-[#0f1a3b] bg-[#0f1a3b] text-white hover:bg-white hover:text-[#0f1a3b]"
             }`}
           >
             {geofenceCreateMode ? <X className="size-4"/> : <Plus className="size-4"/>}
@@ -146,7 +146,7 @@ export function GeofenceManager({
             <button
               type="button"
               onClick={onCancelDraft}
-              className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-[12px] font-medium text-slate-600 transition hover:bg-slate-50 active:scale-[0.98]"
+              className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-[12px] font-medium text-slate-600 transition hover:border-slate-900 hover:bg-slate-900 hover:text-white active:scale-[0.98]"
             >
               Batal
             </button>
