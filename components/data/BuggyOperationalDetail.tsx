@@ -291,24 +291,6 @@ export function BuggyOperationalDetail({
           </div>
         ))}
       </div>
-      <div className="flex items-center justify-center rounded-3xl border border-red-200/80 bg-red-50/70 p-3 gap-3">
-      <div className="flex gap-1">
-        <p className="text-xs font-semibold uppercase tracking-widest text-red-500">
-          Hapus
-        </p>
-        <p className="text-xs font-bold uppercase tracking-widest text-red-500">
-          {buggy.name}
-        </p>
-      </div>
-        <button
-          type="button"
-          onClick={() => setIsDeleteOpen(true)}
-          className="flex h-8 w-8 items-center justify-center rounded-lg border border-rose-100 bg-rose-50 text-rose-500 transition hover:bg-rose-100 hover:text-rose-600 active:scale-95"
-          aria-label="Hapus armada"
-        >
-          <TrashIcon className="size-3.5" />
-        </button>
-      </div>
       {/* ── Geofence Zones ─────────────────────────────────────────────── */}
       {activeZones.length > 0 ? (
         <div className="rounded-3xl border border-blue-200/80 bg-blue-50/70 p-3">

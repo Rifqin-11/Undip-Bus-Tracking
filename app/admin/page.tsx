@@ -335,6 +335,26 @@ export default function DashboardPage() {
     [],
   );
 
+  /** Simulasikan notifikasi bus mendekati halte — untuk keperluan testing */
+  const handleTestBusNotification = useCallback(() => {
+    const sampleBuggy = liveBuggies[0];
+    const sampleHalte = HALTE_LOCATIONS[0];
+    const busName = sampleBuggy?.name ?? "Buggy 1";
+    const halteName = sampleHalte?.name ?? "Halte Utama";
+    const fakeDistance = Math.floor(Math.random() * 120) + 10;
+
+    const id = makeId();
+    setToasts((prev) =>
+      [{
+        id,
+        tone: "bus" as ToastItem["tone"],
+        title: `${busName} mendekati halte Anda`,
+        description: `${halteName} · ${fakeDistance} m lagi`,
+        duration: 7_000,
+      }, ...prev].slice(0, TOAST_LIMIT),
+    );
+  }, [liveBuggies]);
+
   const loadGeofences = useCallback(async () => {
     setGeofenceLoading(true);
     try {
@@ -972,10 +992,16 @@ export default function DashboardPage() {
 
         <button
           type="button"
-          aria-label="Notifikasi"
-          className="relative flex h-10 w-10 items-center justify-center rounded-full border border-white/20 bg-slate-900/50 text-white backdrop-blur-md transition active:scale-95"
+          aria-label="Test notifikasi bus"
+          title="Test notifikasi bus mendekati"
+          onClick={handleTestBusNotification}
+          className="relative flex h-10 w-10 items-center justify-center rounded-full border border-white/20 bg-slate-900/50 text-white backdrop-blur-md transition hover:bg-slate-800/70 active:scale-95"
         >
           <BellIcon className="h-5 w-5" />
+          {/* Badge TEST */}
+          <span className="absolute -right-0.5 -top-0.5 flex h-4 w-4 items-center justify-center rounded-full bg-amber-400 text-[7px] font-black text-slate-900 leading-none">
+            T
+          </span>
         </button>
       </section>
 
@@ -1001,10 +1027,24 @@ export default function DashboardPage() {
 
 
 
-      <ToastStack toasts={toasts} />
+      <ToastStack
+        toasts={toasts}
+        onDismiss={(id) => setToasts((prev) => prev.filter((t) => t.id !== id))}
+      />
 
-      <div className="absolute right-3 top-3 z-20 rounded-full border border-emerald-200 bg-emerald-100/90 px-2 py-0.5 text-xs font-semibold text-emerald-700 shadow-sm backdrop-blur-sm xl:right-4 xl:top-4 xl:px-3 xl:py-1 xl:text-sm">
-        Realtime aktif
+      <div className="absolute right-3 top-3 z-20 flex items-center gap-2 xl:right-4 xl:top-4">
+        <button
+          type="button"
+          onClick={handleTestBusNotification}
+          title="Test notifikasi bus mendekati"
+          className="relative hidden xl:flex items-center gap-1.5 rounded-full border border-amber-300 bg-amber-50 px-3 py-1 text-xs font-semibold text-amber-700 shadow-sm backdrop-blur-sm transition hover:bg-amber-100 active:scale-95"
+        >
+          <BellIcon className="h-3.5 w-3.5" />
+          Test Notif
+        </button>
+        <div className="rounded-full border border-emerald-200 bg-emerald-100/90 px-2 py-0.5 text-xs font-semibold text-emerald-700 shadow-sm backdrop-blur-sm xl:px-3 xl:py-1 xl:text-sm">
+          Realtime aktif
+        </div>
       </div>
 
       <FloatingSidebar

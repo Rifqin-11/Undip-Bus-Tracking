@@ -7,6 +7,8 @@ import { FloatingSidebar } from "@/components/sidebar/FloatingSidebar";
 import { MobileBottomNav } from "@/components/sidebar/MobileBottomNav";
 import { LiveSearchBar } from "@/components/search/LiveSearchBar";
 import { BellIcon, MapPinSolidIcon } from "@/components/ui/Icons";
+import { ToastStack, type ToastItem } from "@/components/ui/ToastStack";
+import { useNearbyBusAlert } from "@/hooks/useNearbyBusAlert";
 import {
   createInitialBuggies,
   HALTE_LOCATIONS,
@@ -109,6 +111,18 @@ export default function DashboardPage() {
     lng: number;
   } | null>(null);
 
+  // Toast notifications state
+  const [toasts, setToasts] = useState<ToastItem[]>([]);
+
+  const dismissToast = useCallback((id: string) => {
+    setToasts((prev) => prev.filter((t) => t.id !== id));
+  }, []);
+
+  const addToast = useCallback((toast: Omit<ToastItem, "id">) => {
+    const id = `toast-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+    setToasts((prev) => [...prev.slice(-4), { ...toast, id }]); // maks 5 toast sekaligus
+  }, []);
+
   // Search state
   const [searchStep, setSearchStep] = useState<"destination" | "origin">(
     "destination",
@@ -175,6 +189,20 @@ export default function DashboardPage() {
       },
     );
   }, []);
+
+  // ── Nearby bus alert ──────────────────────────────────────────────────────
+  useNearbyBusAlert({
+    buggies: liveBuggies,
+    userPosition,
+    onAlert: ({ busName, halteName, distanceMeters }) => {
+      addToast({
+        tone: "bus",
+        title: `${busName} mendekati halte Anda`,
+        description: `${halteName} · ${distanceMeters} m lagi`,
+        duration: 7_000,
+      });
+    },
+  });
 
   const nearestHalteRecommendations = useMemo(() => {
     const fallbackPos = liveBuggies[0]?.position ?? {
@@ -639,6 +667,9 @@ export default function DashboardPage() {
         onSelectView={handleSelectView}
         onDragOpenPanel={() => setPanelOpen(true)}
       />
+
+      {/* Toast notifications */}
+      <ToastStack toasts={toasts} onDismiss={dismissToast} />
     </main>
   );
 }
