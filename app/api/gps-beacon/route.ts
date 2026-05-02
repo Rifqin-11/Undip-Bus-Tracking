@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { ingestBuggyPayload, getBuggyByNumericId } from "@/lib/realtime/buggy-live-store";
+import { ingestBuggyPayload, getBuggyByNumericId, adminDeactivateBuggyInStore } from "@/lib/realtime/buggy-live-store";
 import {
   createAdminClient,
   getBuggyHistoryTableName,
@@ -76,6 +76,8 @@ export async function POST(request: NextRequest) {
 
   // ── Session: handle end FIRST (no GPS data needed) ───────────────────────
   if (sessionEnd === true) {
+    // Deaktivasi buggy langsung di live store agar monitoring tampil offline seketika
+    adminDeactivateBuggyInStore(resolvedBuggyId);
     await finalizeSession(resolvedBuggyId);
     return NextResponse.json({ ok: true, sessionEnded: true, buggyId: numericBuggyId });
   }

@@ -546,6 +546,21 @@ export function adminRemoveBuggyFromStore(buggyId: string): void {
 }
 
 /**
+ * Tandai buggy sebagai tidak aktif secara instan dengan menghapus
+ * entri telemetryLastSeenById. Dipanggil saat sessionEnd dari GPS tracker.
+ */
+export function adminDeactivateBuggyInStore(buggyId: string): void {
+  const current = getMutableState();
+  if (!(buggyId in current.telemetryLastSeenById)) return;
+  const { [buggyId]: _removed, ...rest } = current.telemetryLastSeenById;
+  setState({
+    ...current,
+    updatedAt: nowMs(),
+    telemetryLastSeenById: rest,
+  });
+}
+
+/**
  * Cari buggy berdasarkan numericId (dari GPS beacon).
  * Mengembalikan buggy dan UUID-nya jika ditemukan.
  */
