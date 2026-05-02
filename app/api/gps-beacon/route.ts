@@ -56,6 +56,7 @@ export async function POST(request: NextRequest) {
     speedKmh = 0,
     heading,
     altitude,
+    etaMinutes,
     forceResync,
     batteryLevel,
     sessionStart,
@@ -86,13 +87,14 @@ export async function POST(request: NextRequest) {
   const telemetryPayload = {
     telemetry: [
       {
-        id: resolvedBuggyId, // UUID dari DB jika ditemukan, fallback ke buggy-N
+        id: resolvedBuggyId,
         lat: Number(lat),
         lng: Number(lng),
         speedKmh: typeof speedKmh === "number" ? speedKmh : 0,
         accuracy: typeof accuracy === "number" ? accuracy : undefined,
         heading: typeof heading === "number" ? heading : undefined,
         altitude: typeof altitude === "number" ? altitude : undefined,
+        etaMinutes: typeof etaMinutes === "number" ? etaMinutes : undefined,
         forceResync: forceResync === true,
         tag: "iphone_gps",
         timestamp: new Date().toISOString(),

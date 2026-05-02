@@ -1,4 +1,5 @@
 import { HALTE_LOCATIONS, OFFICIAL_ROUTE_PATH } from "@/lib/transit/buggy-data";
+import { getHalteLocations } from "@/lib/transit/halte-runtime";
 import type { Buggy, HaltePoint } from "@/types/buggy";
 
 export type LatLng = {
@@ -65,18 +66,24 @@ function buildRouteOrderedStopNames(
   ];
 }
 
-const ROUTE_ORDERED_STOP_NAMES = buildRouteOrderedStopNames();
+/** Lazy — menggunakan data halte runtime (DB) jika tersedia, fallback ke static */
+function getRouteOrderedStopNames(): string[] {
+  return buildRouteOrderedStopNames(getHalteLocations());
+}
 
-const HALTE_BY_NAME = new Map(
-  HALTE_LOCATIONS.map((halte) => [
-    halte.name,
-    { lat: halte.lat, lng: halte.lng },
-  ]),
-);
+/** Lazy map: name → {lat,lng} dari runtime halte (DB) */
+function getHalteByName(): Map<string, { lat: number; lng: number }> {
+  return new Map(
+    getHalteLocations().map((halte) => [
+      halte.name,
+      { lat: halte.lat, lng: halte.lng },
+    ]),
+  );
+}
 
 export function getBuggyStopsInRouteOrder(
   buggy: Buggy,
-  routeOrderedStops: string[] = ROUTE_ORDERED_STOP_NAMES,
+  routeOrderedStops: string[] = getRouteOrderedStopNames(),
 ): string[] {
   const sourceStops = buggy.stops ?? [];
   if (sourceStops.length === 0) return routeOrderedStops;
@@ -127,8 +134,9 @@ export function estimateMinutesBetweenStops(
   toStopName: string,
   speedKmh: number,
 ): number {
-  const from = HALTE_BY_NAME.get(fromStopName);
-  const to = HALTE_BY_NAME.get(toStopName);
+  const halteByName = getHalteByName();
+  const from = halteByName.get(fromStopName);
+  const to = halteByName.get(toStopName);
   if (!from || !to) return 2;
 
   const distanceMeters = haversineMeters(from, to);
