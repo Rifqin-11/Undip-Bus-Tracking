@@ -1,10 +1,15 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/server";
 import { adminAddBuggyToStore } from "@/lib/realtime/buggy-live-store";
-import { CENTER_UNDIP, HALTE_LOCATIONS } from "@/lib/transit/buggy-data";
+import { getHalteLocations } from "@/lib/transit/halte-runtime";
+import { bootstrapFromDatabase } from "@/lib/supabase/data-loader";
+import { CENTER_UNDIP } from "@/lib/transit/buggy-data";
 
 export async function POST(request: Request) {
   try {
+    // Pastikan halte runtime sudah diisi dari DB sebelum membuat buggy baru
+    await bootstrapFromDatabase();
+
     const body = await request.json();
     const { code, name, capacity, isActive = true } = body;
 
@@ -54,7 +59,7 @@ export async function POST(request: Request) {
       tag: "Real GPS",
       updatedAt: new Date().toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" }),
       currentStopIndex: 0,
-      stops: HALTE_LOCATIONS.map(h => h.name),
+      stops: getHalteLocations().map(h => h.name),
       pathCursor: 0,
       position: { lat, lng }
     };

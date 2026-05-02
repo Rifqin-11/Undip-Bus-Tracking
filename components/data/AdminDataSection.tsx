@@ -30,6 +30,8 @@ type AdminDataSectionProps = {
   onEditGeofence: (geofence: Geofence) => void;
   onDeleteGeofence: (id: string) => Promise<boolean> | boolean;
   onToggleBrowserNotification: () => void;
+  /** Dipanggil setelah add atau delete buggy agar parent dapat refresh list */
+  onBuggyMutated?: () => void;
 };
 
 export function AdminDataSection({
@@ -52,6 +54,7 @@ export function AdminDataSection({
   onEditGeofence,
   onDeleteGeofence,
   onToggleBrowserNotification,
+  onBuggyMutated,
 }: AdminDataSectionProps) {
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
 
@@ -62,8 +65,7 @@ export function AdminDataSection({
         onClose={() => setIsAddModalOpen(false)}
         onSuccess={() => {
           setIsAddModalOpen(false);
-          // Karena API telah memasukkan data langsung ke local memory,
-          // data tabel akan otomatis bertambah tanpa reload penuh
+          onBuggyMutated?.();
         }}
       />
 

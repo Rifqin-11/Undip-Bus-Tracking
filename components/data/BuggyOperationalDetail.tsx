@@ -11,6 +11,8 @@ type BuggyOperationalDetailProps = {
   buggy: Buggy;
   activeZones: string[];
   onBack: () => void;
+  /** Dipanggil setelah buggy berhasil dihapus — bisa berbeda dari onBack jika perlu refresh */
+  onDeleteSuccess?: () => void;
   geofenceManagerNode?: React.ReactNode;
 };
 
@@ -18,6 +20,7 @@ export function BuggyOperationalDetail({
   buggy,
   activeZones,
   onBack,
+  onDeleteSuccess,
   geofenceManagerNode,
 }: BuggyOperationalDetailProps) {
   const [isEditOpen, setIsEditOpen] = useState(false);
@@ -31,7 +34,7 @@ export function BuggyOperationalDetail({
         method: "DELETE",
       });
       if (!res.ok) throw new Error("Gagal menghapus buggy");
-      onBack();
+      (onDeleteSuccess ?? onBack)();
     } catch (err: any) {
       alert(err.message);
     } finally {
@@ -129,6 +132,7 @@ export function BuggyOperationalDetail({
         buggy={buggy}
         onClose={() => setIsEditOpen(false)}
         onSuccess={() => setIsEditOpen(false)}
+        onDelete={onDeleteSuccess ?? onBack}
       />
 
       <DeleteConfirmModal

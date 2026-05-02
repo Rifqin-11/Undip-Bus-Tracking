@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { ingestBuggyPayload } from "@/lib/realtime/buggy-live-store";
+import { ingestBuggyPayload, getBuggyByNumericId } from "@/lib/realtime/buggy-live-store";
 import {
   createAdminClient,
   getBuggyHistoryTableName,
@@ -9,6 +9,7 @@ import {
   addPoint,
   finalizeSession,
 } from "@/lib/realtime/session-store";
+import { bootstrapFromDatabase } from "@/lib/supabase/data-loader";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -64,9 +65,18 @@ export async function POST(request: NextRequest) {
   const numericBuggyId = Number(buggyId);
   const buggyIdNormalized = `buggy-${numericBuggyId}`;
 
+  // ── Bootstrap: pastikan data dari Supabase sudah dimuat ───────────────────
+  await bootstrapFromDatabase();
+
+  // ── Resolve UUID dari numericId ────────────────────────────────────────────
+  // GPS beacon mengirim ID numerik (misal: 2), sedangkan live store memakai UUID
+  // dari Supabase. Kita cari buggy yang punya numericId cocok.
+  const matchedBuggy = getBuggyByNumericId(numericBuggyId);
+  const resolvedBuggyId = matchedBuggy?.id ?? buggyIdNormalized;
+
   // ── Session: handle end FIRST (no GPS data needed) ───────────────────────
   if (sessionEnd === true) {
-    await finalizeSession(buggyIdNormalized);
+    await finalizeSession(resolvedBuggyId);
     return NextResponse.json({ ok: true, sessionEnded: true, buggyId: numericBuggyId });
   }
 
@@ -74,7 +84,7 @@ export async function POST(request: NextRequest) {
   const telemetryPayload = {
     telemetry: [
       {
-        id: numericBuggyId,
+        id: resolvedBuggyId, // UUID dari DB jika ditemukan, fallback ke buggy-N
         lat: Number(lat),
         lng: Number(lng),
         speedKmh: typeof speedKmh === "number" ? speedKmh : 0,
@@ -92,7 +102,7 @@ export async function POST(request: NextRequest) {
 
   if (!result) {
     return NextResponse.json(
-      { error: `Buggy ID ${numericBuggyId} not found in store` },
+      { error: `Buggy numeric ID ${numericBuggyId} tidak ditemukan di database` },
       { status: 404 },
     );
   }
@@ -139,10 +149,10 @@ export async function POST(request: NextRequest) {
   const recordedAt = new Date().toISOString();
 
   if (sessionStart === true) {
-    startSession(buggyIdNormalized, numericBuggyId);
+    startSession(resolvedBuggyId, numericBuggyId);
   }
 
-  addPoint(buggyIdNormalized, numericBuggyId, {
+  addPoint(resolvedBuggyId, numericBuggyId, {
     lat: Number(lat),
     lng: Number(lng),
     speedKmh: typeof speedKmh === "number" ? speedKmh : null,

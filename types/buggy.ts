@@ -2,6 +2,8 @@ export type CrowdLevel = "LONGGAR" | "HAMPIR_PENUH" | "PENUH";
 
 export type Buggy = {
   id: string;
+  /** ID numerik untuk pencocokan GPS beacon (kolom numeric_id di tabel buggies) */
+  numericId?: number;
   code: string;
   name: string;
   isActive: boolean;

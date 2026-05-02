@@ -1,8 +1,8 @@
 import {
   createInitialBuggies,
-  HALTE_LOCATIONS,
   OFFICIAL_ROUTE_PATH,
 } from "@/lib/transit/buggy-data";
+import { getHalteLocations } from "@/lib/transit/halte-runtime";
 import {
   findNearestPathIndex,
   haversineMeters,
@@ -66,16 +66,15 @@ const HALTE_ARRIVAL_RADIUS_METERS = 20;
 // Keep progression directional to avoid jumping to opposite-side nearby haltes.
 const MAX_SKIP_AHEAD_STOPS = 0;
 const ACTIVE_TELEMETRY_WINDOW_MS = 15_000;
-// If the nearest halte (by route-cursor proximity) is this many steps OR MORE ahead
-// of currentStopIndex in the forward loop, auto-resync instead of staying stuck.
 const RESYNC_THRESHOLD_STOPS = 3;
-// Maximum physical distance (meters) to the candidate resync halte.
-// Even if the route cursor says we are near halte X, we only resync if the
-// buggy is within this radius of that halte geographically.
 const RESYNC_MAX_GEO_DISTANCE_METERS = 50;
-const HALTE_PATH_CURSORS = HALTE_LOCATIONS.map((halte) =>
-  findNearestPathIndex(halte.lat, halte.lng),
-);
+
+/** Computed lazily so it reflects DB-overridden halte data. */
+function getHaltePathCursors(): number[] {
+  return getHalteLocations().map((halte) =>
+    findNearestPathIndex(halte.lat, halte.lng),
+  );
+}
 
 function normalizeLoopIndex(index: number, length: number): number {
   if (length <= 0) return 0;
@@ -92,18 +91,20 @@ function resolveNearestHalteIndexFromPosition(
   lat: number,
   lng: number,
 ): number {
-  const halteCount = HALTE_LOCATIONS.length;
+  const haltes = getHalteLocations();
+  const halteCount = haltes.length;
   if (halteCount <= 0) return 0;
 
   const pointCursor = findNearestPathIndex(lat, lng);
   const routeCursorCount = OFFICIAL_ROUTE_PATH.length;
+  const haltePathCursors = getHaltePathCursors();
 
   let bestIndex = 0;
   let bestCursorDistance = Number.POSITIVE_INFINITY;
   let bestGeoDistance = Number.POSITIVE_INFINITY;
 
   for (let i = 0; i < halteCount; i += 1) {
-    const halteCursor = HALTE_PATH_CURSORS[i] ?? 0;
+    const halteCursor = haltePathCursors[i] ?? 0;
     const cursorDistance = circularDistance(
       pointCursor,
       halteCursor,
@@ -111,7 +112,7 @@ function resolveNearestHalteIndexFromPosition(
     );
     const geoDistance = haversineMeters(
       { lat, lng },
-      { lat: HALTE_LOCATIONS[i].lat, lng: HALTE_LOCATIONS[i].lng },
+      { lat: haltes[i].lat, lng: haltes[i].lng },
     );
 
     if (
@@ -134,7 +135,8 @@ function findArrivedNextHalteIndex(
   radiusMeters: number = HALTE_ARRIVAL_RADIUS_METERS,
   maxSkipAheadStops: number = MAX_SKIP_AHEAD_STOPS,
 ): number | null {
-  const halteCount = HALTE_LOCATIONS.length;
+  const haltes = getHalteLocations();
+  const halteCount = haltes.length;
   if (halteCount <= 0) return null;
 
   const current = normalizeLoopIndex(currentStopIndex, halteCount);
@@ -145,7 +147,7 @@ function findArrivedNextHalteIndex(
 
   for (let step = 1; step <= maxStep; step += 1) {
     const halteIndex = normalizeLoopIndex(current + step, halteCount);
-    const halte = HALTE_LOCATIONS[halteIndex];
+    const halte = haltes[halteIndex];
     const distance = haversineMeters(
       { lat, lng },
       { lat: halte.lat, lng: halte.lng },
@@ -167,20 +169,15 @@ function resolveCurrentStopIndexFromPosition(
   lng: number,
   existingStopIndex: number,
 ): number {
-  const halteCount = HALTE_LOCATIONS.length;
+  const haltes = getHalteLocations();
+  const halteCount = haltes.length;
   if (halteCount <= 0) return 0;
 
-  // 1. Normal case: buggy arrived within radius of the next halte
   const arrivedIndex = findArrivedNextHalteIndex(lat, lng, existingStopIndex);
   if (arrivedIndex !== null) return arrivedIndex;
 
-  // 2. Resync case: infer nearest halte using route cursor proximity
   const current = normalizeLoopIndex(existingStopIndex, halteCount);
   const nearestIndex = resolveNearestHalteIndexFromPosition(lat, lng);
-
-  // Calculate how many forward steps from current to nearestIndex in the loop.
-  // If forwardSteps > halteCount/2, the halte is actually BEHIND us (just expressed
-  // as a large forward number due to loop wrap). Never resync backwards.
   const forwardSteps =
     (((nearestIndex - current) % halteCount) + halteCount) % halteCount;
   const maxForwardResync = Math.floor(halteCount / 2);
@@ -189,11 +186,7 @@ function resolveCurrentStopIndexFromPosition(
     forwardSteps >= RESYNC_THRESHOLD_STOPS &&
     forwardSteps <= maxForwardResync
   ) {
-    // Guard: only commit the resync if the buggy is also physically close to
-    // the candidate halte. Without this check a buggy that is still hundreds
-    // of metres away but happens to share the nearest route-cursor segment
-    // would be incorrectly teleported to that halte.
-    const nearestHalte = HALTE_LOCATIONS[nearestIndex];
+    const nearestHalte = haltes[nearestIndex];
     const geoDistanceToNearestHalte = nearestHalte
       ? haversineMeters(
           { lat, lng },
@@ -206,7 +199,6 @@ function resolveCurrentStopIndexFromPosition(
     }
   }
 
-  // 3. Default: stay at current stop index (buggy is between haltes or behind us)
   return current;
 }
 
@@ -320,7 +312,8 @@ function getMutableState(): BuggyLiveState {
     globalThis.__BUGGY_LIVE_STATE__ = {
       source: "seed",
       updatedAt: nowMs(),
-      buggies: createInitialBuggies(),
+      // Mulai kosong — data diisi dari Supabase via data-loader (tidak ada fallback seed)
+      buggies: [],
       telemetryLastSeenById: {},
     };
   }
@@ -380,11 +373,11 @@ function ingestSnapshot(buggies: Buggy[]): BuggyIngestResult {
 }
 
 function autoRegisterBuggy(buggyId: string, point: BuggyTelemetryInput): Buggy {
-  // Extract numeric suffix from "buggy-3" → 3, or fallback to 99
   const numericMatch = buggyId.match(/(\d+)$/);
   const num = numericMatch ? parseInt(numericMatch[1], 10) : 99;
   const code = `B${String(num).padStart(2, "0")}`;
   const stopIndex = resolveNearestHalteIndexFromPosition(point.lat, point.lng);
+  const haltes = getHalteLocations();
 
   return {
     id: buggyId,
@@ -401,7 +394,7 @@ function autoRegisterBuggy(buggyId: string, point: BuggyTelemetryInput): Buggy {
     tag: point.tag ?? "Real GPS",
     updatedAt: timestampToUpdatedAt(point.timestamp),
     currentStopIndex: stopIndex,
-    stops: HALTE_LOCATIONS.map((h) => h.name),
+    stops: haltes.map((h) => h.name),
     pathCursor: findNearestPathIndex(point.lat, point.lng),
     position: { lat: point.lat, lng: point.lng },
   };
@@ -448,7 +441,7 @@ function ingestTelemetry(
     const nextCurrentStopIndex = Number.isFinite(point.currentStopIndex)
       ? normalizeLoopIndex(
           Math.max(0, Math.round(point.currentStopIndex as number)),
-          HALTE_LOCATIONS.length,
+          getHalteLocations().length,
         )
       : shouldForceResync || isColdStart
         ? resolveNearestHalteIndexFromPosition(point.lat, point.lng)
@@ -551,3 +544,12 @@ export function adminRemoveBuggyFromStore(buggyId: string): void {
     buggies: current.buggies.filter((b) => b.id !== buggyId),
   });
 }
+
+/**
+ * Cari buggy berdasarkan numericId (dari GPS beacon).
+ * Mengembalikan buggy dan UUID-nya jika ditemukan.
+ */
+export function getBuggyByNumericId(numericId: number): Buggy | undefined {
+  return getMutableState().buggies.find((b) => b.numericId === numericId);
+}
+

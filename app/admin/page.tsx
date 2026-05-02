@@ -14,7 +14,6 @@ import { ToastStack } from "@/components/ui/ToastStack";
 import type { ToastItem } from "@/components/ui/ToastStack";
 import {
   CENTER_UNDIP,
-  createInitialBuggies,
   HALTE_LOCATIONS,
   OFFICIAL_ROUTE_PATH,
 } from "@/lib/transit/buggy-data";
@@ -28,7 +27,6 @@ import type { LatLngLiteral } from "@/types/map-canvas";
 import type { Geofence, GeofenceEvent } from "@/types/geofence";
 import { BellIcon, MapPinSolidIcon } from "@/components/ui/Icons";
 
-const FALLBACK_BUGGIES = createInitialBuggies();
 const GEOFENCE_DEFAULT_RADIUS_METERS = 100;
 const GEOFENCE_EVENT_LIMIT = 100;
 const GEOFENCE_EVENT_COOLDOWN_MS = 10_000;
@@ -109,16 +107,28 @@ function getRouteBetweenHaltes(
 
 export default function DashboardPage() {
   const realtimeFeed = useBuggyLiveFeed();
-  const liveBuggies = realtimeFeed.liveBuggies ?? FALLBACK_BUGGIES;
+
+  // localBuggies: hasil fetch langsung setelah add/delete agar list update instan
+  const [localBuggies, setLocalBuggies] = useState<Buggy[] | null>(null);
+  const liveBuggies = localBuggies ?? realtimeFeed.liveBuggies ?? [];
+
+  /** Fetch daftar buggy terbaru dari server dan simpan ke localBuggies */
+  const handleBuggyMutated = useCallback(async () => {
+    try {
+      const res = await fetch("/api/buggy", { cache: "no-store" });
+      if (res.ok) {
+        const data = await res.json();
+        if (Array.isArray(data)) setLocalBuggies(data as Buggy[]);
+      }
+    } catch {
+      // ignore — SSE akan sync dalam 1 detik
+    }
+  }, []);
 
   const [activeView, setActiveView] = useState<PanelView>("buggy");
   const [panelOpen, setPanelOpen] = useState(true);
-  const [selectedBuggyId, setSelectedBuggyId] = useState<string | null>(
-    FALLBACK_BUGGIES[0]?.id ?? null,
-  );
-  const [mapFollowingBuggyId, setMapFollowingBuggyId] = useState<string | null>(
-    FALLBACK_BUGGIES[0]?.id ?? null,
-  );
+  const [selectedBuggyId, setSelectedBuggyId] = useState<string | null>(null);
+  const [mapFollowingBuggyId, setMapFollowingBuggyId] = useState<string | null>(null);
   const [selectedHalteId, setSelectedHalteId] = useState<string | null>(null);
 
   const [searchStep, setSearchStep] = useState<"destination" | "origin">(
@@ -1109,6 +1119,7 @@ export default function DashboardPage() {
             onEditGeofence={handleEditGeofence}
             onDeleteGeofence={handleDeleteGeofence}
             onToggleBrowserNotification={handleToggleBrowserNotification}
+            onBuggyMutated={() => void handleBuggyMutated()}
           />
         }
         dataDetailViewContent={
@@ -1122,6 +1133,11 @@ export default function DashboardPage() {
               onBack={() => {
                 setSelectedAdminBuggyId(null);
                 setActiveView("data");
+              }}
+              onDeleteSuccess={() => {
+                setSelectedAdminBuggyId(null);
+                setActiveView("data");
+                void handleBuggyMutated();
               }}
             />
           ) : null

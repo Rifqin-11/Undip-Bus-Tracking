@@ -10,7 +10,6 @@ import { BellIcon, MapPinSolidIcon } from "@/components/ui/Icons";
 import { ToastStack, type ToastItem } from "@/components/ui/ToastStack";
 import { useNearbyBusAlert } from "@/hooks/useNearbyBusAlert";
 import {
-  createInitialBuggies,
   HALTE_LOCATIONS,
   OFFICIAL_ROUTE_PATH,
 } from "@/lib/transit/buggy-data";
@@ -20,7 +19,6 @@ import { GoogleMapsService } from "@/lib/services/google-maps-service";
 import type { PanelView } from "@/types/buggy";
 import type { DirectionResult } from "@/components/panel/DirectionPanel";
 
-const INITIAL_BUGGIES = createInitialBuggies();
 
 function normalize(s: string) {
   return s.trim().toLowerCase();
@@ -91,7 +89,7 @@ function getRouteBetweenHaltes(
 
 export default function DashboardPage() {
   const realtimeFeed = useBuggyLiveFeed();
-  const allBuggies = realtimeFeed.liveBuggies ?? INITIAL_BUGGIES;
+  const allBuggies = realtimeFeed.liveBuggies ?? [];
   const liveBuggies = useMemo(
     () => allBuggies.filter((buggy) => buggy.isActive),
     [allBuggies],
@@ -99,12 +97,8 @@ export default function DashboardPage() {
 
   const [activeView, setActiveView] = useState<PanelView>("buggy");
   const [panelOpen, setPanelOpen] = useState(true);
-  const [selectedBuggyId, setSelectedBuggyId] = useState<string | null>(
-    INITIAL_BUGGIES[0]?.id ?? null,
-  );
-  const [mapFollowingBuggyId, setMapFollowingBuggyId] = useState<string | null>(
-    INITIAL_BUGGIES[0]?.id ?? null,
-  );
+  const [selectedBuggyId, setSelectedBuggyId] = useState<string | null>(null);
+  const [mapFollowingBuggyId, setMapFollowingBuggyId] = useState<string | null>(null);
   const [selectedHalteId, setSelectedHalteId] = useState<string | null>(null);
   const [userPosition, setUserPosition] = useState<{
     lat: number;
