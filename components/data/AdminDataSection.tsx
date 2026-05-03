@@ -5,10 +5,11 @@ import type { Buggy } from "@/types/buggy";
 import type { Geofence, GeofenceEvent } from "@/types/geofence";
 import type { LatLngLiteral } from "@/types/map-canvas";
 import { AdminBuggyCard } from "./AdminBuggyCard";
+import { AdminStatisticsPanel } from "./AdminStatisticsPanel";
 import { GeofenceManager } from "./GeofenceManager";
 import { GeofenceEventLog } from "./GeofenceEventLog";
 import { AdminBuggyFormPanel } from "./AdminBuggyFormPanel";
-import { PlusIcon } from "lucide-react";
+import { PlusIcon, BarChart3Icon } from "lucide-react";
 
 type AdminDataSectionProps = {
   buggies: Buggy[];
@@ -60,6 +61,9 @@ export function AdminDataSection({
 
   return (
     <section className="space-y-3">
+      {/* ── Statistik Operasional ──────────────────────────────────────── */}
+      <AdminStatisticsPanel />
+
       {/* ── Data Operasional Buggy ─────────────────────────────────────── */}
       {isAddingBuggy ? (
         <AdminBuggyFormPanel
