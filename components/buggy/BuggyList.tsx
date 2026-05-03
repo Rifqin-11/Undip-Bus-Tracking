@@ -34,6 +34,8 @@ type BuggyListProps = {
   dataViewContent?: ReactNode;
   dataDetailViewContent?: ReactNode;
   historyViewContent?: ReactNode;
+  /** Jika true, HalteSection tampilkan fitur CRUD admin */
+  isAdmin?: boolean;
 };
 
 export function BuggyList({
@@ -51,6 +53,7 @@ export function BuggyList({
   dataViewContent,
   dataDetailViewContent,
   historyViewContent,
+  isAdmin = false,
 }: BuggyListProps) {
   const [buggyViewMode, setBuggyViewMode] = useState<"list" | "detail">("list");
   const [halteViewMode, setHalteViewMode] = useState<"list" | "detail">("list");
@@ -205,7 +208,7 @@ export function BuggyList({
           onBack={handleBackToHalteList}
         />
       ) : activeView === "halte" ? (
-        <HalteSection onSelectHalte={handleSelectHalte} />
+        <HalteSection onSelectHalte={handleSelectHalte} isAdmin={isAdmin} />
       ) : null}
 
       {activeView === "notifikasi" && (

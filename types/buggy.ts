@@ -30,6 +30,12 @@ export type HaltePoint = {
   name: string;
   lat: number;
   lng: number;
+  /** Jadwal keberangkatan, mis. ["07:00","07:45","08:30"] */
+  schedule?: string[];
+  /** Fasilitas terdekat, mis. ["Gedung kuliah terdekat","Area parkir"] */
+  facilities?: string[];
+  /** Status aktif/nonaktif (default true) */
+  isActive?: boolean;
 };
 
 export type PanelView = "buggy" | "halte" | "notifikasi" | "lapor" | "data" | "data-detail" | "history";

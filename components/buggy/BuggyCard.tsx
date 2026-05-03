@@ -95,7 +95,7 @@ export function BuggyCard({
 
         {/* Action Arrow */}
         <div className="ml-1.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-white/80 text-slate-500 shadow-sm transition-colors group-hover:bg-[#0f1a3b] group-hover:text-white">
-          <svg className="h-3 w-3 ml-[1px]" fill="none" stroke="currentColor" strokeWidth={3} viewBox="0 0 24 24">
+          <svg className="h-3 w-3 ml-1px" fill="none" stroke="currentColor" strokeWidth={3} viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
           </svg>
         </div>

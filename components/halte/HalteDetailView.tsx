@@ -74,7 +74,12 @@ export function HalteDetailView({
   halteIndex: _halteIndex,
   onBack,
 }: HalteDetailViewProps) {
-  const schedule = generateSchedule(halte.id);
+  const schedule = halte.schedule && halte.schedule.length > 0
+    ? halte.schedule
+    : generateSchedule(halte.id);
+  const facilities = halte.facilities && halte.facilities.length > 0
+    ? halte.facilities
+    : ["Gedung kuliah terdekat", "Area parkir tersedia", "Akses ramah disabilitas"];
   const mapsUrl = `https://www.google.com/maps/dir/?api=1&destination=${halte.lat},${halte.lng}`;
 
   // Lazy-load Street View: URL hanya diset setelah komponen mount (panel terbuka)
@@ -292,18 +297,12 @@ export function HalteDetailView({
           Fasilitas Terdekat
         </p>
         <div className="space-y-2">
-          <div className="flex items-center gap-2.5 text-[12px] font-medium text-slate-600">
-            <span className="h-1.5 w-1.5 rounded-full bg-[#0f1a3b]/60" />
-            <span>Gedung kuliah terdekat</span>
-          </div>
-          <div className="flex items-center gap-2.5 text-[12px] font-medium text-slate-600">
-            <span className="h-1.5 w-1.5 rounded-full bg-[#0f1a3b]/60" />
-            <span>Area parkir tersedia</span>
-          </div>
-          <div className="flex items-center gap-2.5 text-[12px] font-medium text-slate-600">
-            <span className="h-1.5 w-1.5 rounded-full bg-[#0f1a3b]/60" />
-            <span>Akses ramah disabilitas</span>
-          </div>
+          {facilities.map((f, idx) => (
+            <div key={idx} className="flex items-center gap-2.5 text-[12px] font-medium text-slate-600">
+              <span className="h-1.5 w-1.5 rounded-full bg-[#0f1a3b]/60" />
+              <span>{f}</span>
+            </div>
+          ))}
         </div>
       </div>
     </section>

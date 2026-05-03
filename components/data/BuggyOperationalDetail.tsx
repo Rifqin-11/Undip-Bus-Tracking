@@ -4,7 +4,7 @@ import { useState } from "react";
 import type { Buggy } from "@/types/buggy";
 import { getBuggyStopNameAtOffset } from "@/lib/transit/buggy-route-utils";
 import { ChevronLeft, Edit2Icon, TrashIcon } from "lucide-react";
-import { EditBuggyModal } from "./EditBuggyModal";
+import { AdminBuggyFormPanel } from "./AdminBuggyFormPanel";
 import { DeleteConfirmModal } from "@/components/ui/DeleteConfirmModal";
 
 type BuggyOperationalDetailProps = {
@@ -61,8 +61,20 @@ export function BuggyOperationalDetail({
     buggy.crowdLevel === "PENUH"
       ? "Penuh"
       : buggy.crowdLevel === "HAMPIR_PENUH"
-        ? "Hampir Penuh"
-        : "Longgar";
+        ? "Ramai"
+        : "Kosong";
+
+  if (isEditOpen) {
+    return (
+      <AdminBuggyFormPanel
+        buggy={buggy}
+        onBack={() => setIsEditOpen(false)}
+        onSaved={() => setIsEditOpen(false)}
+        onDeleted={onDeleteSuccess ?? onBack}
+      />
+    );
+  }
+
 
   const rows: { label: string; value: string }[] = [
     { label: "Kode Armada", value: buggy.code },
@@ -126,14 +138,6 @@ export function BuggyOperationalDetail({
           </div>
         </div>
       </div>
-
-      <EditBuggyModal
-        isOpen={isEditOpen}
-        buggy={buggy}
-        onClose={() => setIsEditOpen(false)}
-        onSuccess={() => setIsEditOpen(false)}
-        onDelete={onDeleteSuccess ?? onBack}
-      />
 
       <DeleteConfirmModal
         open={isDeleteOpen}

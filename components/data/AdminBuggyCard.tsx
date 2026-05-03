@@ -64,7 +64,7 @@ export function AdminBuggyCard({
         {/* Right: Detail Button (Chevron) */}
         <div className="shrink-0 flex items-center justify-center mr-0.5">
           <div className="flex h-7 w-7 items-center justify-center rounded-full bg-slate-100/80 shadow-sm text-slate-400 transition-all group-hover:bg-slate-900 group-hover:text-white">
-            <ChevronRight className="size-5 ml-[1px]" />
+            <ChevronRight className="size-5 ml-px" />
           </div>
         </div>
       </div>
@@ -74,7 +74,7 @@ export function AdminBuggyCard({
         {/* The colored line & dot */}
         <div className="flex items-center shrink-0">
           <div
-            className={`h-[2px] w-5 bg-gradient-to-r from-transparent ${buggy.isActive ? "to-emerald-400" : "to-slate-300"} rounded-full mr-1.5`}
+            className={`h-[2px] w-5 bg-linear-to-r from-transparent ${buggy.isActive ? "to-emerald-400" : "to-slate-300"} rounded-full mr-1.5`}
           />
           <div
             className={`h-[6px] w-[6px] rounded-full ${buggy.isActive ? "bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.6)]" : "bg-slate-300"}`}

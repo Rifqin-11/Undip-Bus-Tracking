@@ -36,6 +36,8 @@ type HalteRow = {
   lng: number;
   sort_order: number;
   is_active: boolean;
+  schedule: string[] | null;
+  facilities: string[] | null;
 };
 
 type BuggyRow = {
@@ -60,7 +62,7 @@ async function bootstrapHaltes(): Promise<void> {
 
   const { data, error } = await supabase
     .from("haltes")
-    .select("id, name, lat, lng, sort_order, is_active")
+    .select("id, name, lat, lng, sort_order, is_active, schedule, facilities")
     .eq("is_active", true)
     .order("sort_order", { ascending: true });
 
@@ -79,6 +81,9 @@ async function bootstrapHaltes(): Promise<void> {
     name: row.name,
     lat: row.lat,
     lng: row.lng,
+    schedule: Array.isArray(row.schedule) ? row.schedule : undefined,
+    facilities: Array.isArray(row.facilities) ? row.facilities : undefined,
+    isActive: row.is_active,
   }));
 
   setHalteLocations(haltePoints);

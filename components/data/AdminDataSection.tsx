@@ -7,7 +7,7 @@ import type { LatLngLiteral } from "@/types/map-canvas";
 import { AdminBuggyCard } from "./AdminBuggyCard";
 import { GeofenceManager } from "./GeofenceManager";
 import { GeofenceEventLog } from "./GeofenceEventLog";
-import { AddBuggyModal } from "./AddBuggyModal";
+import { AdminBuggyFormPanel } from "./AdminBuggyFormPanel";
 import { PlusIcon } from "lucide-react";
 
 type AdminDataSectionProps = {
@@ -56,21 +56,22 @@ export function AdminDataSection({
   onToggleBrowserNotification,
   onBuggyMutated,
 }: AdminDataSectionProps) {
-  const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [isAddingBuggy, setIsAddingBuggy] = useState(false);
 
   return (
     <section className="space-y-3">
-      <AddBuggyModal
-        isOpen={isAddModalOpen}
-        onClose={() => setIsAddModalOpen(false)}
-        onSuccess={() => {
-          setIsAddModalOpen(false);
-          onBuggyMutated?.();
-        }}
-      />
-
       {/* ── Data Operasional Buggy ─────────────────────────────────────── */}
-      <div className="rounded-3xl border border-slate-200/80 bg-white/70 p-3 lg:p-4">
+      {isAddingBuggy ? (
+        <AdminBuggyFormPanel
+          buggy={null}
+          onBack={() => setIsAddingBuggy(false)}
+          onSaved={() => {
+            setIsAddingBuggy(false);
+            onBuggyMutated?.();
+          }}
+        />
+      ) : (
+        <div className="rounded-3xl border border-slate-200/80 bg-white/70 p-3 lg:p-4">
         <div className="mb-3 w-full rounded-[20px] border border-white/60 bg-white/40 backdrop-blur-md py-3 px-3.5 shadow-[0_8px_20px_rgba(15,23,42,0.04)]">
           <div className="flex items-center justify-between gap-2">
             <h2 className="text-[17px] font-bold text-slate-900 tracking-tight">
@@ -82,7 +83,7 @@ export function AdminDataSection({
               </span>
               <button
                 type="button"
-                onClick={() => setIsAddModalOpen(true)}
+                onClick={() => setIsAddingBuggy(true)}
                 className="flex items-center gap-1 rounded-full border border-[#0f1a3b] bg-[#0f1a3b] px-3 py-2 text-[11px] font-bold text-white shadow-sm transition hover:bg-white hover:text-[#0f1a3b] active:scale-95"
               >
                 <PlusIcon className="size-3" />
@@ -108,6 +109,7 @@ export function AdminDataSection({
           </div>
         )}
       </div>
+      )}
 
       {/* ── Manajemen Geofence ─────────────────────────────────────────── */}
       <GeofenceManager

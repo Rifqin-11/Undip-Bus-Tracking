@@ -12,6 +12,8 @@ type HalteRow = {
   lng: number;
   sort_order: number;
   is_active: boolean;
+  schedule: string[] | null;
+  facilities: string[] | null;
 };
 
 /** Reload halte runtime from DB after any mutation */
@@ -21,7 +23,7 @@ async function reloadHalteRuntime() {
 
   const { data } = await supabase
     .from("haltes")
-    .select("id, name, lat, lng, sort_order, is_active")
+    .select("id, name, lat, lng, sort_order, is_active, schedule, facilities")
     .eq("is_active", true)
     .order("sort_order", { ascending: true });
 
@@ -31,6 +33,9 @@ async function reloadHalteRuntime() {
       name: row.name,
       lat: row.lat,
       lng: row.lng,
+      schedule: Array.isArray(row.schedule) ? row.schedule : undefined,
+      facilities: Array.isArray(row.facilities) ? row.facilities : undefined,
+      isActive: row.is_active,
     }));
     setHalteLocations(haltes);
   }
@@ -44,23 +49,28 @@ export async function PUT(
   try {
     const { id } = await params;
     const body = await request.json();
-    const { name, lat, lng, sort_order, is_active } = body;
+    const { name, lat, lng, sort_order, is_active, schedule, facilities } = body;
 
     const supabase = createAdminClient();
     if (!supabase) {
       return NextResponse.json({ error: "Supabase admin belum dikonfigurasi" }, { status: 500 });
     }
 
+    const updatePayload: Record<string, unknown> = {
+      updated_at: new Date().toISOString(),
+    };
+
+    if (name !== undefined) updatePayload.name = name;
+    if (lat !== undefined) updatePayload.lat = lat;
+    if (lng !== undefined) updatePayload.lng = lng;
+    if (sort_order !== undefined) updatePayload.sort_order = sort_order;
+    if (is_active !== undefined) updatePayload.is_active = is_active;
+    if (schedule !== undefined) updatePayload.schedule = Array.isArray(schedule) ? schedule : null;
+    if (facilities !== undefined) updatePayload.facilities = Array.isArray(facilities) ? facilities : null;
+
     const { data, error } = await supabase
       .from("haltes")
-      .update({
-        ...(name !== undefined && { name }),
-        ...(lat !== undefined && { lat }),
-        ...(lng !== undefined && { lng }),
-        ...(sort_order !== undefined && { sort_order }),
-        ...(is_active !== undefined && { is_active }),
-        updated_at: new Date().toISOString(),
-      })
+      .update(updatePayload)
       .eq("id", id)
       .select()
       .single();
