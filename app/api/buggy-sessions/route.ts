@@ -203,13 +203,11 @@ export async function GET(request: NextRequest) {
             path: sum.path,
         };
 
-        // Abaikan sesi miniatur (drift GPS) yang bergerak kurang dari 50 meter (0.05 km)
-        // Kita juga mengabaikannya dari database agar tidak buang-buang tempat (ia akan terhapus otomatis dalam 3 hari)
-        const isValidSession = sum.totalDistanceKm !== null && sum.totalDistanceKm >= 0.05;
+        // Abaikan sesi yang belum menempuh 1 km (konsisten dengan MIN_DISTANCE_KM di session-store.ts)
+        const isValidSession = sum.totalDistanceKm !== null && sum.totalDistanceKm >= 1.0;
 
         if (isIdle || !isLatest) {
             // Sesi sudah terputus. Kita FINALISASIKAN ke database di background agar permanen.
-            // (Minimal 3 titik baru pantas disimpan permanen)
             if (group.length >= 3 && isValidSession) {
                 saves.push(saveSessionPointsToDb(bId, numericId, group).catch(e => console.error("Auto-finalize error:", e)));
                 completed.push(syntheticSession);

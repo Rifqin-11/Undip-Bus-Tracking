@@ -17,6 +17,7 @@ import { haversineMeters } from "@/lib/transit/buggy-route-utils";
 
 const SESSION_IDLE_TIMEOUT_MS = 5 * 60 * 1000; // auto-finalize after 5 min silence
 const MIN_POINTS_TO_SAVE = 3;                   // discard micro-sessions
+const MIN_DISTANCE_KM    = 1.0;                 // discard sesi yang belum menempuh 1 km
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -254,13 +255,31 @@ export async function finalizeSession(buggyId: string): Promise<void> {
 
   if (!session) return;
 
-  // Remove immediately to prevent double-finalize
+  // Hapus segera agar tidak di-finalize dua kali
   sessions.delete(buggyId);
 
   const { points } = session;
 
   if (points.length < MIN_POINTS_TO_SAVE) {
     console.log(`[session-store] Too few points (${points.length}) for ${buggyId}, discarding`);
+    return;
+  }
+
+  // Hitung total jarak tempuh sebelum simpan ke DB
+  let totalDistanceM = 0;
+  for (let i = 1; i < points.length; i++) {
+    totalDistanceM += haversineMeters(
+      { lat: points[i - 1].lat, lng: points[i - 1].lng },
+      { lat: points[i].lat, lng: points[i].lng },
+    );
+  }
+  const totalDistanceKm = totalDistanceM / 1000;
+
+  if (totalDistanceKm < MIN_DISTANCE_KM) {
+    console.log(
+      `[session-store] Jarak terlalu pendek (${totalDistanceKm.toFixed(3)} km < ${MIN_DISTANCE_KM} km) ` +
+      `untuk ${buggyId}, sesi tidak disimpan.`,
+    );
     return;
   }
 
