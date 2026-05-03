@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useMemo } from "react";
 import type { ReactNode } from "react";
-import type { Buggy, PanelView } from "@/types/buggy";
+import type { Buggy, HaltePoint, PanelView } from "@/types/buggy";
 import { HALTE_LOCATIONS } from "@/lib/transit/buggy-data";
 import { haversineMeters } from "@/lib/transit/buggy-route-utils";
 
@@ -56,10 +56,13 @@ export function BuggyList({
   isAdmin = false,
 }: BuggyListProps) {
   const [buggyViewMode, setBuggyViewMode] = useState<"list" | "detail">("list");
-  const [halteViewMode, setHalteViewMode] = useState<"list" | "detail">("list");
-  const [selectedHalteIdLocal, setSelectedHalteIdLocal] = useState<
-    string | null
-  >(null);
+  const [halteViewMode, setHalteViewMode] = useState<"list" | "detail">(
+    selectedHalteId ? "detail" : "list",
+  );
+  const [selectedHalteIdLocal, setSelectedHalteIdLocal] = useState<string | null>(
+    selectedHalteId ?? null,
+  );
+  const [cachedHalteObj, setCachedHalteObj] = useState<HaltePoint | null>(null);
 
   const [userLocation, setUserLocation] = useState<LatLng | null>(null);
 
@@ -123,16 +126,17 @@ export function BuggyList({
     ? (buggies.find((b) => b.id === selectedBuggyId) ?? null)
     : null;
 
-  const selectedHalte = selectedHalteIdLocal
+  const selectedHalte = cachedHalteObj || (selectedHalteIdLocal
     ? (HALTE_LOCATIONS.find((h) => h.id === selectedHalteIdLocal) ?? null)
-    : null;
+    : null);
 
   const selectedHalteIndex = selectedHalte
     ? HALTE_LOCATIONS.findIndex((h) => h.id === selectedHalte.id)
     : -1;
 
-  const handleSelectHalte = (halteId: string) => {
+  const handleSelectHalte = (halteId: string, halteObj?: HaltePoint) => {
     setSelectedHalteIdLocal(halteId);
+    if (halteObj) setCachedHalteObj(halteObj);
     setHalteViewMode("detail");
     onSelectHalte?.(halteId);
   };
@@ -140,6 +144,7 @@ export function BuggyList({
   const handleBackToHalteList = () => {
     setHalteViewMode("list");
     setSelectedHalteIdLocal(null);
+    setCachedHalteObj(null);
   };
 
   useEffect(() => {

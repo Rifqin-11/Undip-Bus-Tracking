@@ -11,7 +11,7 @@ import { Plus, Pencil } from "lucide-react";
 import { AdminHalteFormPanel } from "./AdminHalteFormPanel";
 
 type HalteSectionProps = {
-  onSelectHalte?: (halteId: string) => void;
+  onSelectHalte?: (halteId: string, halteObj: HaltePoint) => void;
   /** Jika true, tampilkan tombol add/edit dan ambil data dari API */
   isAdmin?: boolean;
 };
@@ -95,17 +95,17 @@ export function HalteSection({ onSelectHalte, isAdmin = false }: HalteSectionPro
               {/* Left: halte info */}
               <button
                 type="button"
-                onClick={() => onSelectHalte?.(halte.id)}
+                onClick={() => onSelectHalte?.(halte.id, halte)}
                 className="flex flex-1 items-center gap-3 min-w-0 outline-none"
               >
                 <div className="grid h-8 w-8 shrink-0 place-items-center rounded-xl bg-[#0f1a3b] text-white shadow-sm transition-transform group-hover:scale-105">
                   <BusStopIcon className="h-4 w-4" />
                 </div>
-                <div className="min-w-0">
-                  <p className="truncate text-[15px] font-bold text-slate-800 tracking-tight leading-none mb-1">
+                <div className="min-w-0 text-left">
+                  <p className="truncate text-[15px] font-bold text-slate-800 tracking-tight mb-1">
                     {halte.name}
                   </p>
-                  <p className="text-[12px] font-medium text-slate-500 leading-tight">
+                  <p className="truncate text-[12px] font-medium text-slate-500">
                     {isAdmin
                       ? `${halte.lat.toFixed(5)}, ${halte.lng.toFixed(5)}`
                       : "Titik keberangkatan"}
@@ -127,7 +127,7 @@ export function HalteSection({ onSelectHalte, isAdmin = false }: HalteSectionPro
                 )}
                 <button
                   type="button"
-                  onClick={() => onSelectHalte?.(halte.id)}
+                  onClick={() => onSelectHalte?.(halte.id, halte)}
                   className="grid h-7 w-7 shrink-0 place-items-center rounded-full bg-slate-100 text-slate-400 transition-colors group-hover:bg-[#0f1a3b] group-hover:text-white"
                 >
                   <ChevronRightIcon className="h-4 w-4" />
