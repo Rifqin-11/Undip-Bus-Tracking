@@ -46,6 +46,7 @@ export async function GET() {
     schedule: Array.isArray(row.schedule) ? row.schedule : undefined,
     facilities: Array.isArray(row.facilities) ? row.facilities : undefined,
     isActive: row.is_active,
+    sortOrder: row.sort_order,
   }));
 
   return NextResponse.json(haltes);

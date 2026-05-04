@@ -37,6 +37,7 @@ async function reloadHalteRuntime() {
       schedule: Array.isArray(row.schedule) ? row.schedule : undefined,
       facilities: Array.isArray(row.facilities) ? row.facilities : undefined,
       isActive: row.is_active,
+      sortOrder: row.sort_order,
     }));
     setHalteLocations(haltes);
   }

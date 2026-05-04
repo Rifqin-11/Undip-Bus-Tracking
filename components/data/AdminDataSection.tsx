@@ -13,6 +13,8 @@ import { PlusIcon } from "lucide-react";
 
 type AdminDataSectionProps = {
   buggies: Buggy[];
+  realtimeConnected: boolean;
+  realtimeSource: string;
   geofences: Geofence[];
   events: GeofenceEvent[];
   geofenceStatuses: Record<string, string[]>;
@@ -37,6 +39,8 @@ type AdminDataSectionProps = {
 
 export function AdminDataSection({
   buggies,
+  realtimeConnected,
+  realtimeSource,
   geofences,
   events,
   geofenceStatuses,
@@ -62,7 +66,9 @@ export function AdminDataSection({
   return (
     <section className="space-y-3">
       {/* ── Statistik Operasional ──────────────────────────────────────── */}
-      <AdminStatisticsPanel />
+      <AdminStatisticsPanel
+        buggies={buggies}
+      />
 
       {/* ── Data Operasional Buggy ─────────────────────────────────────── */}
       {isAddingBuggy ? (

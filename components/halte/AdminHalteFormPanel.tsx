@@ -39,7 +39,7 @@ export function AdminHalteFormPanel({
       setName(halte.name);
       setLat(halte.lat.toString());
       setLng(halte.lng.toString());
-      setSortOrder("");
+      setSortOrder(halte.sortOrder?.toString() || "");
       setIsActive(halte.isActive !== false);
       setSchedule(halte.schedule ?? []);
       setFacilities(halte.facilities ?? []);

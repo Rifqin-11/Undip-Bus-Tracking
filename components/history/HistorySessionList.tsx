@@ -20,6 +20,48 @@ export function HistorySessionList({
   onBack,
   onSelectSession,
 }: HistorySessionListProps) {
+  const downloadCSV = () => {
+    if (selectedBuggySessions.length === 0) return;
+
+    const headers = [
+      "Sesi",
+      "Tanggal",
+      "Waktu Mulai",
+      "Waktu Selesai",
+      "Durasi (Menit)",
+      "Jarak (Km)",
+      "Kecepatan Rata-rata (Km/h)",
+      "Baterai Awal (%)",
+      "Baterai Akhir (%)"
+    ];
+
+    const rows = selectedBuggySessions.map(s => [
+      s.sessionNumber,
+      s.sessionDate,
+      fmtTime(s.startedAt),
+      s.endedAt ? fmtTime(s.endedAt) : "Berlangsung",
+      s.durationMinutes || 0,
+      s.totalDistanceKm || 0,
+      s.avgSpeedKmh || 0,
+      s.batteryStart || "",
+      s.batteryEnd || ""
+    ]);
+
+    const csvContent = [
+      headers.join(","),
+      ...rows.map(row => row.join(","))
+    ].join("\n");
+
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.setAttribute("href", url);
+    link.setAttribute("download", `Riwayat_${selectedBuggy.code.replace(/\s+/g, '_')}_${new Date().toISOString().slice(0,10)}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
   return (
     <section className="space-y-3">
       {/* Header */}
@@ -46,14 +88,24 @@ export function HistorySessionList({
               </h2>
             </div>
           </div>
-          <button
-            type="button"
-            disabled={refreshing}
-            onClick={onRefresh}
-            className="shrink-0 rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-[11px] font-medium text-slate-600 transition hover:border-slate-900 hover:bg-slate-900 hover:text-white disabled:opacity-50"
-          >
-            {refreshing ? "…" : "Refresh"}
-          </button>
+          <div className="flex shrink-0 items-center gap-1.5">
+            <button
+              type="button"
+              disabled={refreshing || selectedBuggySessions.length === 0}
+              onClick={downloadCSV}
+              className="rounded-xl border border-slate-200 bg-white px-2.5 py-1.5 text-[10px] font-semibold text-slate-600 transition hover:border-slate-900 hover:bg-slate-900 hover:text-white disabled:opacity-50"
+            >
+              Unduh CSV
+            </button>
+            <button
+              type="button"
+              disabled={refreshing}
+              onClick={onRefresh}
+              className="rounded-xl border border-transparent bg-[#0f1a3b] px-3 py-1.5 text-[10px] font-semibold text-white transition hover:bg-[#0f1a3b]/90 disabled:opacity-50"
+            >
+              {refreshing ? "…" : "Refresh"}
+            </button>
+          </div>
         </div>
       </div>
 

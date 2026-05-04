@@ -1133,6 +1133,8 @@ export default function DashboardPage() {
         dataViewContent={
           <AdminDataSection
             buggies={liveBuggies}
+            realtimeConnected={realtimeFeed.connected}
+            realtimeSource={realtimeFeed.source}
             geofences={geofences}
             events={geofenceEvents}
             geofenceStatuses={geofenceStatuses}

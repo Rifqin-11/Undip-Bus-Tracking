@@ -5,6 +5,25 @@ import { getErrorMessage } from "@/lib/utils/error-message";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
+type SessionRow = {
+  buggy_id?: string | null;
+  started_at?: string | null;
+  total_distance_km?: number | string | null;
+  duration_minutes?: number | string | null;
+  avg_speed_kmh?: number | string | null;
+  point_count?: number | string | null;
+};
+
+function toNumber(value: number | string | null | undefined): number {
+  const numeric = Number(value ?? 0);
+  return Number.isFinite(numeric) ? numeric : 0;
+}
+
+function calculateTrend(current: number, previous: number) {
+  if (previous === 0) return current > 0 ? 100 : 0;
+  return ((current - previous) / previous) * 100;
+}
+
 export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
@@ -24,7 +43,7 @@ export async function GET(request: Request) {
 
     const { data: currentMonthData, error: currentMonthError } = await supabase
       .from(tableName)
-      .select("total_distance_km, duration_minutes, avg_speed_kmh, point_count")
+      .select("buggy_id, started_at, total_distance_km, duration_minutes, avg_speed_kmh, point_count")
       .gte("started_at", firstDayOfMonth)
       .lte("started_at", lastDayOfMonth);
 
@@ -36,7 +55,7 @@ export async function GET(request: Request) {
 
     const { data: lastMonthData, error: lastMonthError } = await supabase
       .from(tableName)
-      .select("total_distance_km, duration_minutes")
+      .select("buggy_id, started_at, total_distance_km, duration_minutes, avg_speed_kmh, point_count")
       .gte("started_at", firstDayOfLastMonth)
       .lte("started_at", lastDayOfLastMonth);
 
@@ -50,11 +69,12 @@ export async function GET(request: Request) {
 
     const tripsThisMonth = currentMonthData?.length || 0;
 
-    for (const row of currentMonthData || []) {
-      totalDistanceKm += Number(row.total_distance_km || 0);
-      totalDurationMin += Number(row.duration_minutes || 0);
-      if (row.avg_speed_kmh && row.avg_speed_kmh > 0) {
-        totalSpeed += Number(row.avg_speed_kmh);
+    for (const row of (currentMonthData || []) as SessionRow[]) {
+      totalDistanceKm += toNumber(row.total_distance_km);
+      totalDurationMin += toNumber(row.duration_minutes);
+      const avgSpeed = toNumber(row.avg_speed_kmh);
+      if (avgSpeed > 0) {
+        totalSpeed += avgSpeed;
         speedCount++;
       }
     }
@@ -65,56 +85,93 @@ export async function GET(request: Request) {
     let totalDistanceLastMonth = 0;
     const tripsLastMonth = lastMonthData?.length || 0;
 
-    for (const row of lastMonthData || []) {
-      totalDistanceLastMonth += Number(row.total_distance_km || 0);
+    for (const row of (lastMonthData || []) as SessionRow[]) {
+      totalDistanceLastMonth += toNumber(row.total_distance_km);
     }
-
-    // --- Hitung Persentase Perubahan ---
-    const calculateTrend = (current: number, previous: number) => {
-      if (previous === 0) return current > 0 ? 100 : 0;
-      return ((current - previous) / previous) * 100;
-    };
 
     const distanceTrend = calculateTrend(totalDistanceKm, totalDistanceLastMonth);
     const tripsTrend = calculateTrend(tripsThisMonth, tripsLastMonth);
-
-    // --- Opsi A: Mock Data untuk Penumpang ---
-    // Karena kita tidak merekam penumpang historis, kita generate data yang terlihat masuk akal
-    // berdasarkan jumlah perjalanan (misal: rata-rata 5 penumpang per perjalanan)
-    const mockTotalPassengers = tripsThisMonth * 5 + Math.floor(Math.random() * 20);
-    const mockPassengersLastMonth = tripsLastMonth * 5 + Math.floor(Math.random() * 20);
-    const passengerTrend = calculateTrend(mockTotalPassengers, mockPassengersLastMonth);
     
-    // Asumsi: hari berlalu di bulan ini
-    let daysPassed = 30;
-    if (dateParam) {
-      const today = new Date();
-      if (now.getUTCFullYear() === today.getUTCFullYear() && now.getUTCMonth() === today.getUTCMonth()) {
-         daysPassed = Math.max(1, today.getUTCDate());
-      } else {
-         daysPassed = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 0)).getUTCDate();
-      }
-    } else {
-       daysPassed = Math.max(1, new Date().getUTCDate());
+    const dailyMap = new Map<
+      string,
+      { date: string; trips: number; distanceKm: number; durationMin: number }
+    >();
+    const buggyMap = new Map<
+      string,
+      { buggyId: string; trips: number; distanceKm: number; durationMin: number }
+    >();
+
+    for (const row of (currentMonthData || []) as SessionRow[]) {
+      const startedAt = row.started_at ? new Date(row.started_at) : null;
+      const dayKey =
+        startedAt && !Number.isNaN(startedAt.getTime())
+          ? startedAt.toISOString().slice(0, 10)
+          : "unknown";
+      const daily = dailyMap.get(dayKey) ?? {
+        date: dayKey,
+        trips: 0,
+        distanceKm: 0,
+        durationMin: 0,
+      };
+      daily.trips += 1;
+      daily.distanceKm += toNumber(row.total_distance_km);
+      daily.durationMin += toNumber(row.duration_minutes);
+      dailyMap.set(dayKey, daily);
+
+      const buggyId = row.buggy_id ?? "unknown";
+      const buggy = buggyMap.get(buggyId) ?? {
+        buggyId,
+        trips: 0,
+        distanceKm: 0,
+        durationMin: 0,
+      };
+      buggy.trips += 1;
+      buggy.distanceKm += toNumber(row.total_distance_km);
+      buggy.durationMin += toNumber(row.duration_minutes);
+      buggyMap.set(buggyId, buggy);
     }
-    const mockAvgPassengersPerDay = Math.round(mockTotalPassengers / daysPassed);
+
+    const dailySeries = Array.from(dailyMap.values())
+      .filter((item) => item.date !== "unknown")
+      .sort((a, b) => a.date.localeCompare(b.date))
+      .map((item) => ({
+        ...item,
+        distanceKm: Number(item.distanceKm.toFixed(1)),
+        durationMin: Math.round(item.durationMin),
+      }));
+    const topBuggies = Array.from(buggyMap.values())
+      .sort((a, b) => b.distanceKm - a.distanceKm)
+      .slice(0, 5)
+      .map((item) => ({
+        ...item,
+        distanceKm: Number(item.distanceKm.toFixed(1)),
+        durationMin: Math.round(item.durationMin),
+      }));
 
     return NextResponse.json({
       success: true,
       data: {
+        generatedAt: new Date().toISOString(),
         currentMonth: {
           totalTrips: tripsThisMonth,
           totalDistanceKm: Number(totalDistanceKm.toFixed(1)),
           avgSpeedKmh: Number(avgSpeedThisMonth.toFixed(1)),
           totalDurationMin: Math.round(totalDurationMin),
-          totalPassengers: mockTotalPassengers,
-          avgPassengersPerDay: mockAvgPassengersPerDay,
+          totalPassengers: null,
+          avgPassengersPerDay: null,
         },
         trends: {
           trips: Number(tripsTrend.toFixed(1)),
           distance: Number(distanceTrend.toFixed(1)),
-          passengers: Number(passengerTrend.toFixed(1)),
-        }
+          passengers: null,
+        },
+        dataQuality: {
+          passengerMetric: "unavailable",
+          passengerNote:
+            "Data penumpang historis belum direkam di sesi, sehingga metrik penumpang tidak diestimasi.",
+        },
+        dailySeries,
+        topBuggies,
       }
     });
 

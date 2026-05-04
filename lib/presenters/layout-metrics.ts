@@ -3,6 +3,6 @@ export const DESKTOP_LAYOUT = {
   sideOffset: "1rem",
   sidebarWidth: "4.5rem",
   gap: "1rem",
-  panelWidth: "25rem",
-  detailPanelLeft: "calc(1rem + 4.5rem + 1rem + 25rem + 1rem)", // sideOffset + sidebarWidth + gap + panelWidth + gap
+  panelWidth: "28rem",
+  detailPanelLeft: "calc(1rem + 4.5rem + 1rem + 30rem + 1rem)", // sideOffset + sidebarWidth + gap + panelWidth + gap
 };

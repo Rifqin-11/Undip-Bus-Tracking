@@ -36,6 +36,8 @@ export type HaltePoint = {
   facilities?: string[];
   /** Status aktif/nonaktif (default true) */
   isActive?: boolean;
+  /** Urutan rute halte */
+  sortOrder?: number;
 };
 
 export type PanelView = "buggy" | "halte" | "notifikasi" | "lapor" | "data" | "data-detail" | "history" | "info";

@@ -214,6 +214,7 @@ export function BuggyList({
         <HalteDetailView
           halte={selectedHalte}
           halteIndex={selectedHalteIndex}
+          buggies={buggies}
           onBack={handleBackToHalteList}
         />
       ) : activeView === "halte" ? (

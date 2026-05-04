@@ -105,7 +105,7 @@ export function LiveSearchBar({
       ref={wrapperRef}
       className={`absolute left-1/2 ${mobileTopClass} z-40 w-[min(92vw,420px)] -translate-x-1/2 xl:translate-x-0 xl:top-4 ${
         panelOpen
-          ? "xl:left-[calc(1rem+4.5rem+1rem+25rem+1rem)]"
+          ? "xl:left-[calc(1rem+4.5rem+1rem+30rem+1rem)]"
           : "xl:left-[calc(1rem+4.5rem+1rem)]"
       }`}
       onSubmit={(e) => {

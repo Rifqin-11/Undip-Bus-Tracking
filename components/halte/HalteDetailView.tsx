@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import type { HaltePoint } from "@/types/buggy";
+import type { HaltePoint, Buggy } from "@/types/buggy";
 import {
   BusStopIcon,
   ChevronLeftIcon,
@@ -63,15 +63,19 @@ function getStaticMapUrl(halte: HaltePoint): string {
   );
 }
 
+import { haversineMeters } from "@/lib/transit/buggy-route-utils";
+
 type HalteDetailViewProps = {
   halte: HaltePoint;
   halteIndex: number;
+  buggies?: Buggy[];
   onBack: () => void;
 };
 
 export function HalteDetailView({
   halte,
   halteIndex: _halteIndex,
+  buggies = [],
   onBack,
 }: HalteDetailViewProps) {
   const schedule = halte.schedule && halte.schedule.length > 0
@@ -148,6 +152,29 @@ export function HalteDetailView({
     }
   };
 
+  // ETA Calculation
+  const activeBuggies = buggies.filter((b) => b.isActive);
+  let etaMinutes: number | null = null;
+  
+  if (activeBuggies.length > 0) {
+    let minDistance = Infinity;
+    let nearestSpeed = 15; // default 15 km/h
+    
+    for (const b of activeBuggies) {
+      const dist = haversineMeters(halte, b.position);
+      if (dist < minDistance) {
+        minDistance = dist;
+        nearestSpeed = b.speedKmh > 0 ? b.speedKmh : 15;
+      }
+    }
+    
+    if (minDistance < Infinity) {
+      const distKm = minDistance / 1000;
+      const calculatedEta = (distKm / nearestSpeed) * 60;
+      etaMinutes = minDistance < 20 ? 0 : Math.ceil(calculatedEta);
+    }
+  }
+
   return (
     <section className="mt-3 min-w-0 items-start">
       <div className="mb-3 flex items-start gap-3 rounded-[20px] border border-white/60 bg-white/40 backdrop-blur-md p-3 shadow-sm transition-all">
@@ -159,9 +186,16 @@ export function HalteDetailView({
           <p className="text-[10px] font-semibold uppercase tracking-widest text-slate-500 mb-0.5">
             Detail Halte
           </p>
-          <h3 className="truncate text-lg leading-tight font-bold text-slate-900 tracking-tight">
-            {halte.name}
-          </h3>
+          <div className="flex items-center gap-2">
+            <h3 className="truncate text-lg leading-tight font-bold text-slate-900 tracking-tight">
+              {halte.name}
+            </h3>
+            {etaMinutes !== null && (
+              <span className={`shrink-0 rounded-full px-2 py-0.5 text-[9px] font-bold shadow-sm ring-1 ${etaMinutes === 0 ? 'bg-emerald-100 text-emerald-700 ring-emerald-200' : 'bg-[#0f1a3b]/10 text-[#0f1a3b] ring-[#0f1a3b]/20'}`}>
+                {etaMinutes === 0 ? "Buggy Tiba" : `ETA ${etaMinutes}mnt`}
+              </span>
+            )}
+          </div>
         </div>
 
         <button
