@@ -34,6 +34,14 @@ function normalizeBuggyId(value: string): string {
   return text;
 }
 
+function getBuggyNorm(b: Buggy): string {
+  const match = b.code.match(/\d+/);
+  if (match) {
+    return `buggy-${Number.parseInt(match[0], 10)}`;
+  }
+  return normalizeBuggyId(b.id);
+}
+
 // ── Component ─────────────────────────────────────────────────────────────────
 
 export function HistoryPanel({ buggies, onShowPath }: HistoryPanelProps) {
@@ -84,7 +92,7 @@ export function HistoryPanel({ buggies, onShowPath }: HistoryPanelProps) {
           id: b.id,
           code: b.code,
           name: b.name,
-          norm: normalizeBuggyId(b.id),
+          norm: getBuggyNorm(b),
           isActive: b.isActive,
         }))
         .sort((a, z) => a.code.localeCompare(z.code, "id-ID")),
@@ -105,13 +113,12 @@ export function HistoryPanel({ buggies, onShowPath }: HistoryPanelProps) {
     return map;
   }, [sessions]);
 
-  const selectedBuggySessions = useMemo(
-    () =>
-      selectedBuggyId
-        ? (sessionsByBuggy.get(normalizeBuggyId(selectedBuggyId)) ?? [])
-        : [],
-    [sessionsByBuggy, selectedBuggyId],
-  );
+  const selectedBuggySessions = useMemo(() => {
+    if (!selectedBuggyId) return [];
+    const buggy = buggies.find(b => b.id === selectedBuggyId);
+    if (!buggy) return [];
+    return sessionsByBuggy.get(getBuggyNorm(buggy)) ?? [];
+  }, [sessionsByBuggy, selectedBuggyId, buggies]);
 
   const selectedSession = useMemo(
     () => sessions.find((s) => s.id === selectedSessionId) ?? null,

@@ -38,4 +38,4 @@ export type HaltePoint = {
   isActive?: boolean;
 };
 
-export type PanelView = "buggy" | "halte" | "notifikasi" | "lapor" | "data" | "data-detail" | "history";
+export type PanelView = "buggy" | "halte" | "notifikasi" | "lapor" | "data" | "data-detail" | "history" | "info";

@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { MapCanvas } from "@/components/map/MapCanvas";
-import { BuggyList } from "@/components/buggy/BuggyList";
+import { BuggyList } from "@/components/buggy/PanelActive";
 import { FloatingSidebar } from "@/components/sidebar/FloatingSidebar";
 import { MobileBottomNav } from "@/components/sidebar/MobileBottomNav";
 import { LiveSearchBar } from "@/components/search/LiveSearchBar";
@@ -128,7 +128,9 @@ export default function DashboardPage() {
   const [activeView, setActiveView] = useState<PanelView>("buggy");
   const [panelOpen, setPanelOpen] = useState(true);
   const [selectedBuggyId, setSelectedBuggyId] = useState<string | null>(null);
-  const [mapFollowingBuggyId, setMapFollowingBuggyId] = useState<string | null>(null);
+  const [mapFollowingBuggyId, setMapFollowingBuggyId] = useState<string | null>(
+    null,
+  );
   const [selectedHalteId, setSelectedHalteId] = useState<string | null>(null);
 
   const [searchStep, setSearchStep] = useState<"destination" | "origin">(
@@ -143,18 +145,23 @@ export default function DashboardPage() {
   const [geofences, setGeofences] = useState<Geofence[]>([]);
   const [geofenceLoading, setGeofenceLoading] = useState(true);
   const [geofenceCreateMode, setGeofenceCreateMode] = useState(false);
-  const [editingGeofenceId, setEditingGeofenceId] = useState<string | null>(null);
+  const [editingGeofenceId, setEditingGeofenceId] = useState<string | null>(
+    null,
+  );
   const [draftGeofenceCenter, setDraftGeofenceCenter] =
     useState<LatLngLiteral | null>(null);
   const [draftGeofenceName, setDraftGeofenceName] = useState("");
-  const [draftGeofenceRadius, setDraftGeofenceRadius] =
-    useState(GEOFENCE_DEFAULT_RADIUS_METERS);
+  const [draftGeofenceRadius, setDraftGeofenceRadius] = useState(
+    GEOFENCE_DEFAULT_RADIUS_METERS,
+  );
   const [geofenceEvents, setGeofenceEvents] = useState<GeofenceEvent[]>([]);
   const [toasts, setToasts] = useState<ToastItem[]>([]);
   const [browserNotificationEnabled, setBrowserNotificationEnabled] =
     useState(false);
   const [historyPath, setHistoryPath] = useState<[number, number][]>([]);
-  const [selectedAdminBuggyId, setSelectedAdminBuggyId] = useState<string | null>(null);
+  const [selectedAdminBuggyId, setSelectedAdminBuggyId] = useState<
+    string | null
+  >(null);
 
   const [userPosition, setUserPosition] = useState<{
     lat: number;
@@ -171,7 +178,7 @@ export default function DashboardPage() {
         });
       },
       () => {},
-      { enableHighAccuracy: false, timeout: 8000, maximumAge: 60_000 }
+      { enableHighAccuracy: false, timeout: 8000, maximumAge: 60_000 },
     );
   }, []);
 
@@ -208,7 +215,7 @@ export default function DashboardPage() {
           resolve(latest);
         },
         () => resolve(userPosition),
-        { enableHighAccuracy: true, timeout: 8000, maximumAge: 15_000 }
+        { enableHighAccuracy: true, timeout: 8000, maximumAge: 15_000 },
       );
     });
   }, [userPosition]);
@@ -355,13 +362,16 @@ export default function DashboardPage() {
 
     const id = makeId();
     setToasts((prev) =>
-      [{
-        id,
-        tone: "bus" as ToastItem["tone"],
-        title: `${busName} mendekati halte Anda`,
-        description: `${halteName} · ${fakeDistance} m lagi`,
-        duration: 7_000,
-      }, ...prev].slice(0, TOAST_LIMIT),
+      [
+        {
+          id,
+          tone: "bus" as ToastItem["tone"],
+          title: `${busName} mendekati halte Anda`,
+          description: `${halteName} · ${fakeDistance} m lagi`,
+          duration: 7_000,
+        },
+        ...prev,
+      ].slice(0, TOAST_LIMIT),
     );
   }, [liveBuggies]);
 
@@ -437,7 +447,6 @@ export default function DashboardPage() {
     setSelectedHalteId(halteId);
   }, []);
 
-
   const handleToggleCreateMode = useCallback(() => {
     setGeofenceCreateMode((prev) => {
       const next = !prev;
@@ -500,7 +509,9 @@ export default function DashboardPage() {
     }
     try {
       const isEdit = !!editingGeofenceId;
-      const url = isEdit ? `/api/geofences/${editingGeofenceId}` : "/api/geofences";
+      const url = isEdit
+        ? `/api/geofences/${editingGeofenceId}`
+        : "/api/geofences";
       const response = await fetch(url, {
         method: isEdit ? "PATCH" : "POST",
         headers: { "Content-Type": "application/json" },
@@ -517,7 +528,9 @@ export default function DashboardPage() {
       const createdOrUpdated = (await response.json()) as Geofence;
 
       if (isEdit) {
-        setGeofences((prev) => prev.map(g => g.id === editingGeofenceId ? createdOrUpdated : g));
+        setGeofences((prev) =>
+          prev.map((g) => (g.id === editingGeofenceId ? createdOrUpdated : g)),
+        );
       } else {
         setGeofences((prev) => [...prev, createdOrUpdated]);
       }
@@ -527,7 +540,11 @@ export default function DashboardPage() {
       setDraftGeofenceRadius(GEOFENCE_DEFAULT_RADIUS_METERS);
       setGeofenceCreateMode(false);
       setEditingGeofenceId(null);
-      pushToast(isEdit ? "Zona berhasil diperbarui" : "Zona berhasil dibuat", createdOrUpdated.name, "success");
+      pushToast(
+        isEdit ? "Zona berhasil diperbarui" : "Zona berhasil dibuat",
+        createdOrUpdated.name,
+        "success",
+      );
     } catch (error) {
       console.error("Save geofence error:", error);
       pushToast(
@@ -536,7 +553,13 @@ export default function DashboardPage() {
         "warning",
       );
     }
-  }, [draftGeofenceCenter, draftGeofenceName, draftGeofenceRadius, editingGeofenceId, pushToast]);
+  }, [
+    draftGeofenceCenter,
+    draftGeofenceName,
+    draftGeofenceRadius,
+    editingGeofenceId,
+    pushToast,
+  ]);
 
   const handleToggleGeofence = useCallback(
     async (id: string, enabled: boolean) => {
@@ -1034,8 +1057,6 @@ export default function DashboardPage() {
           ))}
         </div>
       </section>
-
-
 
       <ToastStack
         toasts={toasts}

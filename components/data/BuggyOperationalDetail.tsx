@@ -149,7 +149,7 @@ export function BuggyOperationalDetail({
       />
 
       {/* ── Buggy Visual & Energy (Redesigned) ─────────────────────────── */}
-      <div className="rounded-3xl border border-slate-200/80 bg-slate-50/50 p-4">
+      <div className="rounded-3xl border border-slate-200/80 bg-white/70 p-4">
         {/* Cover Image */}
         <div className="relative h-44 w-full flex justify-center mb-3">
           <img

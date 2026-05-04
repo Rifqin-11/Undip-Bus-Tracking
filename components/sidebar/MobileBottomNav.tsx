@@ -10,6 +10,7 @@ import {
   DataIcon,
   ChatIcon,
   HistoryIcon,
+  InfoIcon,
 } from "@/components/ui/Icons";
 import type { PanelView } from "@/types/buggy";
 
@@ -36,7 +37,7 @@ const navItems: {
 }[] = [
   { view: "buggy", label: "Buggy", Icon: BuggyIcon },
   { view: "halte", label: "Halte", Icon: HalteIcon },
-  // { view: "lapor", label: "Lapor", Icon: ChatIcon },
+  { view: "info", label: "Info", Icon: InfoIcon },
 ];
 
 export function MobileBottomNav({

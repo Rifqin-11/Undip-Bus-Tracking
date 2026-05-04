@@ -10,6 +10,7 @@ import {
   DataIcon,
   ChatIcon,
   HistoryIcon,
+  InfoIcon,
 } from "@/components/ui/Icons";
 import { DESKTOP_LAYOUT } from "@/lib/presenters/layout-metrics";
 import type { PanelView } from "@/types/buggy";
@@ -103,6 +104,14 @@ export function FloatingSidebar({
           onClick={() => onSelectView("halte")}
         >
           <HalteIcon className="h-5 w-5" />
+        </button>
+        <button
+          className={`${actionButtonClass} ${activeView === "info" ? "bg-[#0f1a3b] text-white" : "text-slate-600 hover:bg-slate-100"}`}
+          aria-label="Info"
+          type="button"
+          onClick={() => onSelectView("info")}
+        >
+          <InfoIcon className="h-5 w-5" />
         </button>
         <button
           className={`${actionButtonClass} ${activeView === "notifikasi" ? "bg-[#0f1a3b] text-white" : "text-slate-600 hover:bg-slate-100"}`}

@@ -2,23 +2,20 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { MapCanvas } from "@/components/map/MapCanvas";
-import { BuggyList } from "@/components/buggy/BuggyList";
+import { BuggyList } from "@/components/buggy/PanelActive";
 import { FloatingSidebar } from "@/components/sidebar/FloatingSidebar";
 import { MobileBottomNav } from "@/components/sidebar/MobileBottomNav";
 import { LiveSearchBar } from "@/components/search/LiveSearchBar";
 import { BellIcon, MapPinSolidIcon } from "@/components/ui/Icons";
 import { ToastStack, type ToastItem } from "@/components/ui/ToastStack";
+import { InfoPanel } from "@/components/panel/InfoPanel";
 import { useNearbyBusAlert } from "@/hooks/useNearbyBusAlert";
-import {
-  HALTE_LOCATIONS,
-  OFFICIAL_ROUTE_PATH,
-} from "@/lib/transit/buggy-data";
+import { HALTE_LOCATIONS, OFFICIAL_ROUTE_PATH } from "@/lib/transit/buggy-data";
 import { haversineMeters } from "@/lib/transit/buggy-route-utils";
 import { useBuggyLiveFeed } from "@/hooks/useBuggyLiveFeed";
 import { GoogleMapsService } from "@/lib/services/google-maps-service";
 import type { PanelView } from "@/types/buggy";
 import type { DirectionResult } from "@/components/panel/DirectionPanel";
-
 
 function normalize(s: string) {
   return s.trim().toLowerCase();
@@ -98,7 +95,9 @@ export default function DashboardPage() {
   const [activeView, setActiveView] = useState<PanelView>("buggy");
   const [panelOpen, setPanelOpen] = useState(true);
   const [selectedBuggyId, setSelectedBuggyId] = useState<string | null>(null);
-  const [mapFollowingBuggyId, setMapFollowingBuggyId] = useState<string | null>(null);
+  const [mapFollowingBuggyId, setMapFollowingBuggyId] = useState<string | null>(
+    null,
+  );
   const [selectedHalteId, setSelectedHalteId] = useState<string | null>(null);
   const [userPosition, setUserPosition] = useState<{
     lat: number;

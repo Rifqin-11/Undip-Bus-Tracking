@@ -208,8 +208,8 @@ export function BuggyDetailView({ buggy, onBack }: BuggyDetailViewProps) {
                 ) : null}
                 <article
                   className={`relative min-w-0 overflow-hidden rounded-[20px] border p-3.5 shadow-[0_8px_20px_rgba(15,23,42,0.04)] transition-all ${
-                    stop.isCurrent 
-                      ? "border-blue-200/80 bg-blue-50/60 backdrop-blur-md shadow-blue-200/20" 
+                    stop.isCurrent
+                      ? "border-blue-200/80 bg-blue-50/60 backdrop-blur-md shadow-blue-200/20"
                       : "border-white/60 bg-white/40 backdrop-blur-md hover:bg-white/60 hover:shadow-[0_8px_24px_rgba(15,23,42,0.06)] hover:border-slate-300/50"
                   }`}
                 >

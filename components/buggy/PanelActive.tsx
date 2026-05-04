@@ -13,6 +13,7 @@ type LatLng = {
 import { BuggyCard } from "@/components/buggy/BuggyCard";
 import { BuggyDetailView } from "@/components/buggy/BuggyDetailView";
 import { PanelContainer } from "@/components/panel/PanelContainer";
+import { InfoPanel } from "@/components/panel/InfoPanel";
 import { HalteSection } from "@/components/halte/HalteSection";
 import { HalteDetailView } from "@/components/halte/HalteDetailView";
 import { DirectionPanel } from "@/components/panel/DirectionPanel";
@@ -246,6 +247,7 @@ export function BuggyList({
       {activeView === "data" && dataViewContent}
       {activeView === "data-detail" && dataDetailViewContent}
       {activeView === "history" && historyViewContent}
+      {activeView === "info" && <InfoPanel />}
     </PanelContainer>
   );
 }
