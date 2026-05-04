@@ -1,12 +1,13 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import { MapCanvas } from "@/components/map/MapCanvas";
 import { BuggyList } from "@/components/buggy/PanelActive";
 import { FloatingSidebar } from "@/components/sidebar/FloatingSidebar";
 import { MobileBottomNav } from "@/components/sidebar/MobileBottomNav";
 import { LiveSearchBar } from "@/components/search/LiveSearchBar";
-import { BellIcon, MapPinSolidIcon } from "@/components/ui/Icons";
+import { LoginIcon, MapPinSolidIcon } from "@/components/ui/Icons";
 import { ToastStack, type ToastItem } from "@/components/ui/ToastStack";
 import { InfoPanel } from "@/components/panel/InfoPanel";
 import { useNearbyBusAlert } from "@/hooks/useNearbyBusAlert";
@@ -553,7 +554,8 @@ export default function DashboardPage() {
 
   // Map data
   const mapBuggies = activeView === "halte" ? [] : liveBuggies;
-  const mapRoutePath = activeView === "buggy" ? OFFICIAL_ROUTE_PATH : [];
+  const mapRoutePath =
+    activeView === "buggy" || activeView === "info" ? OFFICIAL_ROUTE_PATH : [];
   const mapDirectionPath =
     activeView === "buggy" ? (directionResult?.directionPath ?? []) : [];
 
@@ -573,7 +575,7 @@ export default function DashboardPage() {
         onInfoWindowClose={handleInfoWindowClose}
         onBuggyMarkerClick={handleBuggyMarkerClick}
         onHalteMarkerClick={handleHalteMarkerClick}
-        focusHaltes={activeView === "halte"}
+        focusHaltes={activeView === "halte" || activeView === "info"}
       />
 
       {/* Gradient overlay for mobile view */}
@@ -587,13 +589,13 @@ export default function DashboardPage() {
           SIMOBI
         </h1>
 
-        <button
-          type="button"
-          aria-label="Notifikasi"
+        <Link
+          href="/login"
+          aria-label="Login"
           className="relative flex h-10 w-10 items-center justify-center rounded-full border border-white/20 bg-slate-900/50 text-white backdrop-blur-md transition active:scale-95"
         >
-          <BellIcon className="h-5 w-5" />
-        </button>
+          <LoginIcon className="h-5 w-5" />
+        </Link>
       </section>
 
       <section

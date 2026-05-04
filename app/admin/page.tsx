@@ -25,7 +25,7 @@ import type { PanelView } from "@/types/buggy";
 import type { DirectionResult } from "@/components/panel/DirectionPanel";
 import type { LatLngLiteral } from "@/types/map-canvas";
 import type { Geofence, GeofenceEvent } from "@/types/geofence";
-import { BellIcon, MapPinSolidIcon } from "@/components/ui/Icons";
+import { LogoutIcon, MapPinSolidIcon, BellIcon } from "@/components/ui/Icons";
 
 const GEOFENCE_DEFAULT_RADIUS_METERS = 100;
 const GEOFENCE_EVENT_LIMIT = 100;
@@ -353,6 +353,15 @@ export default function DashboardPage() {
   );
 
   /** Simulasikan notifikasi bus mendekati halte — untuk keperluan testing */
+  const handleLogout = async () => {
+    try {
+      await fetch("/api/auth/logout", { method: "POST" });
+    } catch {
+      // noop
+    }
+    window.location.href = "/";
+  };
+
   const handleTestBusNotification = useCallback(() => {
     const sampleBuggy = liveBuggies[0];
     const sampleHalte = HALTE_LOCATIONS[0];
@@ -979,7 +988,8 @@ export default function DashboardPage() {
   };
 
   const mapBuggies = activeView === "halte" ? [] : liveBuggies;
-  const mapRoutePath = activeView === "buggy" ? OFFICIAL_ROUTE_PATH : [];
+  const mapRoutePath =
+    activeView === "buggy" || activeView === "info" ? OFFICIAL_ROUTE_PATH : [];
   const mapDirectionPath =
     activeView === "buggy" ? (directionResult?.directionPath ?? []) : [];
   const mapHistoryPath = activeView === "history" ? historyPath : [];
@@ -1008,7 +1018,7 @@ export default function DashboardPage() {
         onInfoWindowClose={handleInfoWindowClose}
         onBuggyMarkerClick={handleBuggyMarkerClick}
         onHalteMarkerClick={handleHalteMarkerClick}
-        focusHaltes={activeView === "halte"}
+        focusHaltes={activeView === "halte" || activeView === "info"}
         historyPath={mapHistoryPath}
       />
 
@@ -1025,16 +1035,12 @@ export default function DashboardPage() {
 
         <button
           type="button"
-          aria-label="Test notifikasi bus"
-          title="Test notifikasi bus mendekati"
-          onClick={handleTestBusNotification}
+          aria-label="Logout admin"
+          title="Logout"
+          onClick={handleLogout}
           className="relative flex h-10 w-10 items-center justify-center rounded-full border border-white/20 bg-slate-900/50 text-white backdrop-blur-md transition hover:bg-slate-800/70 active:scale-95"
         >
-          <BellIcon className="h-5 w-5" />
-          {/* Badge TEST */}
-          <span className="absolute -right-0.5 -top-0.5 flex h-4 w-4 items-center justify-center rounded-full bg-amber-400 text-[7px] font-black text-slate-900 leading-none">
-            T
-          </span>
+          <LogoutIcon className="h-5 w-5" />
         </button>
       </section>
 

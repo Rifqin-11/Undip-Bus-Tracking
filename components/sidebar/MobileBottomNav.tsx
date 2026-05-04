@@ -11,6 +11,7 @@ import {
   ChatIcon,
   HistoryIcon,
   InfoIcon,
+  BellIcon,
 } from "@/components/ui/Icons";
 import type { PanelView } from "@/types/buggy";
 
@@ -141,18 +142,14 @@ export function MobileBottomNav({
         </button>
       ))}
 
-      {/* Login / Logout admin */}
+      {/* Notifikasi */}
       <button
         type="button"
-        className={`${navButtonBase} ${isOnAdminPage ? activeButtonClass : inactiveButtonClass}`}
-        aria-label={isOnAdminPage ? "Logout admin" : "Login admin"}
-        onClick={handleAdminButtonClick}
+        className={`${navButtonBase} ${activeView === "notifikasi" ? activeButtonClass : inactiveButtonClass}`}
+        aria-label="Notifikasi"
+        onClick={() => onSelectView("notifikasi")}
       >
-        {isOnAdminPage ? (
-          <LogoutIcon className="h-6 w-6" />
-        ) : (
-          <LoginIcon className="h-6 w-6" />
-        )}
+        <BellIcon className="h-6 w-6" />
       </button>
     </nav>
   );
