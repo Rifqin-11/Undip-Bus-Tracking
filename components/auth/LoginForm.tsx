@@ -2,6 +2,7 @@
 
 import { FormEvent, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import Link from "next/link";
 import logo from "@/public/logo.svg";
 
 export default function LoginForm() {
@@ -166,6 +167,15 @@ export default function LoginForm() {
               >
                 {isSubmitting ? "Loading..." : "Login"}
               </button>
+
+              <div className="pt-2">
+                <Link
+                  href="/"
+                  className="flex h-11 w-full items-center justify-center rounded-2xl border border-slate-200 bg-slate-50 text-[14px] font-semibold text-slate-600 transition hover:bg-slate-100 hover:text-slate-900 active:scale-95"
+                >
+                  Kembali ke Beranda
+                </Link>
+              </div>
             </form>
           </div>
         </div>

@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { ChevronLeft, TrendingUp, TrendingDown, Users, Route, Zap, Timer, BarChart3 } from "lucide-react";
+import { TrendingUp, TrendingDown, Users, Route, Zap, Timer } from "lucide-react";
+import { getErrorMessage } from "@/lib/utils/error-message";
 
 type StatisticsData = {
   currentMonth: {
@@ -18,8 +19,6 @@ type StatisticsData = {
     passengers: number;
   };
 };
-
-type AdminStatisticsPanelProps = {};
 
 export function AdminStatisticsPanel() {
   const [selectedMonth, setSelectedMonth] = useState<string>(() => {
@@ -40,8 +39,8 @@ export function AdminStatisticsPanel() {
         const json = await res.json();
         if (!json.success) throw new Error(json.error || "Terjadi kesalahan");
         setData(json.data);
-      } catch (err: any) {
-        setError(err.message);
+      } catch (err) {
+        setError(getErrorMessage(err));
       } finally {
         setLoading(false);
       }
@@ -49,12 +48,6 @@ export function AdminStatisticsPanel() {
 
     void fetchStats();
   }, [selectedMonth]);
-
-  const getMonthName = () => {
-    const [year, month] = selectedMonth.split("-");
-    const d = new Date(Number(year), Number(month) - 1, 1);
-    return d.toLocaleDateString("id-ID", { month: "long", year: "numeric" });
-  };
 
   if (loading) {
     return (

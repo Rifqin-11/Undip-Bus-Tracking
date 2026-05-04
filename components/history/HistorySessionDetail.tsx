@@ -2,6 +2,7 @@ import { useState } from "react";
 import { ChevronLeftIcon, TrashIcon } from "@/components/ui/Icons";
 import { DeleteConfirmModal } from "@/components/ui/DeleteConfirmModal";
 import { fmtDate, fmtTime, fmtTimestamp, fmtDuration } from "@/lib/utils/format-time";
+import { getErrorMessage } from "@/lib/utils/error-message";
 import type { Buggy } from "@/types/buggy";
 import type { BuggySession } from "@/types/buggy-session";
 
@@ -42,8 +43,8 @@ export function HistorySessionDetail({
 
       setShowDeleteModal(false);
       onDeleteSuccess?.();
-    } catch (err: any) {
-      alert(err.message || "Terjadi kesalahan saat menghapus");
+    } catch (err) {
+      alert(getErrorMessage(err, "Terjadi kesalahan saat menghapus"));
     } finally {
       setIsDeleting(false);
     }

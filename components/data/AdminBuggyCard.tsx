@@ -1,5 +1,4 @@
 import type { Buggy } from "@/types/buggy";
-import { getBuggyStopNameAtOffset } from "@/lib/transit/buggy-route-utils";
 import { ChevronRight } from "lucide-react";
 
 type AdminBuggyCardProps = {
@@ -13,12 +12,6 @@ export function AdminBuggyCard({
   activeZones,
   onClick,
 }: AdminBuggyCardProps) {
-  const currentStop = getBuggyStopNameAtOffset(buggy, 0);
-  const nextStop = getBuggyStopNameAtOffset(buggy, 1);
-
-  // Example "108" -> "B02", "city bus" -> "Rute Kampus"
-  const rawCode = buggy.code.replace(/\D/g, "") || buggy.code;
-
   return (
     <button
       type="button"

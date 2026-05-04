@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/server";
 import { adminUpdateBuggyInStore, adminRemoveBuggyFromStore } from "@/lib/realtime/buggy-live-store";
+import { getErrorMessage } from "@/lib/utils/error-message";
 
 export async function PUT(
   request: Request,
@@ -47,9 +48,9 @@ export async function PUT(
     });
 
     return NextResponse.json({ success: true, buggy: data });
-  } catch (err: any) {
+  } catch (err) {
     console.error("Error updating buggy:", err);
-    return NextResponse.json({ error: err.message }, { status: 500 });
+    return NextResponse.json({ error: getErrorMessage(err) }, { status: 500 });
   }
 }
 
@@ -79,8 +80,8 @@ export async function DELETE(
     adminRemoveBuggyFromStore(id);
 
     return NextResponse.json({ success: true });
-  } catch (err: any) {
+  } catch (err) {
     console.error("Error deleting buggy:", err);
-    return NextResponse.json({ error: err.message }, { status: 500 });
+    return NextResponse.json({ error: getErrorMessage(err) }, { status: 500 });
   }
 }

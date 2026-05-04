@@ -3,7 +3,7 @@ import type { Geofence } from "@/types/geofence";
 import type { LatLngLiteral } from "@/types/map-canvas";
 import { TrashIcon, PencilIcon } from "@/components/ui/Icons";
 import { DeleteConfirmModal } from "@/components/ui/DeleteConfirmModal";
-import { Plus, X } from "lucide-react";
+import { Bell, Plus, X } from "lucide-react";
 
 type GeofenceManagerProps = {
   geofences: Geofence[];
@@ -68,6 +68,20 @@ export function GeofenceManager({
           <p className="text-[11px] text-slate-400">{geofences.length} zona terdaftar</p>
         </div>
         <div className="flex gap-1.5">
+          <button
+            type="button"
+            onClick={onToggleBrowserNotification}
+            title="Notifikasi browser"
+            aria-label="Notifikasi browser"
+            aria-pressed={browserNotificationEnabled}
+            className={`rounded-xl border px-3 py-1.5 text-[12px] font-semibold transition active:scale-95 ${
+              browserNotificationEnabled
+                ? "border-amber-500 bg-amber-500 text-white hover:bg-white hover:text-amber-600"
+                : "border-slate-200 bg-white text-slate-500 hover:border-amber-400 hover:text-amber-600"
+            }`}
+          >
+            <Bell className="size-4" />
+          </button>
           <button
             type="button"
             onClick={onToggleCreateMode}
@@ -159,7 +173,7 @@ export function GeofenceManager({
         <p className="py-2 text-[12px] text-slate-400">Memuat zona...</p>
       ) : geofences.length === 0 ? (
         <p className="py-2 text-[12px] text-slate-400">
-          Belum ada zona. Klik "Buat" untuk menambahkan.
+          Belum ada zona. Klik &quot;Buat&quot; untuk menambahkan.
         </p>
       ) : (
         <div className="space-y-2">

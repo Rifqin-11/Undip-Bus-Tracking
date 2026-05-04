@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import type { HaltePoint } from "@/types/buggy";
 import { ChevronLeft, Trash2, Plus, X } from "lucide-react";
+import { getErrorMessage } from "@/lib/utils/error-message";
 
 type AdminHalteFormPanelProps = {
   /** null = mode tambah, object = mode edit */
@@ -139,8 +140,8 @@ export function AdminHalteFormPanel({
         }
       }
       onSaved();
-    } catch (err: any) {
-      setError(err.message ?? "Terjadi kesalahan");
+    } catch (err) {
+      setError(getErrorMessage(err));
     } finally {
       setSaving(false);
     }
@@ -156,8 +157,8 @@ export function AdminHalteFormPanel({
         throw new Error((data as { error?: string }).error || "Gagal menghapus");
       }
       onSaved();
-    } catch (err: any) {
-      setError(err.message ?? "Gagal menghapus halte");
+    } catch (err) {
+      setError(getErrorMessage(err, "Gagal menghapus halte"));
     } finally {
       setDeleting(false);
       setShowDeleteConfirm(false);

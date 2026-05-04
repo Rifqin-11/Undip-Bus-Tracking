@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createAdminClient, getBuggySessionTableName } from "@/lib/supabase/server";
+import { getErrorMessage } from "@/lib/utils/error-message";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -117,8 +118,8 @@ export async function GET(request: Request) {
       }
     });
 
-  } catch (err: any) {
+  } catch (err) {
     console.error("Error fetching statistics:", err);
-    return NextResponse.json({ error: err.message }, { status: 500 });
+    return NextResponse.json({ error: getErrorMessage(err) }, { status: 500 });
   }
 }

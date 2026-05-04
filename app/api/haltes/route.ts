@@ -3,6 +3,7 @@ import { createAdminClient } from "@/lib/supabase/server";
 import { getHalteLocations, setHalteLocations } from "@/lib/transit/halte-runtime";
 import { bootstrapFromDatabase } from "@/lib/supabase/data-loader";
 import type { HaltePoint } from "@/types/buggy";
+import { getErrorMessage } from "@/lib/utils/error-message";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -88,8 +89,8 @@ export async function POST(request: Request) {
     await reloadHalteRuntime();
 
     return NextResponse.json({ success: true, halte: data });
-  } catch (err: any) {
-    return NextResponse.json({ error: err.message }, { status: 500 });
+  } catch (err) {
+    return NextResponse.json({ error: getErrorMessage(err) }, { status: 500 });
   }
 }
 

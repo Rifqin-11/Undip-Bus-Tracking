@@ -7,9 +7,8 @@ import { BuggyList } from "@/components/buggy/PanelActive";
 import { FloatingSidebar } from "@/components/sidebar/FloatingSidebar";
 import { MobileBottomNav } from "@/components/sidebar/MobileBottomNav";
 import { LiveSearchBar } from "@/components/search/LiveSearchBar";
-import { LoginIcon, MapPinSolidIcon } from "@/components/ui/Icons";
+import { LoginIcon, MapPinSolidIcon, BellIcon } from "@/components/ui/Icons";
 import { ToastStack, type ToastItem } from "@/components/ui/ToastStack";
-import { InfoPanel } from "@/components/panel/InfoPanel";
 import { useNearbyBusAlert } from "@/hooks/useNearbyBusAlert";
 import { HALTE_LOCATIONS, OFFICIAL_ROUTE_PATH } from "@/lib/transit/buggy-data";
 import { haversineMeters } from "@/lib/transit/buggy-route-utils";
@@ -32,11 +31,6 @@ function dist(
   b: { lat: number; lng: number },
 ) {
   return Math.hypot(a.lat - b.lat, a.lng - b.lng);
-}
-
-function formatDistance(distanceMeters: number): string {
-  if (distanceMeters < 1000) return `${Math.round(distanceMeters)} m`;
-  return `${(distanceMeters / 1000).toFixed(1)} km`;
 }
 
 /**
@@ -87,10 +81,9 @@ function getRouteBetweenHaltes(
 
 export default function DashboardPage() {
   const realtimeFeed = useBuggyLiveFeed();
-  const allBuggies = realtimeFeed.liveBuggies ?? [];
   const liveBuggies = useMemo(
-    () => allBuggies.filter((buggy) => buggy.isActive),
-    [allBuggies],
+    () => (realtimeFeed.liveBuggies ?? []).filter((buggy) => buggy.isActive),
+    [realtimeFeed.liveBuggies],
   );
 
   const [activeView, setActiveView] = useState<PanelView>("buggy");
@@ -589,13 +582,23 @@ export default function DashboardPage() {
           SIMOBI
         </h1>
 
-        <Link
-          href="/login"
-          aria-label="Login"
-          className="relative flex h-10 w-10 items-center justify-center rounded-full border border-white/20 bg-slate-900/50 text-white backdrop-blur-md transition active:scale-95"
-        >
-          <LoginIcon className="h-5 w-5" />
-        </Link>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => handleSelectView("notifikasi")}
+            aria-label="Notifikasi"
+            className="relative flex h-10 w-10 items-center justify-center rounded-full border border-white/20 bg-slate-900/50 text-white backdrop-blur-md transition active:scale-95"
+          >
+            <BellIcon className="h-5 w-5" />
+          </button>
+          <Link
+            href="/login"
+            aria-label="Login"
+            className="relative flex h-10 w-10 items-center justify-center rounded-full border border-white/20 bg-slate-900/50 text-white backdrop-blur-md transition active:scale-95"
+          >
+            <LoginIcon className="h-5 w-5" />
+          </Link>
+        </div>
       </section>
 
       <section

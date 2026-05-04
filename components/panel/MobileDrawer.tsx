@@ -89,7 +89,7 @@ export function MobileDrawer({ open, onClose, children }: MobileDrawerProps) {
   useEffect(() => {
     if (open) {
       // ── Animate IN: grow card from bottom up, restore opacity ────────────────
-      setSnap("half");
+      queueMicrotask(() => setSnap("half"));
       cardHeight.set(0);
       cardOpacity.set(1);
       animate(cardHeight, CARD_HEIGHT, SPRING);
@@ -97,7 +97,7 @@ export function MobileDrawer({ open, onClose, children }: MobileDrawerProps) {
       // ── Animate OUT: collapse to 0 in floating-card shape ───────────────
       // Force half shape first so we never see the full edge-to-edge sheet
       // during the close animation regardless of which snap was active.
-      setSnap("half");
+      queueMicrotask(() => setSnap("half"));
       animate(cardOpacity, 0, { duration: 0.16, ease: "easeOut" });
       animate(cardHeight, 0, CLOSE_SPRING);
     }

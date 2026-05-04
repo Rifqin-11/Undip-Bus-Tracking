@@ -4,6 +4,8 @@ import { useState } from "react";
 import type { Announcement } from "@/types/announcement";
 import { ChevronLeft, Save } from "lucide-react";
 
+type AnnouncementType = Announcement["type"];
+
 type AdminNotificationFormPanelProps = {
   announcement: Announcement | null;
   onBack: () => void;
@@ -44,7 +46,7 @@ export function AdminNotificationFormPanel({
       } else {
         alert("Gagal menyimpan pengumuman.");
       }
-    } catch (err) {
+    } catch {
       alert("Terjadi kesalahan.");
     } finally {
       setIsSubmitting(false);
@@ -93,7 +95,12 @@ export function AdminNotificationFormPanel({
           </label>
           <select
             value={formData.type}
-            onChange={(e) => setFormData({ ...formData, type: e.target.value as any })}
+            onChange={(e) =>
+              setFormData({
+                ...formData,
+                type: e.target.value as AnnouncementType,
+              })
+            }
             className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-[14px] font-medium text-slate-800 outline-none transition focus:border-blue-400 focus:ring-2 focus:ring-blue-100"
           >
             <option value="info">Info (Biru)</option>

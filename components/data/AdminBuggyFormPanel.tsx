@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import type { Buggy } from "@/types/buggy";
 import { ChevronLeft, Trash2 } from "lucide-react";
+import { getErrorMessage } from "@/lib/utils/error-message";
 
 type AdminBuggyFormPanelProps = {
   /** null = mode tambah, object = mode edit */
@@ -102,8 +103,8 @@ export function AdminBuggyFormPanel({
         }
       }
       onSaved();
-    } catch (err: any) {
-      setError(err.message ?? "Terjadi kesalahan");
+    } catch (err) {
+      setError(getErrorMessage(err));
     } finally {
       setSaving(false);
     }
@@ -120,8 +121,8 @@ export function AdminBuggyFormPanel({
       }
       onDeleted?.();
       onSaved();
-    } catch (err: any) {
-      setError(err.message ?? "Gagal menghapus armada");
+    } catch (err) {
+      setError(getErrorMessage(err, "Gagal menghapus armada"));
     } finally {
       setDeleting(false);
       setShowDeleteConfirm(false);

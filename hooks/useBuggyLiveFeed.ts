@@ -52,11 +52,11 @@ async function fetchSnapshot(signal?: AbortSignal): Promise<BuggyLiveSnapshot> {
 }
 
 export function useBuggyLiveFeed(): UseBuggyLiveFeedState {
-  const mode = useMemo(resolveFeedMode, []);
+  const mode = useMemo(() => resolveFeedMode(), []);
   const [source, setSource] = useState<BuggyLiveSource>("seed");
   const [liveBuggies, setLiveBuggies] = useState<Buggy[] | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [connected, setConnected] = useState(false);
+  const [connected, setConnected] = useState(mode === "poll");
 
   useEffect(() => {
     let disposed = false;
@@ -83,7 +83,6 @@ export function useBuggyLiveFeed(): UseBuggyLiveFeedState {
     void readInitial();
 
     if (mode === "poll") {
-      setConnected(true);
       const interval = setInterval(async () => {
         try {
           const snapshot = await fetchSnapshot(abortController.signal);

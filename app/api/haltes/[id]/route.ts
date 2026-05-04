@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/server";
 import { setHalteLocations, getHalteLocations } from "@/lib/transit/halte-runtime";
 import type { HaltePoint } from "@/types/buggy";
+import { getErrorMessage } from "@/lib/utils/error-message";
 
 export const runtime = "nodejs";
 
@@ -83,8 +84,8 @@ export async function PUT(
     await reloadHalteRuntime();
 
     return NextResponse.json({ success: true, halte: data });
-  } catch (err: any) {
-    return NextResponse.json({ error: err.message }, { status: 500 });
+  } catch (err) {
+    return NextResponse.json({ error: getErrorMessage(err) }, { status: 500 });
   }
 }
 
@@ -115,7 +116,7 @@ export async function DELETE(
     setHalteLocations(updated);
 
     return NextResponse.json({ success: true });
-  } catch (err: any) {
-    return NextResponse.json({ error: err.message }, { status: 500 });
+  } catch (err) {
+    return NextResponse.json({ error: getErrorMessage(err) }, { status: 500 });
   }
 }

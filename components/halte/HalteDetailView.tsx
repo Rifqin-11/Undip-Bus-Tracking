@@ -90,8 +90,10 @@ export function HalteDetailView({
   const [svError, setSvError] = useState(false);
 
   useEffect(() => {
-    setImageUrl(null);
-    setSvError(false);
+    queueMicrotask(() => {
+      setImageUrl(null);
+      setSvError(false);
+    });
 
     const controller = new AbortController();
     const t = setTimeout(async () => {

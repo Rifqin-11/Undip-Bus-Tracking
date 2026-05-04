@@ -9,7 +9,7 @@ import { AdminStatisticsPanel } from "./AdminStatisticsPanel";
 import { GeofenceManager } from "./GeofenceManager";
 import { GeofenceEventLog } from "./GeofenceEventLog";
 import { AdminBuggyFormPanel } from "./AdminBuggyFormPanel";
-import { PlusIcon, BarChart3Icon } from "lucide-react";
+import { PlusIcon } from "lucide-react";
 
 type AdminDataSectionProps = {
   buggies: Buggy[];

@@ -33,7 +33,7 @@ export function HalteSection({ onSelectHalte, isAdmin = false }: HalteSectionPro
   }, []);
 
   useEffect(() => {
-    if (isAdmin) void fetchHaltes();
+    if (isAdmin) void Promise.resolve().then(fetchHaltes);
   }, [isAdmin, fetchHaltes]);
 
   const haltes = isAdmin && apiHaltes ? apiHaltes : HALTE_LOCATIONS;

@@ -1,17 +1,13 @@
 "use client";
 
 import React from "react";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname } from "next/navigation";
 import {
   BuggyIcon,
   HalteIcon,
-  LoginIcon,
-  LogoutIcon,
   DataIcon,
-  ChatIcon,
   HistoryIcon,
   InfoIcon,
-  BellIcon,
 } from "@/components/ui/Icons";
 import type { PanelView } from "@/types/buggy";
 
@@ -48,7 +44,6 @@ export function MobileBottomNav({
   showDataButton = false,
 }: MobileBottomNavProps) {
   const pathname = usePathname();
-  const router = useRouter();
   const isOnAdminPage = pathname.startsWith("/admin");
   const shouldShowDataButton = isOnAdminPage && showDataButton;
   const dragStartYRef = React.useRef<number | null>(null);
@@ -74,21 +69,6 @@ export function MobileBottomNav({
   const resetDragState = () => {
     dragStartYRef.current = null;
     dragTriggeredRef.current = false;
-  };
-
-  const handleAdminButtonClick = async () => {
-    if (isOnAdminPage) {
-      try {
-        await fetch("/api/auth/logout", { method: "POST" });
-      } catch {
-        // noop
-      }
-      router.push("/");
-      router.refresh();
-      return;
-    }
-
-    router.push("/login");
   };
 
   return (
@@ -141,16 +121,6 @@ export function MobileBottomNav({
           <Icon className="h-6 w-6" />
         </button>
       ))}
-
-      {/* Notifikasi */}
-      <button
-        type="button"
-        className={`${navButtonBase} ${activeView === "notifikasi" ? activeButtonClass : inactiveButtonClass}`}
-        aria-label="Notifikasi"
-        onClick={() => onSelectView("notifikasi")}
-      >
-        <BellIcon className="h-6 w-6" />
-      </button>
     </nav>
   );
 }

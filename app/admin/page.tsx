@@ -8,7 +8,6 @@ import { MobileBottomNav } from "@/components/sidebar/MobileBottomNav";
 import { LiveSearchBar } from "@/components/search/LiveSearchBar";
 import { AdminDataSection } from "@/components/data/AdminDataSection";
 import { BuggyOperationalDetail } from "@/components/data/BuggyOperationalDetail";
-import { GeofenceManager } from "@/components/data/GeofenceManager";
 import { HistoryPanel } from "@/components/history/HistoryPanel";
 import { ToastStack } from "@/components/ui/ToastStack";
 import type { ToastItem } from "@/components/ui/ToastStack";
@@ -110,7 +109,10 @@ export default function DashboardPage() {
 
   // localBuggies: hasil fetch langsung setelah add/delete agar list update instan
   const [localBuggies, setLocalBuggies] = useState<Buggy[] | null>(null);
-  const liveBuggies = localBuggies ?? realtimeFeed.liveBuggies ?? [];
+  const liveBuggies = useMemo(
+    () => localBuggies ?? realtimeFeed.liveBuggies ?? [],
+    [localBuggies, realtimeFeed.liveBuggies],
+  );
 
   /** Fetch daftar buggy terbaru dari server dan simpan ke localBuggies */
   const handleBuggyMutated = useCallback(async () => {
@@ -1033,15 +1035,25 @@ export default function DashboardPage() {
           SIMOBI
         </h1>
 
-        <button
-          type="button"
-          aria-label="Logout admin"
-          title="Logout"
-          onClick={handleLogout}
-          className="relative flex h-10 w-10 items-center justify-center rounded-full border border-white/20 bg-slate-900/50 text-white backdrop-blur-md transition hover:bg-slate-800/70 active:scale-95"
-        >
-          <LogoutIcon className="h-5 w-5" />
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => handleSelectView("notifikasi")}
+            aria-label="Notifikasi"
+            className="relative flex h-10 w-10 items-center justify-center rounded-full border border-white/20 bg-slate-900/50 text-white backdrop-blur-md transition active:scale-95"
+          >
+            <BellIcon className="h-5 w-5" />
+          </button>
+          <button
+            type="button"
+            aria-label="Logout admin"
+            title="Logout"
+            onClick={handleLogout}
+            className="relative flex h-10 w-10 items-center justify-center rounded-full border border-white/20 bg-slate-900/50 text-white backdrop-blur-md transition hover:bg-slate-800/70 active:scale-95"
+          >
+            <LogoutIcon className="h-5 w-5" />
+          </button>
+        </div>
       </section>
 
       <section

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient, getBuggySessionTableName, getBuggyHistoryTableName } from "@/lib/supabase/server";
+import { getErrorMessage } from "@/lib/utils/error-message";
 
 export const runtime = "nodejs";
 
@@ -52,7 +53,7 @@ export async function POST(req: NextRequest) {
     }
 
     return NextResponse.json({ success: true, rawDeleted: rawDeleted?.length, sessionDeleted: sessionDeleted?.length });
-  } catch (err: any) {
-    return NextResponse.json({ error: err.message }, { status: 500 });
+  } catch (err) {
+    return NextResponse.json({ error: getErrorMessage(err) }, { status: 500 });
   }
 }

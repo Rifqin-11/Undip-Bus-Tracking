@@ -4,6 +4,7 @@ import { adminAddBuggyToStore } from "@/lib/realtime/buggy-live-store";
 import { getHalteLocations } from "@/lib/transit/halte-runtime";
 import { bootstrapFromDatabase } from "@/lib/supabase/data-loader";
 import { CENTER_UNDIP } from "@/lib/transit/buggy-data";
+import { getErrorMessage } from "@/lib/utils/error-message";
 
 export async function POST(request: Request) {
   try {
@@ -68,8 +69,8 @@ export async function POST(request: Request) {
     adminAddBuggyToStore(newBuggy);
 
     return NextResponse.json({ success: true, buggy: newBuggy });
-  } catch (err: any) {
+  } catch (err) {
     console.error("Error creating buggy:", err);
-    return NextResponse.json({ error: err.message }, { status: 500 });
+    return NextResponse.json({ error: getErrorMessage(err) }, { status: 500 });
   }
 }

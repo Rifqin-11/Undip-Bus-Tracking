@@ -1,5 +1,4 @@
 import {
-  BuggyIcon,
   HalteIcon,
   MapPinIcon,
   NavigateIcon,

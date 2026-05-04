@@ -1,13 +1,12 @@
 "use client";
 
 import type { Buggy } from "@/types/buggy";
-import { BusFrontIcon, ChevronLeftIcon } from "@/components/ui/Icons";
+import { ChevronLeftIcon } from "@/components/ui/Icons";
 import {
   estimateMinutesBetweenStops,
   getBuggyCurrentRouteIndex,
   getBuggyStopsInRouteOrder,
 } from "@/lib/transit/buggy-route-utils";
-import { ChevronLeft } from "lucide-react";
 
 function formatClock(date: Date): string {
   const formatter = new Intl.DateTimeFormat("id-ID", {

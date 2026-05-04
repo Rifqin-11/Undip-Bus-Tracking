@@ -3,9 +3,10 @@
 import { useState } from "react";
 import type { Buggy } from "@/types/buggy";
 import { getBuggyStopNameAtOffset } from "@/lib/transit/buggy-route-utils";
-import { ChevronLeft, Edit2Icon, TrashIcon } from "lucide-react";
+import { ChevronLeft, Edit2Icon } from "lucide-react";
 import { AdminBuggyFormPanel } from "./AdminBuggyFormPanel";
 import { DeleteConfirmModal } from "@/components/ui/DeleteConfirmModal";
+import { getErrorMessage } from "@/lib/utils/error-message";
 
 type BuggyOperationalDetailProps = {
   buggy: Buggy;
@@ -35,8 +36,8 @@ export function BuggyOperationalDetail({
       });
       if (!res.ok) throw new Error("Gagal menghapus buggy");
       (onDeleteSuccess ?? onBack)();
-    } catch (err: any) {
-      alert(err.message);
+    } catch (err) {
+      alert(getErrorMessage(err));
     } finally {
       setIsDeleting(false);
       setIsDeleteOpen(false);
@@ -49,20 +50,6 @@ export function BuggyOperationalDetail({
     Math.round((buggy.passengers / buggy.capacity) * 100),
     100,
   );
-
-  const crowdBadge =
-    buggy.crowdLevel === "PENUH"
-      ? "bg-rose-100 text-rose-700 border-rose-200"
-      : buggy.crowdLevel === "HAMPIR_PENUH"
-        ? "bg-amber-100 text-amber-700 border-amber-200"
-        : "bg-emerald-100 text-emerald-700 border-emerald-200";
-
-  const crowdLabel =
-    buggy.crowdLevel === "PENUH"
-      ? "Penuh"
-      : buggy.crowdLevel === "HAMPIR_PENUH"
-        ? "Ramai"
-        : "Kosong";
 
   if (isEditOpen) {
     return (

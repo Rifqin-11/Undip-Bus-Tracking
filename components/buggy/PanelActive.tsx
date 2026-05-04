@@ -153,8 +153,10 @@ export function BuggyList({
     if (activeView !== "halte") return;
     if (!selectedHalteId) return;
 
-    setSelectedHalteIdLocal(selectedHalteId);
-    setHalteViewMode("detail");
+    queueMicrotask(() => {
+      setSelectedHalteIdLocal(selectedHalteId);
+      setHalteViewMode("detail");
+    });
   }, [activeView, selectedHalteId]);
 
   return (
