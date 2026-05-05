@@ -35,6 +35,7 @@ type AdminDataSectionProps = {
   onEditGeofence: (geofence: Geofence) => void;
   onDeleteGeofence: (id: string) => Promise<boolean> | boolean;
   onToggleBrowserNotification: () => void;
+  compactMode?: boolean;
   /** Dipanggil setelah add atau delete buggy agar parent dapat refresh list */
   onBuggyMutated?: () => void;
 };
@@ -61,6 +62,7 @@ export function AdminDataSection({
   onEditGeofence,
   onDeleteGeofence,
   onToggleBrowserNotification,
+  compactMode = false,
   onBuggyMutated,
 }: AdminDataSectionProps) {
   const [isAddingBuggy, setIsAddingBuggy] = useState(false);
@@ -73,7 +75,7 @@ export function AdminDataSection({
   ];
 
   return (
-    <section className="space-y-3">
+    <section className={compactMode ? "space-y-2" : "space-y-3"}>
       <div className="grid grid-cols-3 rounded-full border border-slate-200/80 bg-white/70 p-1.5 shadow-[0_8px_20px_rgba(15,23,42,0.04)]">
         {tabs.map((tab) => {
           const isActive = activePanel === tab.id;
@@ -113,8 +115,12 @@ export function AdminDataSection({
             }}
           />
         ) : (
-          <div className="rounded-3xl border border-slate-200/80 bg-white/70 p-3 lg:p-4">
-            <div className="mb-3 w-full rounded-[20px] border border-white/60 bg-white/40 px-3.5 py-3 shadow-[0_8px_20px_rgba(15,23,42,0.04)] backdrop-blur-md">
+          <div
+            className={`rounded-3xl border border-slate-200/80 bg-white/70 ${compactMode ? "p-2.5" : "p-3 lg:p-4"}`}
+          >
+            <div
+              className={`mb-3 w-full rounded-[20px] border border-white/60 bg-white/40 px-3.5 shadow-[0_8px_20px_rgba(15,23,42,0.04)] backdrop-blur-md ${compactMode ? "py-2.5" : "py-3"}`}
+            >
               <div className="flex items-center justify-between gap-2">
                 <h2 className="text-[17px] font-bold tracking-tight text-slate-900">
                   Data Operasional

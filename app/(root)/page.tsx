@@ -2,14 +2,20 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { MapCanvas } from "@/components/map/MapCanvas";
 import { BuggyList } from "@/components/buggy/PanelActive";
 import { FloatingSidebar } from "@/components/sidebar/FloatingSidebar";
 import { MobileBottomNav } from "@/components/sidebar/MobileBottomNav";
 import { LiveSearchBar } from "@/components/search/LiveSearchBar";
+import { AppSettingsPanel } from "@/components/settings/AppSettingsPanel";
 import { MapPinSolidIcon, BellIcon, LoginIcon } from "@/components/ui/Icons";
 import { ToastStack, type ToastItem } from "@/components/ui/ToastStack";
 import { useNearbyBusAlert } from "@/hooks/useNearbyBusAlert";
+import {
+  useAdminSettings,
+  type AdminSettings,
+} from "@/hooks/useAdminSettings";
 import { HALTE_LOCATIONS, OFFICIAL_ROUTE_PATH } from "@/lib/transit/buggy-data";
 import { haversineMeters } from "@/lib/transit/buggy-route-utils";
 import { useBuggyLiveFeed } from "@/hooks/useBuggyLiveFeed";
@@ -80,14 +86,16 @@ function getRouteBetweenHaltes(
 }
 
 export default function DashboardPage() {
+  const router = useRouter();
   const realtimeFeed = useBuggyLiveFeed();
+  const { settings, updateSetting } = useAdminSettings();
   const liveBuggies = useMemo(
     () => (realtimeFeed.liveBuggies ?? []).filter((buggy) => buggy.isActive),
     [realtimeFeed.liveBuggies],
   );
 
   const [activeView, setActiveView] = useState<PanelView>("buggy");
-  const [panelOpen, setPanelOpen] = useState(true);
+  const [panelOpen, setPanelOpen] = useState(settings.openPanelOnDashboard);
   const [selectedBuggyId, setSelectedBuggyId] = useState<string | null>(null);
   const [mapFollowingBuggyId, setMapFollowingBuggyId] = useState<string | null>(
     null,
@@ -124,6 +132,16 @@ export default function DashboardPage() {
     setActiveView(view);
     setPanelOpen(true);
   };
+
+  const handleUpdateSetting = useCallback(
+    <Key extends keyof AdminSettings>(key: Key, value: AdminSettings[Key]) => {
+      updateSetting(key, value);
+      if (key === "openPanelOnDashboard") {
+        setPanelOpen(Boolean(value));
+      }
+    },
+    [updateSetting],
+  );
 
   const handleInfoWindowClose = useCallback(() => {
     setMapFollowingBuggyId(null);
@@ -547,8 +565,7 @@ export default function DashboardPage() {
 
   // Map data
   const mapBuggies = activeView === "halte" ? [] : liveBuggies;
-  const mapRoutePath =
-    activeView === "buggy" || activeView === "info" ? OFFICIAL_ROUTE_PATH : [];
+  const mapRoutePath = activeView === "buggy" ? OFFICIAL_ROUTE_PATH : [];
   const mapDirectionPath =
     activeView === "buggy" ? (directionResult?.directionPath ?? []) : [];
 
@@ -568,7 +585,7 @@ export default function DashboardPage() {
         onInfoWindowClose={handleInfoWindowClose}
         onBuggyMarkerClick={handleBuggyMarkerClick}
         onHalteMarkerClick={handleHalteMarkerClick}
-        focusHaltes={activeView === "halte" || activeView === "info"}
+        focusHaltes={activeView === "halte"}
       />
 
       {/* Gradient overlay for mobile view */}
@@ -621,8 +638,25 @@ export default function DashboardPage() {
         </div>
       </section>
 
-      <div className="absolute right-3 top-3 z-20 hidden rounded-full border border-emerald-200 bg-emerald-100/90 px-2 py-0.5 text-xs font-semibold text-emerald-700 shadow-sm backdrop-blur-sm xl:block xl:right-4 xl:top-4 xl:px-3 xl:py-1 xl:text-sm">
-        Realtime aktif
+      <div className="absolute right-3 top-3 z-20 hidden items-center justify-end gap-2 xl:right-4 xl:top-4 xl:flex">
+        <button
+          type="button"
+          aria-label="Settings"
+          onClick={() => router.push("/login")}
+          className="flex w-full items-center gap-2 rounded-full border border-white/60 bg-white px-2 py-2 text-left shadow-[0_10px_30px_rgba(15,23,42,0.12)] backdrop-blur-xl transition hover:bg-white/90 active:scale-[0.98]"
+        >
+          <div className="grid size-8 place-items-center rounded-full bg-[#0f1a3b] text-sm font-black text-white">
+            <LoginIcon className="size-4" />
+          </div>
+          <div className="min-w-0 pr-1">
+            <p className="text-[13px] font-extrabold leading-tight text-slate-900">
+              Login
+            </p>
+            <p className="text-[10px] font-semibold leading-tight text-slate-400">
+              Login admin
+            </p>
+          </div>
+        </button>
       </div>
 
       <FloatingSidebar
@@ -658,6 +692,14 @@ export default function DashboardPage() {
         onSelectHalte={handleSelectHalte}
         directionResult={directionResult}
         onCloseDirection={() => setDirectionResult(null)}
+        settingsViewContent={
+          <AppSettingsPanel
+            mode="public"
+            settings={settings}
+            onUpdateSetting={handleUpdateSetting}
+            onLogin={() => router.push("/login")}
+          />
+        }
       />
 
       <MobileBottomNav

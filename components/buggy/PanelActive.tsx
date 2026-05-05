@@ -13,7 +13,6 @@ type LatLng = {
 import { BuggyCard } from "@/components/buggy/BuggyCard";
 import { BuggyDetailView } from "@/components/buggy/BuggyDetailView";
 import { PanelContainer } from "@/components/panel/PanelContainer";
-import { InfoPanel } from "@/components/panel/InfoPanel";
 import { HalteSection } from "@/components/halte/HalteSection";
 import { HalteDetailView } from "@/components/halte/HalteDetailView";
 import { DirectionPanel } from "@/components/panel/DirectionPanel";
@@ -36,6 +35,7 @@ type BuggyListProps = {
   dataViewContent?: ReactNode;
   dataDetailViewContent?: ReactNode;
   historyViewContent?: ReactNode;
+  settingsViewContent?: ReactNode;
   /** Jika true, HalteSection tampilkan fitur CRUD admin */
   isAdmin?: boolean;
 };
@@ -55,6 +55,7 @@ export function BuggyList({
   dataViewContent,
   dataDetailViewContent,
   historyViewContent,
+  settingsViewContent,
   isAdmin = false,
 }: BuggyListProps) {
   const [buggyViewMode, setBuggyViewMode] = useState<"list" | "detail">("list");
@@ -240,7 +241,7 @@ export function BuggyList({
       {activeView === "data" && dataViewContent}
       {activeView === "data-detail" && dataDetailViewContent}
       {activeView === "history" && historyViewContent}
-      {activeView === "info" && <InfoPanel />}
+      {activeView === "settings" && settingsViewContent}
     </PanelContainer>
   );
 }

@@ -9,8 +9,11 @@ import { LiveSearchBar } from "@/components/search/LiveSearchBar";
 import { AdminDataSection } from "@/components/data/AdminDataSection";
 import { BuggyOperationalDetail } from "@/components/data/BuggyOperationalDetail";
 import { HistoryPanel } from "@/components/history/HistoryPanel";
+import { AppSettingsPanel } from "@/components/settings/AppSettingsPanel";
+import type { AccountFormMode } from "@/components/settings/AccountFormPanel";
 import { ToastStack } from "@/components/ui/ToastStack";
 import type { ToastItem } from "@/components/ui/ToastStack";
+import { createClient } from "@/lib/supabase/client";
 import {
   CENTER_UNDIP,
   HALTE_LOCATIONS,
@@ -19,12 +22,17 @@ import {
 import type { Buggy } from "@/types/buggy";
 import { haversineMeters } from "@/lib/transit/buggy-route-utils";
 import { useBuggyLiveFeed } from "@/hooks/useBuggyLiveFeed";
+import {
+  DEFAULT_ADMIN_SETTINGS,
+  useAdminSettings,
+} from "@/hooks/useAdminSettings";
 import { GoogleMapsService } from "@/lib/services/google-maps-service";
 import type { PanelView } from "@/types/buggy";
 import type { DirectionResult } from "@/components/panel/DirectionPanel";
 import type { LatLngLiteral } from "@/types/map-canvas";
 import type { Geofence, GeofenceEvent } from "@/types/geofence";
-import { LoginIcon, LogoutIcon, MapPinSolidIcon, BellIcon } from "@/components/ui/Icons";
+import { LogoutIcon, MapPinSolidIcon, BellIcon } from "@/components/ui/Icons";
+import { PenIcon } from "lucide-react";
 
 const GEOFENCE_DEFAULT_RADIUS_METERS = 100;
 const GEOFENCE_EVENT_LIMIT = 100;
@@ -106,6 +114,7 @@ function getRouteBetweenHaltes(
 
 export default function DashboardPage() {
   const realtimeFeed = useBuggyLiveFeed();
+  const { settings, updateSetting } = useAdminSettings();
 
   // localBuggies: hasil fetch langsung setelah add/delete agar list update instan
   const [localBuggies, setLocalBuggies] = useState<Buggy[] | null>(null);
@@ -128,7 +137,9 @@ export default function DashboardPage() {
   }, []);
 
   const [activeView, setActiveView] = useState<PanelView>("buggy");
-  const [panelOpen, setPanelOpen] = useState(true);
+  const [panelOpen, setPanelOpen] = useState(
+    DEFAULT_ADMIN_SETTINGS.openPanelOnDashboard,
+  );
   const [selectedBuggyId, setSelectedBuggyId] = useState<string | null>(null);
   const [mapFollowingBuggyId, setMapFollowingBuggyId] = useState<string | null>(
     null,
@@ -144,6 +155,27 @@ export default function DashboardPage() {
   const [directionResult, setDirectionResult] =
     useState<DirectionResult | null>(null);
 
+  const [activeGeofences, setActiveGeofences] = useState<Geofence[]>([]);
+  
+  const [userProfile, setUserProfile] = useState<{ name: string; role: string; avatar: string } | null>(null);
+
+  useEffect(() => {
+    async function fetchUser() {
+      const supabase = createClient();
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+      
+      const { data: account } = await supabase.from('accounts').select('*').eq('id', user.id).single();
+      
+      const name = account?.name || user.user_metadata?.full_name || user.email?.split('@')[0] || "Admin";
+      const role = account?.role || "SIMOBI Operator";
+      const avatar = name.charAt(0).toUpperCase();
+
+      setUserProfile({ name, role, avatar });
+    }
+    fetchUser();
+  }, []);
+
   const [geofences, setGeofences] = useState<Geofence[]>([]);
   const [geofenceLoading, setGeofenceLoading] = useState(true);
   const [geofenceCreateMode, setGeofenceCreateMode] = useState(false);
@@ -158,13 +190,15 @@ export default function DashboardPage() {
   );
   const [geofenceEvents, setGeofenceEvents] = useState<GeofenceEvent[]>([]);
   const [toasts, setToasts] = useState<ToastItem[]>([]);
-  const [browserNotificationEnabled, setBrowserNotificationEnabled] =
-    useState(false);
+  const browserNotificationEnabled = settings.browserNotificationEnabled;
   const [historyPath, setHistoryPath] = useState<[number, number][]>([]);
   const [selectedAdminBuggyId, setSelectedAdminBuggyId] = useState<
     string | null
   >(null);
   const [mobileAdminMenuOpen, setMobileAdminMenuOpen] = useState(false);
+  const [desktopAdminMenuOpen, setDesktopAdminMenuOpen] = useState(false);
+  const [settingsAccountForm, setSettingsAccountForm] =
+    useState<AccountFormMode | null>(null);
 
   const [userPosition, setUserPosition] = useState<{
     lat: number;
@@ -365,8 +399,12 @@ export default function DashboardPage() {
     window.location.href = "/";
   };
 
-  const handleManageProfile = () => {
-    window.location.href = "/admin/profile";
+  const handleOpenSettings = (accountForm: AccountFormMode | null = null) => {
+    setSettingsAccountForm(accountForm);
+    setActiveView("settings");
+    setPanelOpen(true);
+    setMobileAdminMenuOpen(false);
+    setDesktopAdminMenuOpen(false);
   };
 
   const handleTestBusNotification = useCallback(() => {
@@ -413,9 +451,10 @@ export default function DashboardPage() {
     void loadGeofences();
   }, [loadGeofences]);
 
-  const handleSelectView = (view: PanelView) => {
+  const handleSelectView = useCallback((view: PanelView) => {
     setActiveView(view);
     setPanelOpen(true);
+    setSettingsAccountForm(null);
     // Clear history path when leaving history view
     if (view !== "history") {
       setHistoryPath([]);
@@ -424,7 +463,37 @@ export default function DashboardPage() {
     if (view !== "data-detail") {
       setSelectedAdminBuggyId(null);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    const viewParam = new URLSearchParams(window.location.search).get("view");
+    const dashboardViews: PanelView[] = [
+      "buggy",
+      "halte",
+      "notifikasi",
+      "settings",
+      "lapor",
+      "data",
+      "history",
+    ];
+
+    if (viewParam && dashboardViews.includes(viewParam as PanelView)) {
+      handleSelectView(viewParam as PanelView);
+    }
+  }, [handleSelectView]);
+
+  useEffect(() => {
+    if (
+      typeof window !== "undefined" &&
+      new URLSearchParams(window.location.search).has("view")
+    ) {
+      return;
+    }
+
+    setPanelOpen(settings.openPanelOnDashboard);
+  }, [settings.openPanelOnDashboard]);
 
   const handleSelectAdminBuggy = useCallback((buggyId: string) => {
     setSelectedAdminBuggyId(buggyId);
@@ -657,13 +726,13 @@ export default function DashboardPage() {
     }
 
     if (browserNotificationEnabled) {
-      setBrowserNotificationEnabled(false);
+      updateSetting("browserNotificationEnabled", false);
       pushToast("Browser Notification dimatikan", undefined, "info");
       return;
     }
 
     if (Notification.permission === "granted") {
-      setBrowserNotificationEnabled(true);
+      updateSetting("browserNotificationEnabled", true);
       pushToast("Browser Notification aktif", undefined, "success");
       return;
     }
@@ -685,7 +754,7 @@ export default function DashboardPage() {
     notificationPermissionRequestedRef.current = true;
     const result = await Notification.requestPermission();
     if (result === "granted") {
-      setBrowserNotificationEnabled(true);
+      updateSetting("browserNotificationEnabled", true);
       pushToast("Browser Notification aktif", undefined, "success");
       return;
     }
@@ -695,7 +764,7 @@ export default function DashboardPage() {
       "Permission tidak diberikan.",
       "warning",
     );
-  }, [browserNotificationEnabled, pushToast]);
+  }, [browserNotificationEnabled, pushToast, updateSetting]);
 
   const emitGeofenceEvent = useCallback(
     (event: GeofenceEvent) => {
@@ -995,8 +1064,7 @@ export default function DashboardPage() {
   };
 
   const mapBuggies = activeView === "halte" ? [] : liveBuggies;
-  const mapRoutePath =
-    activeView === "buggy" || activeView === "info" ? OFFICIAL_ROUTE_PATH : [];
+  const mapRoutePath = activeView === "buggy" ? OFFICIAL_ROUTE_PATH : [];
   const mapDirectionPath =
     activeView === "buggy" ? (directionResult?.directionPath ?? []) : [];
   const mapHistoryPath = activeView === "history" ? historyPath : [];
@@ -1025,7 +1093,7 @@ export default function DashboardPage() {
         onInfoWindowClose={handleInfoWindowClose}
         onBuggyMarkerClick={handleBuggyMarkerClick}
         onHalteMarkerClick={handleHalteMarkerClick}
-        focusHaltes={activeView === "halte" || activeView === "info"}
+        focusHaltes={activeView === "halte"}
         historyPath={mapHistoryPath}
       />
 
@@ -1067,11 +1135,11 @@ export default function DashboardPage() {
               <div className="absolute right-0 z-60 mt-2 w-48 overflow-hidden rounded-2xl border border-white/70 bg-white/95 p-1.5 text-slate-800 shadow-[0_14px_40px_rgba(15,23,42,0.18)] backdrop-blur-xl">
                 <button
                   type="button"
-                  onClick={handleManageProfile}
+                  onClick={() => handleOpenSettings("edit")}
                   className="flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left text-[12px] font-bold transition hover:bg-slate-100 active:scale-[0.98]"
                 >
-                  <LoginIcon className="h-4 w-4 text-slate-500" />
-                  Manage Profile
+                  <PenIcon className="h-4 w-4 text-slate-500" />
+                  Edit Account
                 </button>
                 <button
                   type="button"
@@ -1113,24 +1181,39 @@ export default function DashboardPage() {
       />
 
       <div className="absolute right-3 top-3 z-20 hidden items-center justify-end gap-2 xl:right-4 xl:top-4 xl:flex">
+        <div className="relative">
         <button
           type="button"
-          aria-label="Manage profile"
-          onClick={handleManageProfile}
+          aria-label="Menu account"
+          aria-expanded={desktopAdminMenuOpen}
+          onClick={() => setDesktopAdminMenuOpen((open) => !open)}
           className="flex w-full items-center gap-3 rounded-full border border-white/60 bg-white px-3 py-2 text-left shadow-[0_10px_30px_rgba(15,23,42,0.12)] backdrop-blur-xl transition hover:bg-white/90 active:scale-[0.98]"
         >
           <div className="grid size-8 place-items-center rounded-full bg-[#0f1a3b] text-sm font-black text-white">
-            A
+            {userProfile?.avatar ?? "A"}
           </div>
           <div className="min-w-0 pr-1">
             <p className="text-[13px] font-extrabold leading-tight text-slate-900">
-              Admin
+              {userProfile?.name ?? "Admin"}
             </p>
             <p className="text-[10px] font-semibold leading-tight text-slate-400">
-              SIMOBI Operator
+              {userProfile?.role ?? "SIMOBI Operator"}
             </p>
           </div>
         </button>
+        {desktopAdminMenuOpen ? (
+          <div className="absolute right-0 top-full mt-1 w-full min-w-[150px] rounded-[22px] border border-white/70 bg-slate-100 p-1.5 text-slate-800 shadow-[0_14px_40px_rgba(15,23,42,0.16)] backdrop-blur-xl">
+            <button
+              type="button"
+              onClick={() => handleOpenSettings("edit")}
+              className="flex w-full items-center gap-2 rounded-2xl px-3 py-2 text-left text-[12px] font-bold transition hover:bg-slate-200 active:scale-[0.98]"
+            >
+              <PenIcon className="h-4 w-4 text-slate-500" />
+              Edit Account
+            </button>
+          </div>
+        ) : null}
+        </div>
       </div>
 
       <FloatingSidebar
@@ -1197,6 +1280,7 @@ export default function DashboardPage() {
             onEditGeofence={handleEditGeofence}
             onDeleteGeofence={handleDeleteGeofence}
             onToggleBrowserNotification={handleToggleBrowserNotification}
+            compactMode={settings.compactAdminPanels}
             onBuggyMutated={() => void handleBuggyMutated()}
           />
         }
@@ -1226,6 +1310,16 @@ export default function DashboardPage() {
             onShowPath={(path) => {
               setHistoryPath(path);
             }}
+          />
+        }
+        settingsViewContent={
+          <AppSettingsPanel
+            mode="admin"
+            settings={settings}
+            onUpdateSetting={updateSetting}
+            onToggleBrowserNotification={handleToggleBrowserNotification}
+            accountForm={settingsAccountForm}
+            onAccountFormChange={setSettingsAccountForm}
           />
         }
         isAdmin

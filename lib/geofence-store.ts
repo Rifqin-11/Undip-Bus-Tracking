@@ -1,12 +1,7 @@
 import "server-only";
 
-import { randomUUID } from "node:crypto";
-import { mkdir, readFile, writeFile } from "node:fs/promises";
-import path from "node:path";
+import { createAdminClient } from "@/lib/supabase/server";
 import type { Geofence } from "@/types/geofence";
-
-const DATA_DIR = path.join(process.cwd(), "data");
-const GEOFENCE_FILE = path.join(DATA_DIR, "geofences.json");
 
 type CreateGeofenceInput = {
   name: string;
@@ -25,117 +20,98 @@ function isValidLatLng(lat: number, lng: number): boolean {
   return lat >= -90 && lat <= 90 && lng >= -180 && lng <= 180;
 }
 
-function isGeofenceShape(value: unknown): value is Geofence {
-  if (!value || typeof value !== "object") return false;
-  const obj = value as Partial<Geofence>;
-  return (
-    typeof obj.id === "string" &&
-    typeof obj.name === "string" &&
-    typeof obj.createdAt === "string" &&
-    typeof obj.enabled === "boolean" &&
-    !!obj.center &&
-    isFiniteNumber(obj.center.lat) &&
-    isFiniteNumber(obj.center.lng) &&
-    isValidLatLng(obj.center.lat, obj.center.lng) &&
-    isFiniteNumber(obj.radiusMeters) &&
-    obj.radiusMeters > 0
-  );
-}
-
-async function ensureStorageFile() {
-  await mkdir(DATA_DIR, { recursive: true });
-  try {
-    await readFile(GEOFENCE_FILE, "utf8");
-  } catch (error: unknown) {
-    if (
-      typeof error === "object" &&
-      error !== null &&
-      "code" in error &&
-      error.code === "ENOENT"
-    ) {
-      await writeFile(GEOFENCE_FILE, "[]\n", "utf8");
-      return;
-    }
-    throw error;
-  }
-}
-
-async function writeGeofences(geofences: Geofence[]) {
-  await ensureStorageFile();
-  await writeFile(GEOFENCE_FILE, `${JSON.stringify(geofences, null, 2)}\n`, "utf8");
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function mapSupabaseToGeofence(row: any): Geofence {
+  return {
+    id: row.id,
+    name: row.name,
+    center: {
+      lat: Number(row.center_lat),
+      lng: Number(row.center_lng),
+    },
+    radiusMeters: Number(row.radius_meters),
+    enabled: row.enabled,
+    createdAt: row.created_at,
+  };
 }
 
 export async function readGeofences(): Promise<Geofence[]> {
-  await ensureStorageFile();
-  const raw = await readFile(GEOFENCE_FILE, "utf8");
-  let parsed: unknown = [];
-  try {
-    parsed = JSON.parse(raw);
-  } catch {
-    parsed = [];
+  const supabase = createAdminClient();
+  if (!supabase) {
+    console.warn("Supabase admin client not initialized.");
+    return [];
   }
 
-  if (!Array.isArray(parsed)) return [];
-  return parsed.filter(isGeofenceShape);
+  const { data, error } = await supabase
+    .from("geofences")
+    .select("*")
+    .order("created_at", { ascending: false });
+
+  if (error || !data) {
+    console.error("Error reading geofences:", error);
+    return [];
+  }
+
+  return data.map(mapSupabaseToGeofence);
 }
 
 export async function createGeofence(input: CreateGeofenceInput): Promise<Geofence> {
-  const name = input.name.trim();
-  if (!name) {
-    throw new Error("Nama geofence wajib diisi.");
-  }
+  const supabase = createAdminClient();
+  if (!supabase) throw new Error("Supabase admin client not initialized");
 
-  if (
-    !isFiniteNumber(input.center.lat) ||
-    !isFiniteNumber(input.center.lng) ||
-    !isValidLatLng(input.center.lat, input.center.lng)
-  ) {
+  const name = input.name.trim();
+  if (!name) throw new Error("Nama geofence wajib diisi.");
+  
+  if (!isFiniteNumber(input.center.lat) || !isFiniteNumber(input.center.lng) || !isValidLatLng(input.center.lat, input.center.lng)) {
     throw new Error("Koordinat geofence tidak valid.");
   }
-
+  
   if (!isFiniteNumber(input.radiusMeters) || input.radiusMeters <= 0) {
     throw new Error("Radius geofence harus lebih dari 0.");
   }
 
-  const geofences = await readGeofences();
-  const geofence: Geofence = {
-    id: randomUUID(),
-    name,
-    center: {
-      lat: input.center.lat,
-      lng: input.center.lng,
-    },
-    radiusMeters: input.radiusMeters,
-    enabled: true,
-    createdAt: new Date().toISOString(),
-  };
+  const { data, error } = await supabase
+    .from("geofences")
+    .insert({
+      name,
+      center_lat: input.center.lat,
+      center_lng: input.center.lng,
+      radius_meters: input.radiusMeters,
+      enabled: true,
+    })
+    .select()
+    .single();
 
-  geofences.push(geofence);
-  await writeGeofences(geofences);
-  return geofence;
+  if (error || !data) {
+    throw new Error("Gagal menyimpan geofence ke database: " + error?.message);
+  }
+
+  return mapSupabaseToGeofence(data);
 }
 
-export async function patchGeofenceEnabled(
-  id: string,
-  enabled: boolean,
-): Promise<Geofence | null> {
-  const geofences = await readGeofences();
-  const idx = geofences.findIndex((item) => item.id === id);
-  if (idx < 0) return null;
+export async function patchGeofenceEnabled(id: string, enabled: boolean): Promise<Geofence | null> {
+  const supabase = createAdminClient();
+  if (!supabase) return null;
 
-  const updated: Geofence = {
-    ...geofences[idx],
-    enabled,
-  };
-  geofences[idx] = updated;
-  await writeGeofences(geofences);
-  return updated;
+  const { data, error } = await supabase
+    .from("geofences")
+    .update({ enabled })
+    .eq("id", id)
+    .select()
+    .single();
+
+  if (error || !data) return null;
+  return mapSupabaseToGeofence(data);
 }
 
 export async function deleteGeofenceById(id: string): Promise<boolean> {
-  const geofences = await readGeofences();
-  const next = geofences.filter((item) => item.id !== id);
-  if (next.length === geofences.length) return false;
-  await writeGeofences(next);
-  return true;
+  const supabase = createAdminClient();
+  if (!supabase) return false;
+
+  const { error } = await supabase
+    .from("geofences")
+    .delete()
+    .eq("id", id);
+
+  return !error;
 }

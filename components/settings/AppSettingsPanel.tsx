@@ -1,0 +1,350 @@
+"use client";
+
+import { useState, useEffect } from "react";
+import { createClient } from "@/lib/supabase/client";
+import {
+  Bell,
+  CheckCircle2,
+  Info,
+  KeyRound,
+  LogIn,
+  PanelRightOpen,
+  ShieldCheck,
+  SlidersHorizontal,
+  UserCog,
+  UserPlus,
+} from "lucide-react";
+import {
+  AccountFormPanel,
+  type AccountFormMode,
+} from "@/components/settings/AccountFormPanel";
+import type { AdminSettings } from "@/hooks/useAdminSettings";
+
+type NotificationPermissionState = "unsupported" | NotificationPermission;
+
+type AppSettingsPanelProps = {
+  mode: "public" | "admin";
+  settings: AdminSettings;
+  onUpdateSetting: <Key extends keyof AdminSettings>(
+    key: Key,
+    value: AdminSettings[Key],
+  ) => void;
+  onToggleBrowserNotification?: () => Promise<void> | void;
+  onLogin?: () => void;
+  accountForm?: AccountFormMode | null;
+  onAccountFormChange?: (mode: AccountFormMode | null) => void;
+};
+
+const settingCardClass =
+  "flex items-center justify-between gap-3 rounded-[20px] border border-slate-200/80 bg-white px-3.5 py-3 shadow-[0_8px_24px_rgba(15,23,42,0.05)]";
+
+function ToggleSwitch({
+  checked,
+  onClick,
+  label,
+}: {
+  checked: boolean;
+  onClick: () => void;
+  label: string;
+}) {
+  return (
+    <button
+      type="button"
+      role="switch"
+      aria-checked={checked}
+      aria-label={label}
+      onClick={onClick}
+      className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-300 ${
+        checked ? "bg-[#0f1a3b]" : "bg-slate-300"
+      }`}
+    >
+      <span
+        className={`h-5 w-5 rounded-full bg-white shadow-sm transition ${
+          checked ? "translate-x-5" : "translate-x-0.5"
+        }`}
+      />
+    </button>
+  );
+}
+
+export function AppSettingsPanel({
+  mode,
+  settings,
+  onUpdateSetting,
+  onToggleBrowserNotification,
+  onLogin,
+  accountForm: controlledAccountForm,
+  onAccountFormChange,
+}: AppSettingsPanelProps) {
+  const [notificationPermission, setNotificationPermission] =
+    useState<NotificationPermissionState>(() =>
+      typeof window !== "undefined" && "Notification" in window
+        ? Notification.permission
+        : "unsupported",
+    );
+  const [localAccountForm, setLocalAccountForm] = useState<AccountFormMode | null>(
+    null,
+  );
+  const [userProfile, setUserProfile] = useState<{ name: string; role: string; avatar: string } | null>(null);
+
+  useEffect(() => {
+    async function fetchUser() {
+      const supabase = createClient();
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+      
+      const { data: account } = await supabase.from('accounts').select('*').eq('id', user.id).single();
+      
+      const name = account?.name || user.user_metadata?.full_name || user.email?.split('@')[0] || "Admin";
+      const role = account?.role || "SIMOBI Operator";
+      const avatar = name.charAt(0).toUpperCase();
+
+      setUserProfile({ name, role, avatar });
+    }
+    fetchUser();
+  }, []);
+
+  const isAdmin = mode === "admin";
+  const activeAccountForm = controlledAccountForm ?? localAccountForm;
+
+  const setActiveAccountForm = (nextMode: AccountFormMode | null) => {
+    if (onAccountFormChange) {
+      onAccountFormChange(nextMode);
+      return;
+    }
+    setLocalAccountForm(nextMode);
+  };
+
+  const handleToggleNotification = async () => {
+    await onToggleBrowserNotification?.();
+
+    if (typeof window === "undefined" || !("Notification" in window)) {
+      setNotificationPermission("unsupported");
+      return;
+    }
+
+    setNotificationPermission(Notification.permission);
+  };
+
+  const permissionLabel =
+    notificationPermission === "unsupported"
+      ? "Tidak didukung"
+      : notificationPermission === "granted"
+        ? "Diizinkan"
+        : notificationPermission === "denied"
+          ? "Diblokir"
+          : "Belum diminta";
+
+  if (isAdmin && activeAccountForm) {
+    return (
+      <AccountFormPanel
+        mode={activeAccountForm}
+        onClose={() => setActiveAccountForm(null)}
+      />
+    );
+  }
+
+  return (
+    <section className="space-y-3">
+      <div className="rounded-3xl border border-slate-200/80 bg-white/70 p-3">
+        <div className="mb-3">
+          <h2 className="text-[17px] font-bold text-slate-900">Settings</h2>
+          <p className="text-[11px] text-slate-400">
+            {isAdmin
+              ? "Akun dan preferensi dashboard admin"
+              : "Profil dan preferensi aplikasi"}
+          </p>
+        </div>
+
+        <div className="rounded-[20px] border border-slate-200/80 bg-white p-3.5">
+          <div className="flex items-center gap-3">
+            <div className="grid size-12 shrink-0 place-items-center rounded-full bg-[#0f1a3b] text-lg font-black text-white">
+              {isAdmin ? (userProfile?.avatar ?? "A") : "L"}
+            </div>
+            <div className="min-w-0 flex-1">
+              <div className="flex flex-wrap items-center gap-2">
+                <h3 className="text-[15px] font-black tracking-tight text-slate-900">
+                  {isAdmin ? (userProfile?.name ?? "Admin") : "Login"}
+                </h3>
+                {isAdmin ? (
+                  <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-1 text-[10px] font-bold text-emerald-700">
+                    <CheckCircle2 className="h-3 w-3" />
+                    Login aktif
+                  </span>
+                ) : null}
+              </div>
+              <p className="mt-0.5 text-[12px] font-semibold text-slate-400">
+                {isAdmin ? (userProfile?.role ?? "SIMOBI Operator") : "Masuk sebagai admin SIMOBI"}
+              </p>
+            </div>
+          </div>
+
+          {isAdmin ? (
+            <div className="mt-4 grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                onClick={() => setActiveAccountForm("edit")}
+                className="inline-flex items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white px-3 py-2.5 text-[12px] font-bold text-slate-700 transition hover:border-[#0f1a3b] hover:text-[#0f1a3b] active:scale-[0.98]"
+              >
+                <UserCog className="h-4 w-4" />
+                Edit Account
+              </button>
+              <button
+                type="button"
+                onClick={() => setActiveAccountForm("create")}
+                className="inline-flex items-center justify-center gap-2 rounded-2xl bg-[#0f1a3b] px-3 py-2.5 text-[12px] font-bold text-white transition hover:bg-slate-900 active:scale-[0.98]"
+              >
+                <UserPlus className="h-4 w-4" />
+                Create Account
+              </button>
+            </div>
+          ) : (
+            <button
+              type="button"
+              onClick={onLogin}
+              className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-[#0f1a3b] px-3 py-2.5 text-[12px] font-bold text-white transition hover:bg-slate-900 active:scale-[0.98]"
+            >
+              <LogIn className="h-4 w-4" />
+              Login
+            </button>
+          )}
+        </div>
+      </div>
+
+      <div className="rounded-3xl border border-slate-200/80 bg-white/70 p-3">
+        <div className="mb-3 flex items-center gap-2">
+          <span className="grid size-9 shrink-0 place-items-center rounded-2xl bg-sky-50 text-sky-600">
+            <Info className="h-4 w-4" />
+          </span>
+          <div className="min-w-0">
+            <h3 className="text-[15px] font-bold tracking-tight text-slate-900">
+              Informasi Bus Kampus
+            </h3>
+            <p className="text-[11px] font-semibold text-slate-400">
+              Solusi nyaman dan ramah lingkungan
+            </p>
+          </div>
+        </div>
+        <div className="space-y-2 text-[12px] leading-relaxed text-slate-500">
+          <p className="rounded-[18px] border border-slate-200 bg-white px-3 py-2.5">
+            SIMOBI membantu civitas UNDIP memantau bus kampus, halte, dan
+            rute aktif secara realtime.
+          </p>
+          <div className="grid grid-cols-2 gap-2">
+            <div className="rounded-[18px] border border-slate-200 bg-white px-3 py-2.5">
+              <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">
+                Jadwal
+              </p>
+              <p className="mt-1 font-bold text-slate-800">07.00 - 17.00</p>
+            </div>
+            <div className="rounded-[18px] border border-slate-200 bg-white px-3 py-2.5">
+              <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">
+                Rute
+              </p>
+              <p className="mt-1 font-bold text-slate-800">Lingkar Kampus</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div className="space-y-2.5 rounded-3xl border border-slate-200/80 bg-white/70 p-3">
+        <div className="px-1 pb-1">
+          <h3 className="text-[15px] font-bold tracking-tight text-slate-900">
+            Pengaturan Aplikasi
+          </h3>
+          <p className="text-[11px] font-semibold text-slate-400">
+            Preferensi tersimpan di perangkat ini
+          </p>
+        </div>
+
+        {isAdmin ? (
+          <div className={settingCardClass}>
+            <div className="flex min-w-0 items-center gap-3">
+              <span className="grid size-10 shrink-0 place-items-center rounded-2xl bg-amber-50 text-amber-600">
+                <Bell className="h-5 w-5" />
+              </span>
+              <div className="min-w-0">
+                <p className="text-[13px] font-black text-slate-900">
+                  Browser Notification
+                </p>
+                <p className="text-[11px] font-semibold text-slate-400">
+                  {permissionLabel}
+                </p>
+              </div>
+            </div>
+            <ToggleSwitch
+              checked={settings.browserNotificationEnabled}
+              onClick={() => void handleToggleNotification()}
+              label="Browser Notification"
+            />
+          </div>
+        ) : null}
+
+        <div className={settingCardClass}>
+          <div className="flex min-w-0 items-center gap-3">
+            <span className="grid size-10 shrink-0 place-items-center rounded-2xl bg-blue-50 text-blue-600">
+              <PanelRightOpen className="h-5 w-5" />
+            </span>
+            <div className="min-w-0">
+              <p className="text-[13px] font-black text-slate-900">
+                Panel Terbuka
+              </p>
+              <p className="text-[11px] font-semibold text-slate-400">
+                {isAdmin ? "Dashboard admin" : "Dashboard utama"}
+              </p>
+            </div>
+          </div>
+          <ToggleSwitch
+            checked={settings.openPanelOnDashboard}
+            onClick={() =>
+              onUpdateSetting(
+                "openPanelOnDashboard",
+                !settings.openPanelOnDashboard,
+              )
+            }
+            label="Panel terbuka otomatis"
+          />
+        </div>
+
+        {isAdmin ? (
+          <div className={settingCardClass}>
+            <div className="flex min-w-0 items-center gap-3">
+              <span className="grid size-10 shrink-0 place-items-center rounded-2xl bg-violet-50 text-violet-600">
+                <SlidersHorizontal className="h-5 w-5" />
+              </span>
+              <div className="min-w-0">
+                <p className="text-[13px] font-black text-slate-900">
+                  Mode Compact
+                </p>
+                <p className="text-[11px] font-semibold text-slate-400">
+                  Panel data admin
+                </p>
+              </div>
+            </div>
+            <ToggleSwitch
+              checked={settings.compactAdminPanels}
+              onClick={() =>
+                onUpdateSetting(
+                  "compactAdminPanels",
+                  !settings.compactAdminPanels,
+                )
+              }
+              label="Mode compact panel data"
+            />
+          </div>
+        ) : null}
+
+        <div className="flex items-center gap-2 rounded-[18px] border border-slate-200/80 bg-slate-50 px-3 py-2.5 text-[11px] font-semibold text-slate-500">
+          {isAdmin ? (
+            <ShieldCheck className="h-4 w-4 shrink-0 text-emerald-600" />
+          ) : (
+            <KeyRound className="h-4 w-4 shrink-0 text-slate-500" />
+          )}
+          {isAdmin
+            ? "Session admin mengikuti autentikasi yang sudah aktif."
+            : "Login diperlukan untuk membuka fitur admin."}
+        </div>
+      </div>
+    </section>
+  );
+}

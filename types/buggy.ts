@@ -40,4 +40,12 @@ export type HaltePoint = {
   sortOrder?: number;
 };
 
-export type PanelView = "buggy" | "halte" | "notifikasi" | "lapor" | "data" | "data-detail" | "history" | "info";
+export type PanelView =
+  | "buggy"
+  | "halte"
+  | "notifikasi"
+  | "settings"
+  | "lapor"
+  | "data"
+  | "data-detail"
+  | "history";

@@ -1,31 +1,65 @@
-import { NextResponse } from "next/server";
-import type { NextRequest } from "next/server";
-import { ADMIN_SESSION_COOKIE } from "@/lib/auth-session";
+import { createServerClient } from "@supabase/ssr";
+import { NextResponse, type NextRequest } from "next/server";
 
-function isAuthenticated(request: NextRequest): boolean {
-  return Boolean(request.cookies.get(ADMIN_SESSION_COOKIE)?.value);
-}
+export async function middleware(request: NextRequest) {
+  let supabaseResponse = NextResponse.next({
+    request,
+  });
 
-export function middleware(request: NextRequest) {
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
+
+  if (!supabaseUrl || !supabaseKey) {
+    return supabaseResponse;
+  }
+
+  const supabase = createServerClient(supabaseUrl, supabaseKey, {
+    cookies: {
+      getAll() {
+        return request.cookies.getAll();
+      },
+      setAll(cookiesToSet) {
+        cookiesToSet.forEach(({ name, value, options }) =>
+          request.cookies.set(name, value)
+        );
+        supabaseResponse = NextResponse.next({
+          request,
+        });
+        cookiesToSet.forEach(({ name, value, options }) =>
+          supabaseResponse.cookies.set(name, value, options)
+        );
+      },
+    },
+  });
+
+  // Call getUser to verify the session token
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
   const { pathname } = request.nextUrl;
-  const authenticated = isAuthenticated(request);
+  const authenticated = !!user;
 
-  if (pathname.startsWith("/admin") || pathname.startsWith("/api/geofences")) {
+  if (pathname.startsWith("/admin") || pathname.startsWith("/api/geofences") || pathname.startsWith("/api/admin")) {
     if (!authenticated) {
       const loginUrl = new URL("/login", request.url);
       loginUrl.searchParams.set("next", pathname);
       return NextResponse.redirect(loginUrl);
     }
-    return NextResponse.next();
   }
 
   if (pathname === "/login" && authenticated) {
     return NextResponse.redirect(new URL("/admin", request.url));
   }
 
-  return NextResponse.next();
+  return supabaseResponse;
 }
 
 export const config = {
-  matcher: ["/admin/:path*", "/login", "/api/geofences/:path*"],
+  matcher: [
+    "/admin/:path*",
+    "/login",
+    "/api/geofences/:path*",
+    "/api/admin/:path*"
+  ],
 };

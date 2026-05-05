@@ -2,12 +2,12 @@
 
 import React from "react";
 import { usePathname } from "next/navigation";
+import { Settings } from "lucide-react";
 import {
   BuggyIcon,
   HalteIcon,
   DataIcon,
   HistoryIcon,
-  InfoIcon,
 } from "@/components/ui/Icons";
 import type { PanelView } from "@/types/buggy";
 
@@ -16,6 +16,7 @@ type MobileBottomNavProps = {
   onSelectView: (view: PanelView) => void;
   onDragOpenPanel?: () => void;
   showDataButton?: boolean;
+  showSettingsButton?: boolean;
 };
 
 const navButtonBase =
@@ -34,7 +35,6 @@ const navItems: {
 }[] = [
   { view: "buggy", label: "Buggy", Icon: BuggyIcon },
   { view: "halte", label: "Halte", Icon: HalteIcon },
-  { view: "info", label: "Info", Icon: InfoIcon },
 ];
 
 export function MobileBottomNav({
@@ -42,10 +42,12 @@ export function MobileBottomNav({
   onSelectView,
   onDragOpenPanel,
   showDataButton = false,
+  showSettingsButton = true,
 }: MobileBottomNavProps) {
   const pathname = usePathname();
   const isOnAdminPage = pathname.startsWith("/admin");
   const shouldShowDataButton = isOnAdminPage && showDataButton;
+  const shouldShowSettingsButton = showSettingsButton;
   const dragStartYRef = React.useRef<number | null>(null);
   const dragTriggeredRef = React.useRef(false);
 
@@ -121,6 +123,17 @@ export function MobileBottomNav({
           <Icon className="h-6 w-6" />
         </button>
       ))}
+
+      {shouldShowSettingsButton && (
+        <button
+          type="button"
+          className={`${navButtonBase} ${activeView === "settings" ? activeButtonClass : inactiveButtonClass}`}
+          aria-label="Settings"
+          onClick={() => onSelectView("settings")}
+        >
+          <Settings className="h-6 w-6" />
+        </button>
+      )}
     </nav>
   );
 }

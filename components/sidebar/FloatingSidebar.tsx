@@ -1,6 +1,7 @@
 "use client";
 
 import { usePathname, useRouter } from "next/navigation";
+import { Settings } from "lucide-react";
 import {
   BuggyIcon,
   HalteIcon,
@@ -8,9 +9,7 @@ import {
   LoginIcon,
   LogoutIcon,
   DataIcon,
-  ChatIcon,
   HistoryIcon,
-  InfoIcon,
 } from "@/components/ui/Icons";
 import { DESKTOP_LAYOUT } from "@/lib/presenters/layout-metrics";
 import type { PanelView } from "@/types/buggy";
@@ -20,6 +19,7 @@ type FloatingSidebarProps = {
   activeView: PanelView;
   onSelectView: (view: PanelView) => void;
   showDataButton?: boolean;
+  showSettingsButton?: boolean;
 };
 
 const actionButtonClass =
@@ -29,11 +29,13 @@ export function FloatingSidebar({
   activeView,
   onSelectView,
   showDataButton = true,
+  showSettingsButton = true,
 }: FloatingSidebarProps) {
   const pathname = usePathname();
   const router = useRouter();
   const isOnAdminPage = pathname.startsWith("/admin");
   const shouldShowDataButton = isOnAdminPage && showDataButton;
+  const shouldShowSettingsButton = showSettingsButton;
 
   const handleAdminButtonClick = async () => {
     if (isOnAdminPage) {
@@ -124,14 +126,16 @@ export function FloatingSidebar({
       </nav>
 
       <div className="flex flex-col gap-2 rounded-full bg-white/70 p-2">
-        <button
-          className={`${actionButtonClass} ${activeView === "info" ? "bg-[#0f1a3b] text-white" : "text-slate-600 hover:bg-slate-100"}`}
-          aria-label="Info"
-          type="button"
-          onClick={() => onSelectView("info")}
-        >
-          <InfoIcon className="h-5 w-5" />
-        </button>
+        {shouldShowSettingsButton ? (
+          <button
+            className={`${actionButtonClass} ${activeView === "settings" ? "bg-[#0f1a3b] text-white" : "text-slate-600 hover:bg-slate-100"}`}
+            aria-label="Settings"
+            type="button"
+            onClick={() => onSelectView("settings")}
+          >
+            <Settings className="h-5 w-5" />
+          </button>
+        ) : null}
         <button
           className="grid h-11 w-11 place-items-center rounded-2xl border border-[#0f1a3b] bg-[#0f1a3b] text-white transition hover:bg-white hover:text-[#0f1a3b] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-300"
           aria-label={isOnAdminPage ? "Logout admin" : "Login admin"}
