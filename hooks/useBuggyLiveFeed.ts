@@ -21,7 +21,7 @@ type UseBuggyLiveFeedState = {
 };
 
 function resolveFeedMode(): BuggyFeedMode {
-  const raw = (process.env.NEXT_PUBLIC_BUGGY_FEED_MODE ?? "sse")
+  const raw = (process.env.NEXT_PUBLIC_BUGGY_FEED_MODE ?? "poll")
     .trim()
     .toLowerCase();
   if (raw === "poll") return "poll";
