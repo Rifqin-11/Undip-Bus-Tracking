@@ -75,7 +75,7 @@ function StatTile({
 
 export function AdminStatisticsPanel({ buggies }: AdminStatisticsPanelProps) {
   const now = new Date();
-  
+
   const [sessions, setSessions] = useState<BuggySession[]>([]);
   const [isLoadingSessions, setIsLoadingSessions] = useState(true);
   const [selectedMonth, setSelectedMonth] = useState<string>(
@@ -153,7 +153,7 @@ export function AdminStatisticsPanel({ buggies }: AdminStatisticsPanelProps) {
   const totalJarakKm = filteredSessions.reduce((sum, s) => sum + (s.totalDistanceKm || 0), 0);
   const previousTotalJarakKm = previousMonthSessions.reduce((sum, s) => sum + (s.totalDistanceKm || 0), 0);
   const totalWaktuMenit = filteredSessions.reduce((sum, s) => sum + (s.durationMinutes || 0), 0);
-  
+
   const averageSpeedKmh = totalWaktuMenit > 0 ? totalJarakKm / (totalWaktuMenit / 60) : 0;
   const averageDistancePerTrip = totalPerjalanan > 0 ? totalJarakKm / totalPerjalanan : 0;
   const averageDurationPerTrip = totalPerjalanan > 0 ? totalWaktuMenit / totalPerjalanan : 0;
@@ -166,7 +166,7 @@ export function AdminStatisticsPanel({ buggies }: AdminStatisticsPanelProps) {
       batterySessions.length
     );
   })();
-  
+
   const totalWaktuHours = Math.floor(totalWaktuMenit / 60);
   const totalWaktuMins = Math.round(totalWaktuMenit % 60);
 
@@ -175,7 +175,7 @@ export function AdminStatisticsPanel({ buggies }: AdminStatisticsPanelProps) {
     const year = parseInt(selectedMonth.substring(0, 4));
     const month = parseInt(selectedMonth.substring(5, 7));
     const daysInMonth = new Date(year, month, 0).getDate();
-    
+
     const trends = Array.from({ length: daysInMonth }, (_, i) => ({
       day: i + 1,
       count: 0
@@ -188,7 +188,7 @@ export function AdminStatisticsPanel({ buggies }: AdminStatisticsPanelProps) {
         trends[day - 1].count++;
       }
     });
-    
+
     return trends;
   }, [filteredSessions, selectedMonth]);
 
@@ -253,7 +253,9 @@ export function AdminStatisticsPanel({ buggies }: AdminStatisticsPanelProps) {
                 <Users className="h-5 w-5" />
               </div>
               <p className="text-[10px] font-bold uppercase tracking-widest text-slate-500 leading-tight">
-                Total<br />Penumpang
+                Total
+                <br />
+                Penumpang
               </p>
             </div>
             <div className="flex items-end gap-2">
@@ -270,15 +272,17 @@ export function AdminStatisticsPanel({ buggies }: AdminStatisticsPanelProps) {
 
           <div className="relative z-10 flex w-1/2 flex-col pl-3">
             <p className="mb-1 text-[10px] font-bold uppercase tracking-widest text-slate-400 leading-tight">
-              Rata-rata<br />Harian
-	            </p>
-	            <div className="flex items-end gap-1.5">
-	              <span className="text-[28px] font-black leading-none text-[#0f1a3b] tracking-tighter">
-	                {averagePassengersPerDay.toFixed(0)}
-	              </span>
-	              <span className="mb-1 text-[11px] font-bold text-slate-400">
-	                org / hari
-	              </span>
+              Rata-rata
+              <br />
+              Harian
+            </p>
+            <div className="flex items-end gap-1.5">
+              <span className="text-[28px] font-black leading-none text-[#0f1a3b] tracking-tighter">
+                {averagePassengersPerDay.toFixed(0)}
+              </span>
+              <span className="mb-1 text-[11px] font-bold text-slate-400">
+                org / hari
+              </span>
             </div>
             <div className="mt-2 h-1.5 w-full max-w-[80px] rounded-full bg-[#0f1a3b]" />
           </div>
@@ -290,11 +294,15 @@ export function AdminStatisticsPanel({ buggies }: AdminStatisticsPanelProps) {
             <div className="border-r border-slate-100 p-3.5">
               <div className="mb-2 flex items-center gap-1.5">
                 <Waypoints className="h-4 w-4 text-slate-400" />
-                <p className="text-[9px] font-bold uppercase tracking-widest text-slate-500">Total Perjalanan</p>
+                <p className="text-[9px] font-bold uppercase tracking-widest text-slate-500">
+                  Total Perjalanan
+                </p>
               </div>
               <div className="flex items-center justify-between">
                 <span className="text-[20px] font-black text-[#0f1a3b]">
-                  {isLoadingSessions ? "-" : totalPerjalanan.toLocaleString("id-ID")}
+                  {isLoadingSessions
+                    ? "-"
+                    : totalPerjalanan.toLocaleString("id-ID")}
                 </span>
                 <span className="rounded-full bg-slate-100 px-1.5 py-0.5 text-[9px] font-bold text-slate-600">
                   {formatDelta(totalPerjalanan, previousTotalPerjalanan)}
@@ -304,14 +312,18 @@ export function AdminStatisticsPanel({ buggies }: AdminStatisticsPanelProps) {
             <div className="p-3.5">
               <div className="mb-2 flex items-center gap-1.5">
                 <Zap className="h-4 w-4 text-slate-400" />
-                <p className="text-[9px] font-bold uppercase tracking-widest text-slate-500">Total Jarak</p>
+                <p className="text-[9px] font-bold uppercase tracking-widest text-slate-500">
+                  Total Jarak
+                </p>
               </div>
               <div className="flex items-center justify-between">
                 <span className="flex items-baseline gap-1">
                   <span className="text-[20px] font-black text-[#0f1a3b]">
                     {isLoadingSessions ? "-" : totalJarakKm.toFixed(1)}
                   </span>
-                  <span className="text-[10px] font-bold text-slate-400">km</span>
+                  <span className="text-[10px] font-bold text-slate-400">
+                    km
+                  </span>
                 </span>
                 <span className="rounded-full bg-slate-100 px-1.5 py-0.5 text-[9px] font-bold text-slate-600">
                   {formatDelta(totalJarakKm, previousTotalJarakKm)}
@@ -324,22 +336,30 @@ export function AdminStatisticsPanel({ buggies }: AdminStatisticsPanelProps) {
             <div className="border-r border-slate-100 p-3.5">
               <div className="mb-2 flex items-center gap-1.5">
                 <Timer className="h-4 w-4 text-slate-400" />
-                <p className="text-[9px] font-bold uppercase tracking-widest text-slate-500">Rata-rata Kec.</p>
+                <p className="text-[9px] font-bold uppercase tracking-widest text-slate-500">
+                  Rata-rata Kec.
+                </p>
               </div>
               <span className="flex items-baseline gap-1">
                 <span className="text-[20px] font-black text-[#0f1a3b]">
                   {isLoadingSessions ? "-" : averageSpeedKmh.toFixed(1)}
                 </span>
-                <span className="text-[10px] font-bold text-slate-400">km/h</span>
+                <span className="text-[10px] font-bold text-slate-400">
+                  km/h
+                </span>
               </span>
             </div>
             <div className="p-3.5">
               <div className="mb-2 flex items-center gap-1.5">
                 <Clock className="h-4 w-4 text-slate-400" />
-                <p className="text-[9px] font-bold uppercase tracking-widest text-slate-500">Total Waktu</p>
+                <p className="text-[9px] font-bold uppercase tracking-widest text-slate-500">
+                  Total Waktu
+                </p>
               </div>
               <span className="text-[20px] font-black text-[#0f1a3b]">
-                {isLoadingSessions ? "-" : `${totalWaktuHours}h ${totalWaktuMins}m`}
+                {isLoadingSessions
+                  ? "-"
+                  : `${totalWaktuHours}h ${totalWaktuMins}m`}
               </span>
             </div>
           </div>
@@ -356,28 +376,18 @@ export function AdminStatisticsPanel({ buggies }: AdminStatisticsPanelProps) {
               tone={activeBuggies.length > 0 ? "emerald" : "rose"}
             />
             <StatTile
-              icon={<AlertTriangle className="h-4 w-4" />}
-              label="Offline"
-              value={String(inactiveBuggies)}
-              helper={`${staleOrNeverUpdated} armada belum punya update`}
-              tone={inactiveBuggies > 0 ? "amber" : "emerald"}
-            />
-          </div>
-          <div className="grid grid-cols-2 border-b border-slate-100">
-            <StatTile
               icon={<Activity className="h-4 w-4" />}
               label="Utilisasi kursi"
               value={`${occupancyRate.toFixed(0)}%`}
               helper={`${totalPassengers}/${totalCapacity} kursi terisi`}
               className="border-r border-slate-100"
-              tone={occupancyRate >= 85 ? "rose" : occupancyRate >= 60 ? "amber" : "emerald"}
-            />
-            <StatTile
-              icon={<Users className="h-4 w-4" />}
-              label="Kursi tersedia"
-              value={String(availableSeats)}
-              helper={`${nearFullBuggies} armada hampir/penuh`}
-              tone={availableSeats > 0 ? "emerald" : "rose"}
+              tone={
+                occupancyRate >= 85
+                  ? "rose"
+                  : occupancyRate >= 60
+                    ? "amber"
+                    : "emerald"
+              }
             />
           </div>
           <div className="grid grid-cols-2">
@@ -392,7 +402,11 @@ export function AdminStatisticsPanel({ buggies }: AdminStatisticsPanelProps) {
             <StatTile
               icon={<Battery className="h-4 w-4" />}
               label="Drain baterai/trip"
-              value={averageBatteryUsed === null ? "-" : `${averageBatteryUsed.toFixed(1)}%`}
+              value={
+                averageBatteryUsed === null
+                  ? "-"
+                  : `${averageBatteryUsed.toFixed(1)}%`
+              }
               helper="Rata-rata pemakaian baterai per sesi"
               tone="slate"
             />
@@ -401,19 +415,29 @@ export function AdminStatisticsPanel({ buggies }: AdminStatisticsPanelProps) {
 
         <div className="mt-3 grid grid-cols-3 gap-2 rounded-[20px] border border-slate-100 bg-slate-50/80 p-3">
           <div>
-            <p className="text-[9px] font-bold uppercase tracking-widest text-slate-400">Jarak / trip</p>
+            <p className="text-[9px] font-bold uppercase tracking-widest text-slate-400">
+              Jarak / trip
+            </p>
             <p className="mt-1 text-[18px] font-black text-[#0f1a3b]">
-              {isLoadingSessions ? "-" : `${averageDistancePerTrip.toFixed(1)} km`}
+              {isLoadingSessions
+                ? "-"
+                : `${averageDistancePerTrip.toFixed(1)} km`}
             </p>
           </div>
           <div>
-            <p className="text-[9px] font-bold uppercase tracking-widest text-slate-400">Durasi / trip</p>
+            <p className="text-[9px] font-bold uppercase tracking-widest text-slate-400">
+              Durasi / trip
+            </p>
             <p className="mt-1 text-[18px] font-black text-[#0f1a3b]">
-              {isLoadingSessions ? "-" : `${averageDurationPerTrip.toFixed(0)} mnt`}
+              {isLoadingSessions
+                ? "-"
+                : `${averageDurationPerTrip.toFixed(0)} mnt`}
             </p>
           </div>
           <div>
-            <p className="text-[9px] font-bold uppercase tracking-widest text-slate-400">Trip / armada</p>
+            <p className="text-[9px] font-bold uppercase tracking-widest text-slate-400">
+              Trip / armada
+            </p>
             <p className="mt-1 text-[18px] font-black text-[#0f1a3b]">
               {isLoadingSessions ? "-" : sessionsPerBuggy.toFixed(1)}
             </p>
@@ -438,13 +462,15 @@ export function AdminStatisticsPanel({ buggies }: AdminStatisticsPanelProps) {
                   title={`Tanggal ${t.day}: ${t.count} perjalanan`}
                   className="group relative flex w-full flex-col justify-end h-full"
                 >
-                  <div 
+                  <div
                     className={`w-full rounded-t-sm transition-all ${
-                      t.count > 0 ? "bg-[#0f1a3b]/30 group-hover:bg-[#0f1a3b]/60 cursor-pointer" : "bg-transparent"
+                      t.count > 0
+                        ? "bg-[#0f1a3b]/30 group-hover:bg-[#0f1a3b]/60 cursor-pointer"
+                        : "bg-transparent"
                     }`}
-                    style={{ 
+                    style={{
                       height: `${(t.count / maxDailyCount) * 100}%`,
-                      minHeight: t.count > 0 ? '4px' : '0'
+                      minHeight: t.count > 0 ? "4px" : "0",
                     }}
                   />
                   {/* Tooltip on hover */}
@@ -463,7 +489,8 @@ export function AdminStatisticsPanel({ buggies }: AdminStatisticsPanelProps) {
 
         {/* Footer info */}
         <p className="mt-4 text-center text-[10px] leading-relaxed text-slate-400">
-          *Statistik bulanan dihitung dari sesi perjalanan, sedangkan status armada memakai data GPS live terbaru.
+          *Statistik bulanan dihitung dari sesi perjalanan, sedangkan status
+          armada memakai data GPS live terbaru.
         </p>
       </div>
     </section>

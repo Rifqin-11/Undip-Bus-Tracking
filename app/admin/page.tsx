@@ -24,7 +24,7 @@ import type { PanelView } from "@/types/buggy";
 import type { DirectionResult } from "@/components/panel/DirectionPanel";
 import type { LatLngLiteral } from "@/types/map-canvas";
 import type { Geofence, GeofenceEvent } from "@/types/geofence";
-import { LogoutIcon, MapPinSolidIcon, BellIcon } from "@/components/ui/Icons";
+import { LoginIcon, LogoutIcon, MapPinSolidIcon, BellIcon } from "@/components/ui/Icons";
 
 const GEOFENCE_DEFAULT_RADIUS_METERS = 100;
 const GEOFENCE_EVENT_LIMIT = 100;
@@ -164,6 +164,7 @@ export default function DashboardPage() {
   const [selectedAdminBuggyId, setSelectedAdminBuggyId] = useState<
     string | null
   >(null);
+  const [mobileAdminMenuOpen, setMobileAdminMenuOpen] = useState(false);
 
   const [userPosition, setUserPosition] = useState<{
     lat: number;
@@ -362,6 +363,10 @@ export default function DashboardPage() {
       // noop
     }
     window.location.href = "/";
+  };
+
+  const handleManageProfile = () => {
+    window.location.href = "/admin/profile";
   };
 
   const handleTestBusNotification = useCallback(() => {
@@ -1028,7 +1033,7 @@ export default function DashboardPage() {
       <div className="pointer-events-none absolute inset-x-0 top-0 z-20 h-52 bg-linear-to-b from-slate-900/45 via-slate-900/20 to-transparent xl:hidden" />
 
       <section
-        className="absolute inset-x-0 z-40 flex items-center justify-between px-4 xl:hidden"
+        className="absolute inset-x-0 z-50 flex items-center justify-between px-4 xl:hidden"
         style={{ top: "calc(0.75rem + var(--sai-top, 0px))" }}
       >
         <h1 className="text-[26px] font-bold tracking-tight text-white drop-shadow-md">
@@ -1044,15 +1049,41 @@ export default function DashboardPage() {
           >
             <BellIcon className="h-5 w-5" />
           </button>
-          <button
-            type="button"
-            aria-label="Logout admin"
-            title="Logout"
-            onClick={handleLogout}
-            className="relative flex h-10 w-10 items-center justify-center rounded-full border border-white/20 bg-slate-900/50 text-white backdrop-blur-md transition hover:bg-slate-800/70 active:scale-95"
-          >
-            <LogoutIcon className="h-5 w-5" />
-          </button>
+          <div className="relative">
+            <button
+              type="button"
+              aria-label="Menu admin"
+              aria-expanded={mobileAdminMenuOpen}
+              title="Admin"
+              onClick={() => setMobileAdminMenuOpen((open) => !open)}
+              className="relative flex h-10 w-10 items-center justify-center rounded-full border border-white/20 bg-slate-900/50 text-white backdrop-blur-md transition hover:bg-slate-800/70 active:scale-95"
+            >
+              <span className="grid size-8 place-items-center rounded-full bg-[#0f1a3b]/70 text-sm font-black text-white">
+                A
+              </span>
+            </button>
+
+            {mobileAdminMenuOpen ? (
+              <div className="absolute right-0 z-60 mt-2 w-48 overflow-hidden rounded-2xl border border-white/70 bg-white/95 p-1.5 text-slate-800 shadow-[0_14px_40px_rgba(15,23,42,0.18)] backdrop-blur-xl">
+                <button
+                  type="button"
+                  onClick={handleManageProfile}
+                  className="flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left text-[12px] font-bold transition hover:bg-slate-100 active:scale-[0.98]"
+                >
+                  <LoginIcon className="h-4 w-4 text-slate-500" />
+                  Manage Profile
+                </button>
+                <button
+                  type="button"
+                  onClick={handleLogout}
+                  className="flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left text-[12px] font-bold text-rose-600 transition hover:bg-rose-50 active:scale-[0.98]"
+                >
+                  <LogoutIcon className="h-4 w-4" />
+                  Logout
+                </button>
+              </div>
+            ) : null}
+          </div>
         </div>
       </section>
 
@@ -1081,19 +1112,25 @@ export default function DashboardPage() {
         onDismiss={(id) => setToasts((prev) => prev.filter((t) => t.id !== id))}
       />
 
-      <div className="absolute right-3 top-3 z-20 flex items-center gap-2 xl:right-4 xl:top-4">
+      <div className="absolute right-3 top-3 z-20 hidden items-center justify-end gap-2 xl:right-4 xl:top-4 xl:flex">
         <button
           type="button"
-          onClick={handleTestBusNotification}
-          title="Test notifikasi bus mendekati"
-          className="relative hidden xl:flex items-center gap-1.5 rounded-full border border-amber-300 bg-amber-50 px-3 py-1 text-xs font-semibold text-amber-700 shadow-sm backdrop-blur-sm transition hover:bg-amber-100 active:scale-95"
+          aria-label="Manage profile"
+          onClick={handleManageProfile}
+          className="flex w-full items-center gap-3 rounded-full border border-white/60 bg-white px-3 py-2 text-left shadow-[0_10px_30px_rgba(15,23,42,0.12)] backdrop-blur-xl transition hover:bg-white/90 active:scale-[0.98]"
         >
-          <BellIcon className="h-3.5 w-3.5" />
-          Test Notif
+          <div className="grid size-8 place-items-center rounded-full bg-[#0f1a3b] text-sm font-black text-white">
+            A
+          </div>
+          <div className="min-w-0 pr-1">
+            <p className="text-[13px] font-extrabold leading-tight text-slate-900">
+              Admin
+            </p>
+            <p className="text-[10px] font-semibold leading-tight text-slate-400">
+              SIMOBI Operator
+            </p>
+          </div>
         </button>
-        <div className="rounded-full border border-emerald-200 bg-emerald-100/90 px-2 py-0.5 text-xs font-semibold text-emerald-700 shadow-sm backdrop-blur-sm xl:px-3 xl:py-1 xl:text-sm">
-          Realtime aktif
-        </div>
       </div>
 
       <FloatingSidebar

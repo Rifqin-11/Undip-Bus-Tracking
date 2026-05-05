@@ -7,7 +7,7 @@ import { BuggyList } from "@/components/buggy/PanelActive";
 import { FloatingSidebar } from "@/components/sidebar/FloatingSidebar";
 import { MobileBottomNav } from "@/components/sidebar/MobileBottomNav";
 import { LiveSearchBar } from "@/components/search/LiveSearchBar";
-import { LoginIcon, MapPinSolidIcon, BellIcon } from "@/components/ui/Icons";
+import { MapPinSolidIcon, BellIcon, LoginIcon } from "@/components/ui/Icons";
 import { ToastStack, type ToastItem } from "@/components/ui/ToastStack";
 import { useNearbyBusAlert } from "@/hooks/useNearbyBusAlert";
 import { HALTE_LOCATIONS, OFFICIAL_ROUTE_PATH } from "@/lib/transit/buggy-data";
@@ -593,7 +593,7 @@ export default function DashboardPage() {
           </button>
           <Link
             href="/login"
-            aria-label="Login"
+            aria-label="Login admin"
             className="relative flex h-10 w-10 items-center justify-center rounded-full border border-white/20 bg-slate-900/50 text-white backdrop-blur-md transition active:scale-95"
           >
             <LoginIcon className="h-5 w-5" />
