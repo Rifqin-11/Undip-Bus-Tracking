@@ -68,7 +68,7 @@ export function FloatingSidebar({
         />
       </div>
 
-      <nav className="flex flex-col gap-2 rounded-2xl bg-white/70 p-2">
+      <nav className="flex flex-col gap-2 rounded-full bg-white/70 p-2">
         {shouldShowDataButton ? (
           <button
             className={`${actionButtonClass} ${activeView === "data" || activeView === "data-detail" ? "bg-[#0f1a3b] text-white" : "text-slate-600 hover:bg-slate-100"}`}
@@ -106,14 +106,6 @@ export function FloatingSidebar({
           <HalteIcon className="h-5 w-5" />
         </button>
         <button
-          className={`${actionButtonClass} ${activeView === "info" ? "bg-[#0f1a3b] text-white" : "text-slate-600 hover:bg-slate-100"}`}
-          aria-label="Info"
-          type="button"
-          onClick={() => onSelectView("info")}
-        >
-          <InfoIcon className="h-5 w-5" />
-        </button>
-        <button
           className={`${actionButtonClass} ${activeView === "notifikasi" ? "bg-[#0f1a3b] text-white" : "text-slate-600 hover:bg-slate-100"}`}
           aria-label="Notifikasi"
           type="button"
@@ -131,18 +123,28 @@ export function FloatingSidebar({
         </button> */}
       </nav>
 
-      <button
-        className="grid h-11 w-11 place-items-center rounded-2xl border border-[#0f1a3b] bg-[#0f1a3b] text-white transition hover:bg-white hover:text-[#0f1a3b]"
-        aria-label={isOnAdminPage ? "Logout admin" : "Login admin"}
-        type="button"
-        onClick={handleAdminButtonClick}
-      >
-        {isOnAdminPage ? (
-          <LogoutIcon className="h-5 w-5" />
-        ) : (
-          <LoginIcon className="h-5 w-5" />
-        )}
-      </button>
+      <div className="flex flex-col gap-2 rounded-full bg-white/70 p-2">
+        <button
+          className={`${actionButtonClass} ${activeView === "info" ? "bg-[#0f1a3b] text-white" : "text-slate-600 hover:bg-slate-100"}`}
+          aria-label="Info"
+          type="button"
+          onClick={() => onSelectView("info")}
+        >
+          <InfoIcon className="h-5 w-5" />
+        </button>
+        <button
+          className="grid h-11 w-11 place-items-center rounded-2xl border border-[#0f1a3b] bg-[#0f1a3b] text-white transition hover:bg-white hover:text-[#0f1a3b] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-300"
+          aria-label={isOnAdminPage ? "Logout admin" : "Login admin"}
+          type="button"
+          onClick={handleAdminButtonClick}
+        >
+          {isOnAdminPage ? (
+            <LogoutIcon className="h-5 w-5" />
+          ) : (
+            <LoginIcon className="h-5 w-5" />
+          )}
+        </button>
+      </div>
     </aside>
   );
 }

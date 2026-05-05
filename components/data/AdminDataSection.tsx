@@ -11,6 +11,8 @@ import { GeofenceEventLog } from "./GeofenceEventLog";
 import { AdminBuggyFormPanel } from "./AdminBuggyFormPanel";
 import { PlusIcon } from "lucide-react";
 
+type AdminDataPanel = "statistics" | "buggy" | "geofence";
+
 type AdminDataSectionProps = {
   buggies: Buggy[];
   realtimeConnected: boolean;
@@ -62,86 +64,121 @@ export function AdminDataSection({
   onBuggyMutated,
 }: AdminDataSectionProps) {
   const [isAddingBuggy, setIsAddingBuggy] = useState(false);
+  const [activePanel, setActivePanel] = useState<AdminDataPanel>("statistics");
+
+  const tabs: { id: AdminDataPanel; label: string }[] = [
+    { id: "statistics", label: "Statistik" },
+    { id: "buggy", label: "Buggy" },
+    { id: "geofence", label: "Geofence" },
+  ];
 
   return (
     <section className="space-y-3">
+      <div className="grid grid-cols-3 rounded-full border border-slate-200/80 bg-white/70 p-1.5 shadow-[0_8px_20px_rgba(15,23,42,0.04)]">
+        {tabs.map((tab) => {
+          const isActive = activePanel === tab.id;
+
+          return (
+            <button
+              key={tab.id}
+              type="button"
+              aria-pressed={isActive}
+              onClick={() => setActivePanel(tab.id)}
+              className={`rounded-full px-3 py-2 text-[12px] font-bold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-300 ${
+                isActive
+                  ? "bg-[#0f1a3b] text-white shadow-sm"
+                  : "text-slate-500 hover:bg-white/80 hover:text-slate-900"
+              }`}
+            >
+              {tab.label}
+            </button>
+          );
+        })}
+      </div>
+
       {/* ── Statistik Operasional ──────────────────────────────────────── */}
-      <AdminStatisticsPanel
-        buggies={buggies}
-      />
+      {activePanel === "statistics" ? (
+        <AdminStatisticsPanel buggies={buggies} />
+      ) : null}
 
       {/* ── Data Operasional Buggy ─────────────────────────────────────── */}
-      {isAddingBuggy ? (
-        <AdminBuggyFormPanel
-          buggy={null}
-          onBack={() => setIsAddingBuggy(false)}
-          onSaved={() => {
-            setIsAddingBuggy(false);
-            onBuggyMutated?.();
-          }}
-        />
-      ) : (
-        <div className="rounded-3xl border border-slate-200/80 bg-white/70 p-3 lg:p-4">
-        <div className="mb-3 w-full rounded-[20px] border border-white/60 bg-white/40 backdrop-blur-md py-3 px-3.5 shadow-[0_8px_20px_rgba(15,23,42,0.04)]">
-          <div className="flex items-center justify-between gap-2">
-            <h2 className="text-[17px] font-bold text-slate-900 tracking-tight">
-              Data Operasional
-            </h2>
-            <div className="flex items-center gap-2">
-              <span className="rounded-full bg-slate-200/80 px-2.5 py-1 text-[10px] font-semibold text-slate-700">
-                {buggies.length} armada
-              </span>
-              <button
-                type="button"
-                onClick={() => setIsAddingBuggy(true)}
-                className="flex items-center gap-1 rounded-full border border-[#0f1a3b] bg-[#0f1a3b] px-3 py-2 text-[11px] font-bold text-white shadow-sm transition hover:bg-white hover:text-[#0f1a3b] active:scale-95"
-              >
-                <PlusIcon className="size-3" />
-              </button>
-            </div>
-          </div>
-        </div>
-
-        {buggies.length === 0 ? (
-          <p className="py-4 text-center text-[12px] text-slate-400">
-            Belum ada data buggy.
-          </p>
+      {activePanel === "buggy" ? (
+        isAddingBuggy ? (
+          <AdminBuggyFormPanel
+            buggy={null}
+            onBack={() => setIsAddingBuggy(false)}
+            onSaved={() => {
+              setIsAddingBuggy(false);
+              onBuggyMutated?.();
+            }}
+          />
         ) : (
-          <div className="space-y-2">
-            {buggies.map((buggy) => (
-              <AdminBuggyCard
-                key={buggy.id}
-                buggy={buggy}
-                activeZones={geofenceStatuses[buggy.id] ?? []}
-                onClick={() => onSelectBuggy(buggy.id)}
-              />
-            ))}
+          <div className="rounded-3xl border border-slate-200/80 bg-white/70 p-3 lg:p-4">
+            <div className="mb-3 w-full rounded-[20px] border border-white/60 bg-white/40 px-3.5 py-3 shadow-[0_8px_20px_rgba(15,23,42,0.04)] backdrop-blur-md">
+              <div className="flex items-center justify-between gap-2">
+                <h2 className="text-[17px] font-bold tracking-tight text-slate-900">
+                  Data Operasional
+                </h2>
+                <div className="flex items-center gap-2">
+                  <span className="rounded-full bg-slate-200/80 px-2.5 py-1 text-[10px] font-semibold text-slate-700">
+                    {buggies.length} armada
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setIsAddingBuggy(true)}
+                    className="flex items-center gap-1 rounded-full border border-[#0f1a3b] bg-[#0f1a3b] px-3 py-2 text-[11px] font-bold text-white shadow-sm transition hover:bg-white hover:text-[#0f1a3b] active:scale-95"
+                  >
+                    <PlusIcon className="size-3" />
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            {buggies.length === 0 ? (
+              <p className="py-4 text-center text-[12px] text-slate-400">
+                Belum ada data buggy.
+              </p>
+            ) : (
+              <div className="space-y-2">
+                {buggies.map((buggy) => (
+                  <AdminBuggyCard
+                    key={buggy.id}
+                    buggy={buggy}
+                    activeZones={geofenceStatuses[buggy.id] ?? []}
+                    onClick={() => onSelectBuggy(buggy.id)}
+                  />
+                ))}
+              </div>
+            )}
           </div>
-        )}
-      </div>
-      )}
+        )
+      ) : null}
 
       {/* ── Manajemen Geofence ─────────────────────────────────────────── */}
-      <GeofenceManager
-        geofences={geofences}
-        geofenceLoading={geofenceLoading}
-        geofenceCreateMode={geofenceCreateMode}
-        draftGeofence={draftGeofence}
-        draftName={draftName}
-        browserNotificationEnabled={browserNotificationEnabled}
-        onToggleCreateMode={onToggleCreateMode}
-        onDraftNameChange={onDraftNameChange}
-        onDraftRadiusChange={onDraftRadiusChange}
-        onSaveDraft={onSaveDraft}
-        onCancelDraft={onCancelDraft}
-        onToggleGeofence={onToggleGeofence}
-        onEditGeofence={onEditGeofence}
-        onDeleteGeofence={onDeleteGeofence}
-        onToggleBrowserNotification={onToggleBrowserNotification}
-      />
+      {activePanel === "geofence" ? (
+        <>
+          <GeofenceManager
+            geofences={geofences}
+            geofenceLoading={geofenceLoading}
+            geofenceCreateMode={geofenceCreateMode}
+            draftGeofence={draftGeofence}
+            draftName={draftName}
+            browserNotificationEnabled={browserNotificationEnabled}
+            onToggleCreateMode={onToggleCreateMode}
+            onDraftNameChange={onDraftNameChange}
+            onDraftRadiusChange={onDraftRadiusChange}
+            onSaveDraft={onSaveDraft}
+            onCancelDraft={onCancelDraft}
+            onToggleGeofence={onToggleGeofence}
+            onEditGeofence={onEditGeofence}
+            onDeleteGeofence={onDeleteGeofence}
+            onToggleBrowserNotification={onToggleBrowserNotification}
+          />
 
-      {/* ── Event Geofence ─────────────────────────────────────────────── */}
-      <GeofenceEventLog events={events} />
+          {/* ── Event Geofence ─────────────────────────────────────────────── */}
+          <GeofenceEventLog events={events} />
+        </>
+      ) : null}
     </section>
   );
 }

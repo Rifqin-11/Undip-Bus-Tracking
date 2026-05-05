@@ -1,9 +1,14 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, type ReactNode } from "react";
 import {
+  Activity,
+  AlertTriangle,
+  Battery,
+  Bus,
   Users,
   CalendarDays,
+  Gauge,
   Waypoints,
   Zap,
   Timer,
@@ -15,6 +20,58 @@ import type { BuggySession } from "@/types/buggy-session";
 type AdminStatisticsPanelProps = {
   buggies: Buggy[];
 };
+
+type StatTone = "navy" | "emerald" | "amber" | "rose" | "slate";
+
+function formatDelta(current: number, previous: number): string {
+  if (previous <= 0) return current > 0 ? "Baru" : "0%";
+  const delta = ((current - previous) / previous) * 100;
+  const prefix = delta >= 0 ? "+" : "";
+  return `${prefix}${delta.toFixed(0)}%`;
+}
+
+function StatTile({
+  icon,
+  label,
+  value,
+  helper,
+  className = "",
+  tone = "slate",
+}: {
+  icon: ReactNode;
+  label: string;
+  value: string;
+  helper: string;
+  className?: string;
+  tone?: StatTone;
+}) {
+  const toneClass: Record<StatTone, string> = {
+    navy: "text-[#0f1a3b]",
+    emerald: "text-emerald-500",
+    amber: "text-amber-500",
+    rose: "text-rose-500",
+    slate: "text-slate-400",
+  };
+
+  return (
+    <div className={`p-3.5 ${className}`}>
+      <div className="mb-2 flex items-center gap-1.5">
+        <span className={toneClass[tone]}>
+          {icon}
+        </span>
+        <p className="min-w-0 text-[9px] font-bold uppercase tracking-widest text-slate-500">
+          {label}
+        </p>
+      </div>
+      <p className="text-[20px] font-black leading-none tracking-tight text-[#0f1a3b]">
+        {value}
+      </p>
+      <p className="mt-1.5 text-[10px] font-medium leading-snug text-slate-400">
+        {helper}
+      </p>
+    </div>
+  );
+}
 
 export function AdminStatisticsPanel({ buggies }: AdminStatisticsPanelProps) {
   const now = new Date();
@@ -47,20 +104,68 @@ export function AdminStatisticsPanel({ buggies }: AdminStatisticsPanelProps) {
     return sessions.filter((s) => s.sessionDate.startsWith(selectedMonth));
   }, [sessions, selectedMonth]);
 
+  const previousMonth = useMemo(() => {
+    const year = parseInt(selectedMonth.substring(0, 4), 10);
+    const month = parseInt(selectedMonth.substring(5, 7), 10);
+    const date = new Date(year, month - 2, 1);
+    return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
+  }, [selectedMonth]);
+
+  const previousMonthSessions = useMemo(() => {
+    return sessions.filter((s) => s.sessionDate.startsWith(previousMonth));
+  }, [sessions, previousMonth]);
+
   const elapsedDaysInMonth = Math.max(1, now.getDate()); // Approximate if viewing current month
-  
+
+  const activeBuggies = buggies.filter((buggy) => buggy.isActive);
+  const inactiveBuggies = buggies.length - activeBuggies.length;
+  const totalCapacity = buggies.reduce(
+    (sum, buggy) => sum + Math.max(0, buggy.capacity),
+    0,
+  );
   const totalPassengers = buggies.reduce(
     (sum, buggy) => sum + Math.max(0, buggy.passengers),
     0,
   );
   const averagePassengersPerDay = totalPassengers / elapsedDaysInMonth;
+  const activeRate = buggies.length > 0 ? (activeBuggies.length / buggies.length) * 100 : 0;
+  const occupancyRate = totalCapacity > 0 ? (totalPassengers / totalCapacity) * 100 : 0;
+  const availableSeats = Math.max(0, totalCapacity - totalPassengers);
+  const nearFullBuggies = buggies.filter(
+    (buggy) => buggy.crowdLevel === "HAMPIR_PENUH" || buggy.crowdLevel === "PENUH",
+  ).length;
+  const averageLiveSpeed =
+    activeBuggies.length > 0
+      ? activeBuggies.reduce((sum, buggy) => sum + Math.max(0, buggy.speedKmh), 0) /
+        activeBuggies.length
+      : 0;
+  const fastestBuggy = buggies.reduce<Buggy | null>((fastest, buggy) => {
+    if (!fastest || buggy.speedKmh > fastest.speedKmh) return buggy;
+    return fastest;
+  }, null);
+  const staleOrNeverUpdated = buggies.filter(
+    (buggy) => !buggy.updatedAt || buggy.updatedAt === "--:--",
+  ).length;
 
   // Real operational stats from filtered sessions
   const totalPerjalanan = filteredSessions.length;
+  const previousTotalPerjalanan = previousMonthSessions.length;
   const totalJarakKm = filteredSessions.reduce((sum, s) => sum + (s.totalDistanceKm || 0), 0);
+  const previousTotalJarakKm = previousMonthSessions.reduce((sum, s) => sum + (s.totalDistanceKm || 0), 0);
   const totalWaktuMenit = filteredSessions.reduce((sum, s) => sum + (s.durationMinutes || 0), 0);
   
   const averageSpeedKmh = totalWaktuMenit > 0 ? totalJarakKm / (totalWaktuMenit / 60) : 0;
+  const averageDistancePerTrip = totalPerjalanan > 0 ? totalJarakKm / totalPerjalanan : 0;
+  const averageDurationPerTrip = totalPerjalanan > 0 ? totalWaktuMenit / totalPerjalanan : 0;
+  const sessionsPerBuggy = buggies.length > 0 ? totalPerjalanan / buggies.length : 0;
+  const averageBatteryUsed = (() => {
+    const batterySessions = filteredSessions.filter((s) => typeof s.batteryUsed === "number");
+    if (batterySessions.length === 0) return null;
+    return (
+      batterySessions.reduce((sum, session) => sum + Math.max(0, session.batteryUsed ?? 0), 0) /
+      batterySessions.length
+    );
+  })();
   
   const totalWaktuHours = Math.floor(totalWaktuMenit / 60);
   const totalWaktuMins = Math.round(totalWaktuMenit % 60);
@@ -88,6 +193,10 @@ export function AdminStatisticsPanel({ buggies }: AdminStatisticsPanelProps) {
   }, [filteredSessions, selectedMonth]);
 
   const maxDailyCount = Math.max(1, ...dailyTrends.map(t => t.count));
+  const busiestDay = dailyTrends.reduce(
+    (best, item) => (item.count > best.count ? item : best),
+    { day: 0, count: 0 },
+  );
 
   // Generate month options (e.g. current month and past 5 months)
   const monthOptions = useMemo(() => {
@@ -108,10 +217,10 @@ export function AdminStatisticsPanel({ buggies }: AdminStatisticsPanelProps) {
         <div className="mb-4 flex items-start justify-between gap-3">
           <div className="min-w-0 flex-1">
             <h2 className="truncate text-[18px] font-bold tracking-tight text-[#0f1a3b]">
-              Statistik Operasi...
+              Statistik Operasional
             </h2>
             <p className="text-[11px] font-medium text-slate-500">
-              Performa armada bulan ini dibandingkan bulan lalu
+              Ringkasan untuk admin kampus dan pengelola buggy
             </p>
           </div>
           <div className="relative flex items-center gap-1.5 rounded-full border border-slate-200 bg-white px-3 py-1.5 text-[11px] font-bold text-[#0f1a3b] shadow-sm">
@@ -149,10 +258,10 @@ export function AdminStatisticsPanel({ buggies }: AdminStatisticsPanelProps) {
             </div>
             <div className="flex items-end gap-2">
               <span className="text-[36px] font-black leading-none text-[#0f1a3b] tracking-tighter">
-                {totalPassengers > 0 ? totalPassengers : "17"}
+                {totalPassengers.toLocaleString("id-ID")}
               </span>
-              <span className="mb-1.5 rounded-full bg-rose-100 px-1.5 py-0.5 text-[9px] font-bold text-rose-600">
-                ↘ 37%
+              <span className="mb-1.5 rounded-full bg-slate-100 px-1.5 py-0.5 text-[9px] font-bold text-slate-600">
+                live
               </span>
             </div>
           </div>
@@ -162,14 +271,14 @@ export function AdminStatisticsPanel({ buggies }: AdminStatisticsPanelProps) {
           <div className="relative z-10 flex w-1/2 flex-col pl-3">
             <p className="mb-1 text-[10px] font-bold uppercase tracking-widest text-slate-400 leading-tight">
               Rata-rata<br />Harian
-            </p>
-            <div className="flex items-end gap-1.5">
-              <span className="text-[28px] font-black leading-none text-[#0f1a3b] tracking-tighter">
-                {totalPassengers > 0 ? averagePassengersPerDay.toFixed(0) : "4"}
-              </span>
-              <span className="mb-1 text-[11px] font-bold text-slate-400">
-                org / hari
-              </span>
+	            </p>
+	            <div className="flex items-end gap-1.5">
+	              <span className="text-[28px] font-black leading-none text-[#0f1a3b] tracking-tighter">
+	                {averagePassengersPerDay.toFixed(0)}
+	              </span>
+	              <span className="mb-1 text-[11px] font-bold text-slate-400">
+	                org / hari
+	              </span>
             </div>
             <div className="mt-2 h-1.5 w-full max-w-[80px] rounded-full bg-[#0f1a3b]" />
           </div>
@@ -187,7 +296,9 @@ export function AdminStatisticsPanel({ buggies }: AdminStatisticsPanelProps) {
                 <span className="text-[20px] font-black text-[#0f1a3b]">
                   {isLoadingSessions ? "-" : totalPerjalanan.toLocaleString("id-ID")}
                 </span>
-                <span className="rounded-full bg-rose-100 px-1.5 py-0.5 text-[9px] font-bold text-rose-600">↘ 0%</span>
+                <span className="rounded-full bg-slate-100 px-1.5 py-0.5 text-[9px] font-bold text-slate-600">
+                  {formatDelta(totalPerjalanan, previousTotalPerjalanan)}
+                </span>
               </div>
             </div>
             <div className="p-3.5">
@@ -202,7 +313,9 @@ export function AdminStatisticsPanel({ buggies }: AdminStatisticsPanelProps) {
                   </span>
                   <span className="text-[10px] font-bold text-slate-400">km</span>
                 </span>
-                <span className="rounded-full bg-rose-100 px-1.5 py-0.5 text-[9px] font-bold text-rose-600">↘ 0%</span>
+                <span className="rounded-full bg-slate-100 px-1.5 py-0.5 text-[9px] font-bold text-slate-600">
+                  {formatDelta(totalJarakKm, previousTotalJarakKm)}
+                </span>
               </div>
             </div>
           </div>
@@ -232,12 +345,92 @@ export function AdminStatisticsPanel({ buggies }: AdminStatisticsPanelProps) {
           </div>
         </div>
 
+        <div className="mt-3 overflow-hidden rounded-[20px] border border-slate-100 bg-white shadow-[0_8px_20px_rgba(15,23,42,0.02)]">
+          <div className="grid grid-cols-2 border-b border-slate-100">
+            <StatTile
+              icon={<Bus className="h-4 w-4" />}
+              label="Armada aktif"
+              value={`${activeBuggies.length}/${buggies.length}`}
+              helper={`${activeRate.toFixed(0)}% armada mengirim GPS`}
+              className="border-r border-slate-100"
+              tone={activeBuggies.length > 0 ? "emerald" : "rose"}
+            />
+            <StatTile
+              icon={<AlertTriangle className="h-4 w-4" />}
+              label="Offline"
+              value={String(inactiveBuggies)}
+              helper={`${staleOrNeverUpdated} armada belum punya update`}
+              tone={inactiveBuggies > 0 ? "amber" : "emerald"}
+            />
+          </div>
+          <div className="grid grid-cols-2 border-b border-slate-100">
+            <StatTile
+              icon={<Activity className="h-4 w-4" />}
+              label="Utilisasi kursi"
+              value={`${occupancyRate.toFixed(0)}%`}
+              helper={`${totalPassengers}/${totalCapacity} kursi terisi`}
+              className="border-r border-slate-100"
+              tone={occupancyRate >= 85 ? "rose" : occupancyRate >= 60 ? "amber" : "emerald"}
+            />
+            <StatTile
+              icon={<Users className="h-4 w-4" />}
+              label="Kursi tersedia"
+              value={String(availableSeats)}
+              helper={`${nearFullBuggies} armada hampir/penuh`}
+              tone={availableSeats > 0 ? "emerald" : "rose"}
+            />
+          </div>
+          <div className="grid grid-cols-2">
+            <StatTile
+              icon={<Gauge className="h-4 w-4" />}
+              label="Kec. live rata-rata"
+              value={`${averageLiveSpeed.toFixed(1)}`}
+              helper={`Tertinggi ${fastestBuggy?.code ?? "-"} ${fastestBuggy ? `${fastestBuggy.speedKmh.toFixed(1)} km/h` : ""}`}
+              className="border-r border-slate-100"
+              tone="navy"
+            />
+            <StatTile
+              icon={<Battery className="h-4 w-4" />}
+              label="Drain baterai/trip"
+              value={averageBatteryUsed === null ? "-" : `${averageBatteryUsed.toFixed(1)}%`}
+              helper="Rata-rata pemakaian baterai per sesi"
+              tone="slate"
+            />
+          </div>
+        </div>
+
+        <div className="mt-3 grid grid-cols-3 gap-2 rounded-[20px] border border-slate-100 bg-slate-50/80 p-3">
+          <div>
+            <p className="text-[9px] font-bold uppercase tracking-widest text-slate-400">Jarak / trip</p>
+            <p className="mt-1 text-[18px] font-black text-[#0f1a3b]">
+              {isLoadingSessions ? "-" : `${averageDistancePerTrip.toFixed(1)} km`}
+            </p>
+          </div>
+          <div>
+            <p className="text-[9px] font-bold uppercase tracking-widest text-slate-400">Durasi / trip</p>
+            <p className="mt-1 text-[18px] font-black text-[#0f1a3b]">
+              {isLoadingSessions ? "-" : `${averageDurationPerTrip.toFixed(0)} mnt`}
+            </p>
+          </div>
+          <div>
+            <p className="text-[9px] font-bold uppercase tracking-widest text-slate-400">Trip / armada</p>
+            <p className="mt-1 text-[18px] font-black text-[#0f1a3b]">
+              {isLoadingSessions ? "-" : sessionsPerBuggy.toFixed(1)}
+            </p>
+          </div>
+        </div>
+
         {/* Trend Chart */}
         {!isLoadingSessions && filteredSessions.length > 0 && (
           <div className="mt-3 rounded-[16px] bg-slate-50/80 p-3.5">
-            <p className="mb-3 text-[9px] font-bold uppercase tracking-widest text-slate-500">
-              Aktivitas Perjalanan Harian
-            </p>
+            <div className="mb-3 flex items-center justify-between gap-2">
+              <p className="text-[9px] font-bold uppercase tracking-widest text-slate-500">
+                Aktivitas Perjalanan Harian
+              </p>
+              <span className="rounded-full bg-white px-2 py-1 text-[9px] font-bold text-slate-500">
+                Tersibuk: {busiestDay.count > 0 ? `tgl ${busiestDay.day}` : "-"}
+              </span>
+            </div>
             <div className="flex h-14 w-full items-end gap-[2px] sm:gap-1">
               {dailyTrends.map((t) => (
                 <div
@@ -270,7 +463,7 @@ export function AdminStatisticsPanel({ buggies }: AdminStatisticsPanelProps) {
 
         {/* Footer info */}
         <p className="mt-4 text-center text-[10px] leading-relaxed text-slate-400">
-          *Statistik dihitung berdasarkan data operasional buggy di bulan ini<br />dibandingkan dengan bulan lalu.
+          *Statistik bulanan dihitung dari sesi perjalanan, sedangkan status armada memakai data GPS live terbaru.
         </p>
       </div>
     </section>
