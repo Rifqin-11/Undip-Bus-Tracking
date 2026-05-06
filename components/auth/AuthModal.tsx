@@ -13,7 +13,7 @@ export function AuthModal({ open, redirectTo, onClose }: AuthModalProps) {
 
   return (
     <div
-      className="fixed inset-0 z-[80] flex items-center justify-center overflow-y-auto bg-slate-950/45 px-4 py-6 backdrop-blur-md"
+      className="fixed inset-0 z-[80] flex items-center justify-center overflow-y-auto bg-slate-950/45 px-4 py-6 backdrop-blur-xs"
       role="dialog"
       aria-modal="true"
     >
