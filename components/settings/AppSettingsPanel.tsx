@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import {
   Bell,
@@ -12,13 +12,15 @@ import {
   ShieldCheck,
   SlidersHorizontal,
   UserCog,
-  UserPlus,
+  Users,
 } from "lucide-react";
 import {
   AccountFormPanel,
   type AccountFormMode,
 } from "@/components/settings/AccountFormPanel";
+import { AccountManagementPanel } from "@/components/settings/AccountManagementPanel";
 import type { AdminSettings } from "@/hooks/useAdminSettings";
+import { useUserRole } from "@/hooks/useUserRole";
 
 type NotificationPermissionState = "unsupported" | NotificationPermission;
 
@@ -86,73 +88,12 @@ export function AppSettingsPanel({
     );
   const [localAccountForm, setLocalAccountForm] =
     useState<AccountFormMode | null>(null);
-  const [userProfile, setUserProfile] = useState<{
-    name: string;
-    role: string;
-    avatar: string;
-  } | null>(null);
-
-  useEffect(() => {
-    let isMounted = true;
-
-    async function fetchUser() {
-      const supabase = createClient();
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-      if (!user) {
-        if (isMounted) {
-          setUserProfile(null);
-        }
-        return;
-      }
-
-      const { data: account } = await supabase
-        .from("accounts")
-        .select("*")
-        .eq("id", user.id)
-        .single();
-
-      const name =
-        account?.name ||
-        user.user_metadata?.full_name ||
-        user.email?.split("@")[0] ||
-        "Admin";
-      const role = account?.role || "SIMOBI Operator";
-      const avatar = name.charAt(0).toUpperCase();
-
-      if (isMounted) {
-        setUserProfile({ name, role, avatar });
-      }
-    }
-    void fetchUser();
-
-    const supabase = createClient();
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange((event, session) => {
-      if (!isMounted) return;
-
-      if (event === "SIGNED_OUT" || !session?.user) {
-        setUserProfile(null);
-        setLocalAccountForm(null);
-        onAccountFormChange?.(null);
-        return;
-      }
-
-      void fetchUser();
-    });
-
-    return () => {
-      isMounted = false;
-      subscription.unsubscribe();
-    };
-  }, [onAccountFormChange]);
+  const [accountManagementOpen, setAccountManagementOpen] = useState(false);
+  const { userProfile, isAdmin, isDriver } = useUserRole();
 
   const isDashboardMode = mode === "admin";
-  const isAdminRole = userProfile?.role === "Admin";
-  const isDriverRole = userProfile?.role === "Driver";
-  const activeAccountForm = controlledAccountForm ?? localAccountForm;
+  const rawAccountForm = controlledAccountForm ?? localAccountForm;
+  const activeAccountForm = userProfile ? rawAccountForm : null;
 
   const setActiveAccountForm = (nextMode: AccountFormMode | null) => {
     if (onAccountFormChange) {
@@ -174,8 +115,8 @@ export function AppSettingsPanel({
   };
 
   const handleLogout = async () => {
-    setUserProfile(null);
     setActiveAccountForm(null);
+    setAccountManagementOpen(false);
 
     if (onLogout) {
       await onLogout();
@@ -196,12 +137,18 @@ export function AppSettingsPanel({
           ? "Diblokir"
           : "Belum diminta";
 
-  if (activeAccountForm && (activeAccountForm === "edit" || isAdminRole)) {
+  if (activeAccountForm && (activeAccountForm === "edit" || isAdmin)) {
     return (
       <AccountFormPanel
         mode={activeAccountForm}
         onClose={() => setActiveAccountForm(null)}
       />
+    );
+  }
+
+  if (isAdmin && accountManagementOpen) {
+    return (
+      <AccountManagementPanel onClose={() => setAccountManagementOpen(false)} />
     );
   }
 
@@ -212,7 +159,7 @@ export function AppSettingsPanel({
           <h2 className="text-[17px] font-bold text-slate-900">Settings</h2>
           <p className="text-[11px] text-slate-400">
             {isDashboardMode
-              ? isDriverRole
+              ? isDriver
                 ? "Profil driver dan akses data armada"
                 : "Akun dan preferensi dashboard admin"
               : "Profil dan preferensi aplikasi"}
@@ -240,7 +187,7 @@ export function AppSettingsPanel({
           </div>
 
           {userProfile ? (
-            <div className="mt-4 flex gap-2">
+            <div className="mt-4 flex flex-wrap gap-2">
               <button
                 type="button"
                 onClick={() => setActiveAccountForm("edit")}
@@ -249,20 +196,22 @@ export function AppSettingsPanel({
                 <UserCog className="h-4 w-4" />
                 Edit Account
               </button>
-              {isAdminRole ? (
+              {isAdmin ? (
                 <button
                   type="button"
-                  onClick={() => setActiveAccountForm("create")}
-                  className="flex-1 inline-flex items-center justify-center gap-2 rounded-2xl bg-[#0f1a3b] px-3 py-2.5 text-[12px] font-bold text-white transition hover:bg-slate-900 active:scale-[0.98]"
+                  onClick={() => setAccountManagementOpen(true)}
+                  className="flex-1 inline-flex items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-[12px] font-bold text-slate-700 transition hover:border-[#0f1a3b] hover:text-[#0f1a3b] active:scale-[0.98]"
                 >
-                  <UserPlus className="h-4 w-4" />
-                  Create Account
+                  <Users className="h-4 w-4" />
+                  Manage Accounts
                 </button>
               ) : null}
               <button
                 type="button"
                 onClick={() => void handleLogout()}
-                className="inline-flex items-center justify-center gap-2 rounded-2xl border border-rose-100 bg-rose-50 px-3 py-2.5 text-[12px] font-bold text-rose-600 transition hover:border-rose-200 hover:bg-rose-100 active:scale-[0.98]"
+                className={`inline-flex items-center justify-center gap-2 rounded-2xl border border-rose-100 bg-rose-50 px-3 py-2.5 text-[12px] font-bold text-rose-600 transition hover:border-rose-200 hover:bg-rose-100 active:scale-[0.98] ${
+                  isAdmin ? "w-full" : ""
+                }`}
               >
                 <LogOut className="h-4 w-4" />
                 Logout
@@ -327,7 +276,7 @@ export function AppSettingsPanel({
           </p>
         </div>
 
-        {isAdminRole ? (
+        {isAdmin ? (
           <div className={settingCardClass}>
             <div className="flex min-w-0 items-center gap-3">
               <span className="grid size-10 shrink-0 place-items-center rounded-2xl bg-amber-50 text-amber-600">
@@ -376,7 +325,7 @@ export function AppSettingsPanel({
           />
         </div>
 
-        {isAdminRole ? (
+        {isAdmin ? (
           <div className={settingCardClass}>
             <div className="flex min-w-0 items-center gap-3">
               <span className="grid size-10 shrink-0 place-items-center rounded-2xl bg-violet-50 text-violet-600">
@@ -405,14 +354,14 @@ export function AppSettingsPanel({
         ) : null}
 
         <div className="flex items-center gap-2 rounded-[18px] border border-slate-200/80 bg-slate-50 px-3 py-2.5 text-[11px] font-semibold text-slate-500">
-          {isAdminRole ? (
+          {isAdmin ? (
             <ShieldCheck className="h-4 w-4 shrink-0 text-emerald-600" />
           ) : (
             <KeyRound className="h-4 w-4 shrink-0 text-slate-500" />
           )}
-          {isAdminRole
+          {isAdmin
             ? "Session admin mengikuti autentikasi yang sudah aktif."
-            : isDriverRole
+            : isDriver
               ? "Driver hanya dapat melihat armada yang ditugaskan."
               : userProfile
                 ? "Akun pengguna aktif untuk fitur publik."

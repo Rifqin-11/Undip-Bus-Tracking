@@ -10,6 +10,7 @@ import { getErrorMessage } from "@/lib/utils/error-message";
 
 type BuggyOperationalDetailProps = {
   buggy: Buggy;
+  assignedDriverName?: string | null;
   activeZones: string[];
   onBack: () => void;
   /** Dipanggil setelah buggy berhasil dihapus — bisa berbeda dari onBack jika perlu refresh */
@@ -20,6 +21,7 @@ type BuggyOperationalDetailProps = {
 
 export function BuggyOperationalDetail({
   buggy,
+  assignedDriverName,
   activeZones,
   onBack,
   onDeleteSuccess,
@@ -68,6 +70,7 @@ export function BuggyOperationalDetail({
   const rows: { label: string; value: string }[] = [
     { label: "Kode Armada", value: buggy.code },
     { label: "Nama", value: buggy.name },
+    { label: "Driver", value: assignedDriverName || "-" },
     { label: "Rute", value: buggy.routeLabel || "-" },
     {
       label: "Koordinat",

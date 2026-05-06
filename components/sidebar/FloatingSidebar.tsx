@@ -1,9 +1,9 @@
 "use client";
 
 import { usePathname, useRouter } from "next/navigation";
-import { useState, useEffect } from "react";
 import { Settings } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
+import { useUserRole } from "@/hooks/useUserRole";
 import {
   BuggyIcon,
   HalteIcon,
@@ -39,47 +39,16 @@ export function FloatingSidebar({
   const isOnOperatorPage = isOnAdminPage || pathname.startsWith("/driver");
   const shouldShowDataButton = isOnOperatorPage && showDataButton;
   const shouldShowSettingsButton = showSettingsButton;
-
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
-
-  useEffect(() => {
-    let isMounted = true;
-    const supabase = createClient();
-
-    async function checkAuth() {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-      if (isMounted) {
-        setIsLoggedIn(!!user);
-      }
-    }
-
-    void checkAuth();
-
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
-      if (isMounted) {
-        setIsLoggedIn(!!session?.user);
-      }
-    });
-
-    return () => {
-      isMounted = false;
-      subscription.unsubscribe();
-    };
-  }, []);
+  const { isAuthenticated } = useUserRole();
 
   const handleAdminButtonClick = async () => {
-    if (isLoggedIn || isOnOperatorPage) {
+    if (isAuthenticated || isOnOperatorPage) {
       try {
         const supabase = createClient();
         await supabase.auth.signOut();
       } catch (err) {
         console.error("Logout failed:", err);
       }
-      setIsLoggedIn(false);
       router.push("/");
       router.refresh();
       return;
@@ -174,13 +143,11 @@ export function FloatingSidebar({
         ) : null}
         <button
           className="grid h-11 w-11 place-items-center rounded-2xl border border-[#0f1a3b] bg-[#0f1a3b] text-white transition hover:bg-white hover:text-[#0f1a3b] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-300"
-          aria-label={
-            isLoggedIn || isOnOperatorPage ? "Logout" : "Login"
-          }
+          aria-label={isAuthenticated || isOnOperatorPage ? "Logout" : "Login"}
           type="button"
           onClick={handleAdminButtonClick}
         >
-          {isLoggedIn || isOnOperatorPage ? (
+          {isAuthenticated || isOnOperatorPage ? (
             <LogoutIcon className="h-5 w-5" />
           ) : (
             <LoginIcon className="h-5 w-5" />

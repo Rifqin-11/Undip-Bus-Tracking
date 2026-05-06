@@ -25,10 +25,15 @@ import {
   DEFAULT_ADMIN_SETTINGS,
   useAdminSettings,
 } from "@/hooks/useAdminSettings";
+import { useUserRole } from "@/hooks/useUserRole";
 import { GoogleMapsService } from "@/lib/services/google-maps-service";
 import type { PanelView } from "@/types/buggy";
 import type { DirectionResult } from "@/components/panel/DirectionPanel";
 import { createClient } from "@/lib/supabase/client";
+import {
+  isBuggyAssignedToValue,
+  resolveAssignedBuggy,
+} from "@/lib/buggy/assignment";
 import type { LatLngLiteral } from "@/types/map-canvas";
 import type { Geofence, GeofenceEvent } from "@/types/geofence";
 import { LogoutIcon, MapPinSolidIcon, BellIcon } from "@/components/ui/Icons";
@@ -39,6 +44,16 @@ const GEOFENCE_EVENT_LIMIT = 100;
 const GEOFENCE_EVENT_COOLDOWN_MS = 10_000;
 const TOAST_LIMIT = 4;
 const TOAST_TTL_MS = 4_500;
+
+type DriverAssignmentAccount = {
+  name?: string | null;
+  role?: string | null;
+  buggy_id?: string | null;
+};
+
+type AccountsResponse = {
+  accounts?: DriverAssignmentAccount[];
+};
 
 function makeId() {
   if (
@@ -115,6 +130,11 @@ function getRouteBetweenHaltes(
 export default function DashboardPage() {
   const realtimeFeed = useBuggyLiveFeed();
   const { settings, updateSetting } = useAdminSettings();
+  const { userProfile, isAdmin: isAdminUser, isDriver: isDriverUser } =
+    useUserRole();
+  const [driverNamesByBuggyId, setDriverNamesByBuggyId] = useState<
+    Record<string, string>
+  >({});
 
   // localBuggies: hasil fetch langsung setelah add/delete agar list update instan
   const [localBuggies, setLocalBuggies] = useState<Buggy[] | null>(null);
@@ -141,6 +161,9 @@ export default function DashboardPage() {
     DEFAULT_ADMIN_SETTINGS.openPanelOnDashboard,
   );
   const [selectedBuggyId, setSelectedBuggyId] = useState<string | null>(null);
+  const [selectedAdminBuggyId, setSelectedAdminBuggyId] = useState<
+    string | null
+  >(null);
   const [mapFollowingBuggyId, setMapFollowingBuggyId] = useState<string | null>(
     null,
   );
@@ -157,40 +180,6 @@ export default function DashboardPage() {
 
   const [activeGeofences, setActiveGeofences] = useState<Geofence[]>([]);
 
-  const [userProfile, setUserProfile] = useState<{
-    name: string;
-    role: string;
-    avatar: string;
-    buggy_id?: string;
-  } | null>(null);
-
-  useEffect(() => {
-    async function fetchUser() {
-      const supabase = createClient();
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-      if (!user) return;
-
-      const { data: account } = await supabase
-        .from("accounts")
-        .select("*")
-        .eq("id", user.id)
-        .single();
-
-      const name =
-        account?.name ||
-        user.user_metadata?.full_name ||
-        user.email?.split("@")[0] ||
-        "Admin";
-      const role = account?.role || "SIMOBI Operator";
-      const avatar = name.charAt(0).toUpperCase();
-
-      setUserProfile({ name, role, avatar, buggy_id: account?.buggy_id });
-    }
-    fetchUser();
-  }, []);
-
   const [geofences, setGeofences] = useState<Geofence[]>([]);
   const [geofenceLoading, setGeofenceLoading] = useState(true);
   const [geofenceCreateMode, setGeofenceCreateMode] = useState(false);
@@ -206,24 +195,107 @@ export default function DashboardPage() {
 
   const driverFilteredBuggies = useMemo(() => {
     if (userProfile?.role === "Driver" && userProfile.buggy_id) {
-      return liveBuggies.filter((b) => b.id === userProfile.buggy_id);
+      return liveBuggies.filter((buggy) =>
+        isBuggyAssignedToValue(buggy, userProfile.buggy_id),
+      );
     }
     if (userProfile?.role === "Driver") {
       return [];
     }
     return liveBuggies;
   }, [liveBuggies, userProfile]);
-  const isAdminUser = userProfile?.role === "Admin";
-  const isDriverUser = userProfile?.role === "Driver";
+
+  const loadDriverAssignments = useCallback(async () => {
+    if (isDriverUser) {
+      const assignedBuggy = resolveAssignedBuggy(
+        userProfile?.buggy_id,
+        liveBuggies,
+      );
+
+      setDriverNamesByBuggyId(
+        assignedBuggy
+          ? { [assignedBuggy.id]: userProfile?.name ?? "Driver" }
+          : {},
+      );
+      return;
+    }
+
+    if (!isAdminUser) {
+      setDriverNamesByBuggyId({});
+      return;
+    }
+
+    try {
+      const response = await fetch("/api/admin/accounts", {
+        cache: "no-store",
+      });
+
+      if (!response.ok) {
+        setDriverNamesByBuggyId({});
+        return;
+      }
+
+      const payload = (await response.json()) as AccountsResponse;
+      const nextAssignments: Record<string, string[]> = {};
+
+      for (const account of payload.accounts ?? []) {
+        if (account.role !== "Driver" || !account.buggy_id) continue;
+
+        const assignedBuggy = resolveAssignedBuggy(
+          account.buggy_id,
+          liveBuggies,
+        );
+        if (!assignedBuggy) continue;
+
+        const driverName = account.name?.trim();
+        if (!driverName) continue;
+
+        nextAssignments[assignedBuggy.id] = [
+          ...(nextAssignments[assignedBuggy.id] ?? []),
+          driverName,
+        ];
+      }
+
+      setDriverNamesByBuggyId(
+        Object.fromEntries(
+          Object.entries(nextAssignments).map(([buggyId, names]) => [
+            buggyId,
+            names.join(", "),
+          ]),
+        ),
+      );
+    } catch {
+      setDriverNamesByBuggyId({});
+    }
+  }, [
+    isAdminUser,
+    isDriverUser,
+    liveBuggies,
+    userProfile?.buggy_id,
+    userProfile?.name,
+  ]);
+
+  useEffect(() => {
+    if (activeView !== "data" && activeView !== "data-detail") return;
+
+    void loadDriverAssignments();
+  }, [activeView, loadDriverAssignments, selectedAdminBuggyId]);
+
   const canManageDashboard = isAdminUser;
   const visibleBuggies = driverFilteredBuggies;
+  const selectedAdminBuggy = useMemo(() => {
+    if (!selectedAdminBuggyId) return null;
+
+    return (
+      liveBuggies.find((buggy) => buggy.id === selectedAdminBuggyId) ??
+      visibleBuggies[0] ??
+      null
+    );
+  }, [liveBuggies, selectedAdminBuggyId, visibleBuggies]);
   const [geofenceEvents, setGeofenceEvents] = useState<GeofenceEvent[]>([]);
   const [toasts, setToasts] = useState<ToastItem[]>([]);
   const browserNotificationEnabled = settings.browserNotificationEnabled;
   const [historyPath, setHistoryPath] = useState<[number, number][]>([]);
-  const [selectedAdminBuggyId, setSelectedAdminBuggyId] = useState<
-    string | null
-  >(null);
   const [mobileAdminMenuOpen, setMobileAdminMenuOpen] = useState(false);
   const [desktopAdminMenuOpen, setDesktopAdminMenuOpen] = useState(false);
   const [settingsAccountForm, setSettingsAccountForm] =
@@ -426,6 +498,9 @@ export default function DashboardPage() {
     } catch {
       // noop
     }
+    setMobileAdminMenuOpen(false);
+    setDesktopAdminMenuOpen(false);
+    setSettingsAccountForm(null);
     window.location.href = "/";
   };
 
@@ -1334,13 +1409,11 @@ export default function DashboardPage() {
           />
         }
         dataDetailViewContent={
-          selectedAdminBuggyId ? (
+          selectedAdminBuggy ? (
             <BuggyOperationalDetail
-              buggy={
-                liveBuggies.find((b) => b.id === selectedAdminBuggyId) ??
-                visibleBuggies[0]
-              }
-              activeZones={geofenceStatuses[selectedAdminBuggyId] ?? []}
+              buggy={selectedAdminBuggy}
+              assignedDriverName={driverNamesByBuggyId[selectedAdminBuggy.id]}
+              activeZones={geofenceStatuses[selectedAdminBuggy.id] ?? []}
               onBack={() => {
                 setSelectedAdminBuggyId(null);
                 setActiveView("data");

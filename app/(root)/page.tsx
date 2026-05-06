@@ -20,6 +20,7 @@ import { useAdminSettings, type AdminSettings } from "@/hooks/useAdminSettings";
 import { HALTE_LOCATIONS, OFFICIAL_ROUTE_PATH } from "@/lib/transit/buggy-data";
 import { haversineMeters } from "@/lib/transit/buggy-route-utils";
 import { useBuggyLiveFeed } from "@/hooks/useBuggyLiveFeed";
+import { useUserRole } from "@/hooks/useUserRole";
 import { GoogleMapsService } from "@/lib/services/google-maps-service";
 import type { PanelView } from "@/types/buggy";
 import type { DirectionResult } from "@/components/panel/DirectionPanel";
@@ -91,6 +92,11 @@ export default function DashboardPage() {
   const router = useRouter();
   const realtimeFeed = useBuggyLiveFeed();
   const { settings, updateSetting } = useAdminSettings();
+  const {
+    userProfile,
+    loading: userLoading,
+    isAuthenticated,
+  } = useUserRole();
   const liveBuggies = useMemo(
     () => (realtimeFeed.liveBuggies ?? []).filter((buggy) => buggy.isActive),
     [realtimeFeed.liveBuggies],
@@ -107,45 +113,6 @@ export default function DashboardPage() {
     lat: number;
     lng: number;
   } | null>(null);
-
-  const [userProfile, setUserProfile] = useState<{
-    name: string;
-    role: string;
-    avatar: string;
-  } | null>(null);
-  const [userLoading, setUserLoading] = useState(true);
-
-  useEffect(() => {
-    async function fetchUser() {
-      const supabase = createClient();
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-      if (!user) {
-        setUserProfile(null);
-        setUserLoading(false);
-        return;
-      }
-
-      const { data: account } = await supabase
-        .from("accounts")
-        .select("*")
-        .eq("id", user.id)
-        .single();
-
-      const name =
-        account?.name ||
-        user.user_metadata?.full_name ||
-        user.email?.split("@")[0] ||
-        "Admin";
-      const role = account?.role || "Pengguna umum";
-      const avatar = name.charAt(0).toUpperCase();
-
-      setUserProfile({ name, role, avatar });
-      setUserLoading(false);
-    }
-    void fetchUser();
-  }, []);
 
   // Toast notifications state
   const [toasts, setToasts] = useState<ToastItem[]>([]);
@@ -170,7 +137,7 @@ export default function DashboardPage() {
       return false;
     }
 
-    if (userProfile) {
+    if (isAuthenticated) {
       return true;
     }
 
@@ -182,12 +149,15 @@ export default function DashboardPage() {
     });
     router.push("/login?next=/");
     return false;
-  }, [addToast, router, userLoading, userProfile]);
+  }, [addToast, isAuthenticated, router, userLoading]);
 
   const handleLogout = useCallback(async () => {
     const supabase = createClient();
     await supabase.auth.signOut();
-    setUserProfile(null);
+    setDirectionResult(null);
+    setFromInput("");
+    setToInput("");
+    setSearchStep("destination");
     router.push("/");
     router.refresh();
   }, [router]);

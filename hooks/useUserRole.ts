@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 
 export type UserRole = "Admin" | "Driver" | "Pengguna umum" | null;
@@ -21,43 +21,74 @@ export function useUserRole() {
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
 
+  const fetchUserProfile = useCallback(async () => {
+    setLoading(true);
+    const supabase = createClient();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (!user) {
+      setUserProfile(null);
+      setLoading(false);
+      return null;
+    }
+
+    const { data: account } = await supabase
+      .from("accounts")
+      .select("*")
+      .eq("id", user.id)
+      .single();
+
+    const name =
+      account?.name ||
+      user.user_metadata?.full_name ||
+      user.email?.split("@")[0] ||
+      "User";
+    const role = (account?.role as UserRole) || "Pengguna umum";
+    const avatar = name.charAt(0).toUpperCase();
+    const nextProfile = {
+      id: user.id,
+      name,
+      role,
+      avatar,
+      buggy_id: account?.buggy_id || null,
+    };
+
+    setUserProfile(nextProfile);
+    setLoading(false);
+    return nextProfile;
+  }, []);
+
   useEffect(() => {
-    async function fetchUser() {
-      const supabase = createClient();
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-      if (!user) {
+    let isMounted = true;
+    const supabase = createClient();
+
+    async function syncUserProfile() {
+      if (!isMounted) return;
+      await fetchUserProfile();
+    }
+
+    void syncUserProfile();
+
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((event, session) => {
+      if (!isMounted) return;
+
+      if (event === "SIGNED_OUT" || !session?.user) {
         setUserProfile(null);
         setLoading(false);
         return;
       }
 
-      const { data: account } = await supabase
-        .from("accounts")
-        .select("*")
-        .eq("id", user.id)
-        .single();
+      void fetchUserProfile();
+    });
 
-      const name =
-        account?.name ||
-        user.user_metadata?.full_name ||
-        user.email?.split("@")[0] ||
-        "User";
-      const role = (account?.role as UserRole) || "Pengguna umum";
-      const avatar = name.charAt(0).toUpperCase();
-
-      setUserProfile({
-        id: user.id,
-        name,
-        role,
-        avatar,
-        buggy_id: account?.buggy_id || null,
-      });
-      setLoading(false);
-    }
-    fetchUser();
-  }, []);
+    return () => {
+      isMounted = false;
+      subscription.unsubscribe();
+    };
+  }, [fetchUserProfile]);
 
   const isAdmin = userProfile?.role === "Admin";
   const isDriver = userProfile?.role === "Driver";
@@ -72,41 +103,7 @@ export function useUserRole() {
     isPenggunaUmum,
     isAuthenticated,
     role: userProfile?.role,
-    refresh: async () => {
-      setLoading(true);
-      const supabase = createClient();
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-      if (!user) {
-        setUserProfile(null);
-        setLoading(false);
-        return;
-      }
-
-      const { data: account } = await supabase
-        .from("accounts")
-        .select("*")
-        .eq("id", user.id)
-        .single();
-
-      const name =
-        account?.name ||
-        user.user_metadata?.full_name ||
-        user.email?.split("@")[0] ||
-        "User";
-      const role = (account?.role as UserRole) || "Pengguna umum";
-      const avatar = name.charAt(0).toUpperCase();
-
-      setUserProfile({
-        id: user.id,
-        name,
-        role,
-        avatar,
-        buggy_id: account?.buggy_id || null,
-      });
-      setLoading(false);
-    },
+    refresh: fetchUserProfile,
   };
 }
 

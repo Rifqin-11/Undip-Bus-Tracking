@@ -1,8 +1,9 @@
 "use client";
 
 import { ChevronLeft, Save, Loader2 } from "lucide-react";
-import { useState, useEffect } from "react";
+import { useMemo, useState, useEffect } from "react";
 import { createClient } from "@/lib/supabase/client";
+import type { Buggy } from "@/types/buggy";
 
 export type AccountFormMode = "edit" | "create";
 
@@ -10,6 +11,14 @@ type AccountFormPanelProps = {
   mode: AccountFormMode;
   onClose: () => void;
 };
+
+const fallbackBuggyOptions = [
+  { id: "buggy-1", label: "Buggy 01" },
+  { id: "buggy-2", label: "Buggy 02" },
+  { id: "buggy-3", label: "Buggy 03" },
+  { id: "buggy-4", label: "Buggy 04" },
+  { id: "buggy-5", label: "Buggy 05" },
+];
 
 export function AccountFormPanel({ mode, onClose }: AccountFormPanelProps) {
   const isCreate = mode === "create";
@@ -20,6 +29,7 @@ export function AccountFormPanel({ mode, onClose }: AccountFormPanelProps) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
+  const [buggyOptions, setBuggyOptions] = useState(fallbackBuggyOptions);
 
   const [errorMsg, setErrorMsg] = useState("");
   const [isLoading, setIsLoading] = useState(false);
@@ -40,6 +50,39 @@ export function AccountFormPanel({ mode, onClose }: AccountFormPanelProps) {
     }
     loadUserData();
   }, [isCreate]);
+
+  useEffect(() => {
+    async function loadBuggyOptions() {
+      try {
+        const response = await fetch("/api/buggy", { cache: "no-store" });
+        if (!response.ok) return;
+
+        const buggies = (await response.json()) as Buggy[];
+        const nextOptions = buggies.map((buggy) => ({
+          id: buggy.id,
+          label: `${buggy.code} - ${buggy.name}`,
+        }));
+
+        if (nextOptions.length > 0) {
+          setBuggyOptions(nextOptions);
+        }
+      } catch {
+        // Tetap pakai opsi fallback.
+      }
+    }
+
+    if (isCreate) {
+      void loadBuggyOptions();
+    }
+  }, [isCreate]);
+
+  const visibleBuggyOptions = useMemo(() => {
+    if (!buggyId || buggyOptions.some((buggy) => buggy.id === buggyId)) {
+      return buggyOptions;
+    }
+
+    return [{ id: buggyId, label: buggyId }, ...buggyOptions];
+  }, [buggyId, buggyOptions]);
 
   useEffect(() => {
     if (confirmPassword && password !== confirmPassword) {
@@ -110,7 +153,7 @@ export function AccountFormPanel({ mode, onClose }: AccountFormPanelProps) {
 
         const { error: accountError } = await supabase
           .from("accounts")
-          .update({ name: name.trim(), email: email.trim() })
+          .update({ name: name.trim() })
           .eq("id", user.id);
 
         if (accountError) {
@@ -201,11 +244,11 @@ export function AccountFormPanel({ mode, onClose }: AccountFormPanelProps) {
                 <option value="" disabled>
                   Pilih Buggy
                 </option>
-                <option value="buggy-1">Buggy 01</option>
-                <option value="buggy-2">Buggy 02</option>
-                <option value="buggy-3">Buggy 03</option>
-                <option value="buggy-4">Buggy 04</option>
-                <option value="buggy-5">Buggy 05</option>
+                {visibleBuggyOptions.map((buggy) => (
+                  <option key={buggy.id} value={buggy.id}>
+                    {buggy.label}
+                  </option>
+                ))}
               </select>
             </label>
           )}
