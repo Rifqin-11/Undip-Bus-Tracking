@@ -1,6 +1,7 @@
 "use client";
 
 import { FormEvent, useState } from "react";
+import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import logo from "@/public/logo.svg";
@@ -145,9 +146,11 @@ export function AuthForm({
         <div className="hidden rounded-3xl bg-gradient-to-br from-[#0f1a3b] via-[#1a2b59] to-[#29508f] p-8 text-white md:flex md:flex-col md:justify-between">
           <div>
             <div className="mb-6 flex items-center gap-3">
-              <img
+              <Image
                 src={logo.src}
                 alt="Logo SIMOBI"
+                width={44}
+                height={44}
                 className="h-11 w-11 rounded-xl bg-white/90 p-1.5 object-contain"
               />
               <div>
@@ -181,9 +184,11 @@ export function AuthForm({
 
         <div className="rounded-3xl border border-white/45 bg-white/70 p-5 backdrop-blur-xl sm:p-7">
           <div className="mb-6 flex items-center gap-3 md:hidden">
-            <img
+            <Image
               src={logo.src}
               alt="Logo SIMOBI"
+              width={44}
+              height={44}
               className="h-11 w-11 rounded-xl border border-slate-200/80 bg-white p-1.5 object-contain"
             />
             <div>

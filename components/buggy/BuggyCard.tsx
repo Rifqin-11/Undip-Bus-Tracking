@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import type { Buggy } from "@/types/buggy";
 import { getBuggyStopNameAtOffset } from "@/lib/transit/buggy-route-utils";
 
@@ -36,10 +37,12 @@ export function BuggyCard({
       }}
     >
       {/* Background Vehicle Image */}
-      <div className="absolute -right-4 top-1 w-[140px] opacity-90 transition-transform duration-500 group-hover:-translate-x-1">
-        <img
+      <div className="absolute -right-4 top-1 h-[92px] w-[140px] opacity-90 transition-transform duration-500 group-hover:-translate-x-1">
+        <Image
           src="/buggy.webp"
           alt="Buggy EV"
+          fill
+          sizes="140px"
           className="w-full h-full object-contain mix-blend-multiply drop-shadow-sm"
         />
       </div>

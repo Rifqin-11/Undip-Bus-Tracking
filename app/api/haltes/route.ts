@@ -4,6 +4,7 @@ import { getHalteLocations, setHalteLocations } from "@/lib/transit/halte-runtim
 import { bootstrapFromDatabase } from "@/lib/supabase/data-loader";
 import type { HaltePoint } from "@/types/buggy";
 import { getErrorMessage } from "@/lib/utils/error-message";
+import { PUBLIC_SEMI_STATIC_CACHE_HEADERS } from "@/lib/http/cache";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -15,7 +16,9 @@ export async function GET() {
   // Ambil langsung dari DB supaya admin selalu dapat data terbaru (termasuk is_active false)
   const supabase = createAdminClient();
   if (!supabase) {
-    return NextResponse.json(getHalteLocations());
+    return NextResponse.json(getHalteLocations(), {
+      headers: PUBLIC_SEMI_STATIC_CACHE_HEADERS,
+    });
   }
 
   const { data, error } = await supabase
@@ -24,7 +27,9 @@ export async function GET() {
     .order("sort_order", { ascending: true });
 
   if (error || !data) {
-    return NextResponse.json(getHalteLocations());
+    return NextResponse.json(getHalteLocations(), {
+      headers: PUBLIC_SEMI_STATIC_CACHE_HEADERS,
+    });
   }
 
   type HalteRow = {
@@ -49,7 +54,9 @@ export async function GET() {
     sortOrder: row.sort_order,
   }));
 
-  return NextResponse.json(haltes);
+  return NextResponse.json(haltes, {
+    headers: PUBLIC_SEMI_STATIC_CACHE_HEADERS,
+  });
 }
 
 /** POST /api/haltes — tambah halte baru (admin only) */

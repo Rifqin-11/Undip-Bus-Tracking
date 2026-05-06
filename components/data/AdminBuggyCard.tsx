@@ -1,3 +1,4 @@
+import Image from "next/image";
 import type { Buggy } from "@/types/buggy";
 import { ChevronRight } from "lucide-react";
 
@@ -22,10 +23,12 @@ export function AdminBuggyCard({
         {/* Left: Image & Titles */}
         <div className="flex flex-1 items-center gap-3">
           {/* Image Container */}
-          <div className="h-[36px] w-[54px] shrink-0 overflow-hidden flex items-center justify-center grayscale-[0.2] transition group-hover:grayscale-0">
-            <img
+          <div className="relative h-[36px] w-[54px] shrink-0 overflow-hidden flex items-center justify-center grayscale-[0.2] transition group-hover:grayscale-0">
+            <Image
               src="/buggy.webp"
               alt="buggy"
+              fill
+              sizes="54px"
               className="w-full h-full object-contain mix-blend-multiply opacity-90"
             />
           </div>

@@ -1,6 +1,7 @@
 "use client";
 
 import { usePathname, useRouter } from "next/navigation";
+import Image from "next/image";
 import { Settings } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { useUserRole } from "@/hooks/useUserRole";
@@ -75,9 +76,11 @@ export function FloatingSidebar({
       }}
     >
       <div className="flex h-12 w-12 overflow-hidden rounded-full">
-        <img
+        <Image
           src={logo.src}
           alt="Logo"
+          width={48}
+          height={48}
           className="h-12 w-12 rounded-full object-cover"
         />
       </div>

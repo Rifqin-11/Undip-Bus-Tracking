@@ -1,11 +1,14 @@
 import { NextResponse } from "next/server";
 import { createGeofence, readGeofences } from "@/lib/geofence-store";
+import { PRIVATE_SEMI_STATIC_CACHE_HEADERS } from "@/lib/http/cache";
 
 export const runtime = "nodejs";
 
 export async function GET() {
   const geofences = await readGeofences();
-  return NextResponse.json(geofences);
+  return NextResponse.json(geofences, {
+    headers: PRIVATE_SEMI_STATIC_CACHE_HEADERS,
+  });
 }
 
 export async function POST(request: Request) {

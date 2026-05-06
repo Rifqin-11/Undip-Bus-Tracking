@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createAdminClient, getBuggySessionTableName } from "@/lib/supabase/server";
+import { PRIVATE_SEMI_STATIC_CACHE_HEADERS } from "@/lib/http/cache";
 import { getErrorMessage } from "@/lib/utils/error-message";
 
 export const runtime = "nodejs";
@@ -173,6 +174,8 @@ export async function GET(request: Request) {
         dailySeries,
         topBuggies,
       }
+    }, {
+      headers: PRIVATE_SEMI_STATIC_CACHE_HEADERS,
     });
 
   } catch (err) {

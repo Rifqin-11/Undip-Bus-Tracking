@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Image from "next/image";
 import type { Buggy } from "@/types/buggy";
 import { getBuggyStopNameAtOffset } from "@/lib/transit/buggy-route-utils";
 import { ChevronLeft, Edit2Icon } from "lucide-react";
@@ -146,9 +147,11 @@ export function BuggyOperationalDetail({
       <div className="rounded-3xl border border-slate-200/80 bg-white/70 p-4">
         {/* Cover Image */}
         <div className="relative h-44 w-full flex justify-center mb-3">
-          <img
+          <Image
             src="/buggy.webp"
             alt="Buggy EV"
+            fill
+            sizes="(max-width: 768px) 92vw, 420px"
             className="h-full w-full object-contain mix-blend-multiply drop-shadow-xl opacity-95"
           />
         </div>
