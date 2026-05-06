@@ -1302,7 +1302,7 @@ export default function DashboardPage() {
             aria-label="Menu account"
             aria-expanded={desktopAdminMenuOpen}
             onClick={() => setDesktopAdminMenuOpen((open) => !open)}
-            className="flex w-full items-center gap-3 rounded-full border border-white/60 bg-white px-3 py-2 text-left shadow-[0_10px_30px_rgba(15,23,42,0.12)] backdrop-blur-xl transition hover:bg-white/90 active:scale-[0.98]"
+            className="flex w-full items-center gap-3 rounded-full border border-white/60 bg-white px-3 py-2 text-left shadow-[0_10px_30px_rgba(15,23,42,0.12)] backdrop-blur-xl transition hover:bg-white/90 active:scale-[0.98] min-w-[150px]"
           >
             <div className="grid size-8 place-items-center rounded-full bg-[#0f1a3b] text-sm font-black text-white">
               {userProfile?.avatar ?? "A"}
@@ -1317,7 +1317,7 @@ export default function DashboardPage() {
             </div>
           </button>
           {desktopAdminMenuOpen ? (
-            <div className="absolute right-0 top-full mt-1 w-full min-w-[150px] rounded-[22px] border border-white/70 bg-slate-100 p-1.5 text-slate-800 shadow-[0_14px_40px_rgba(15,23,42,0.16)] backdrop-blur-xl">
+            <div className="absolute right-0 top-full mt-1 w-full min-w-[150px] rounded-[22px] border border-white/70 bg-white/95 p-1.5 text-slate-800 shadow-[0_14px_40px_rgba(15,23,42,0.16)] backdrop-blur-xl">
               <button
                 type="button"
                 onClick={() => handleOpenSettings("edit")}

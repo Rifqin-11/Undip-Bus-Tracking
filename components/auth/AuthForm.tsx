@@ -56,10 +56,6 @@ export function AuthForm({
   };
 
   const getPostLoginPath = async () => {
-    if (safeRedirectTo !== "/admin" && safeRedirectTo !== "/driver") {
-      return safeRedirectTo;
-    }
-
     const {
       data: { user },
     } = await supabase.auth.getUser();
@@ -73,7 +69,9 @@ export function AuthForm({
 
     if (account?.role === "Admin") return "/admin";
     if (account?.role === "Driver") return "/driver";
-    return "/";
+    return safeRedirectTo === "/admin" || safeRedirectTo === "/driver"
+      ? "/"
+      : safeRedirectTo;
   };
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {

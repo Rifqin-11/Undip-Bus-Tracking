@@ -14,7 +14,7 @@ export async function GET(request: Request) {
         data: { user },
       } = await supabase.auth.getUser();
 
-      if (user && (next === "/admin" || next === "/driver")) {
+      if (user) {
         const { data: account } = await supabase
           .from("accounts")
           .select("role")
@@ -32,7 +32,9 @@ export async function GET(request: Request) {
         return NextResponse.redirect(`${origin}/`);
       }
 
-      return NextResponse.redirect(`${origin}${next}`);
+      return NextResponse.redirect(
+        `${origin}${next.startsWith("/") ? next : "/"}`,
+      );
     }
   }
 
