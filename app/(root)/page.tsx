@@ -150,7 +150,7 @@ export default function DashboardPage() {
 
     addToast({
       tone: "warning",
-      title: "Login diperlukan",
+      title: "Sign-In diperlukan",
       description: "Masuk terlebih dahulu untuk menggunakan pencarian rute.",
       duration: 5_000,
     });
@@ -675,7 +675,7 @@ export default function DashboardPage() {
             <button
               type="button"
               onClick={() => openAuthModal("/admin")}
-              aria-label="Login admin"
+              aria-label="Sign-In"
               className="relative flex h-10 w-10 items-center justify-center rounded-full border border-white/20 bg-slate-900/50 text-white backdrop-blur-md transition active:scale-95"
             >
               <LoginIcon className="h-5 w-5" />
@@ -736,10 +736,10 @@ export default function DashboardPage() {
             </div>
             <div className="min-w-0 pr-1">
               <p className="text-[13px] font-extrabold leading-tight text-slate-900">
-                Login
+                Sign-In
               </p>
               <p className="text-[10px] font-semibold leading-tight text-slate-400">
-                Login disini
+                Sign-In disini
               </p>
             </div>
           </button>

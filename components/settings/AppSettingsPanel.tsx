@@ -174,14 +174,14 @@ export function AppSettingsPanel({
             <div className="min-w-0 flex-1">
               <div className="flex flex-wrap items-center gap-2">
                 <h3 className="text-[15px] font-black tracking-tight text-slate-900">
-                  {userProfile?.name ?? (isDashboardMode ? "Admin" : "Login")}
+                  {userProfile?.name ?? (isDashboardMode ? "Admin" : "Guest")}
                 </h3>
               </div>
               <p className="mt-0.5 text-[12px] font-semibold text-slate-400">
                 {userProfile?.role ??
                   (isDashboardMode
                     ? "SIMOBI Operator"
-                    : "Login untuk akses fitur yang lebih lengkap")}
+                    : "Sign-In untuk akses fitur yang lebih lengkap")}
               </p>
             </div>
           </div>
@@ -224,7 +224,7 @@ export function AppSettingsPanel({
               className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-[#0f1a3b] px-3 py-2.5 text-[12px] font-bold text-white transition hover:bg-slate-900 active:scale-[0.98]"
             >
               <LogIn className="h-4 w-4" />
-              Login
+              Sign-In
             </button>
           )}
         </div>
@@ -365,7 +365,7 @@ export function AppSettingsPanel({
               ? "Driver hanya dapat melihat armada yang ditugaskan."
               : userProfile
                 ? "Akun pengguna aktif untuk fitur publik."
-                : "Login diperlukan untuk membuka fitur tambahan."}
+                : "Sign-In diperlukan untuk membuka fitur tambahan."}
         </div>
       </div>
     </section>

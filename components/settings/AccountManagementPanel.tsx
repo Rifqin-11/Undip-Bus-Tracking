@@ -291,7 +291,7 @@ export function AccountManagementPanel({ onClose }: AccountManagementPanelProps)
         <DeleteConfirmModal
           open={deleteTarget?.id === editingAccount.id}
           title="Hapus Akun"
-          description={`Anda yakin ingin menghapus akun ${editingAccount.name}? Aksi ini akan menghapus akses login akun tersebut.`}
+          description={`Anda yakin ingin menghapus akun ${editingAccount.name}? Aksi ini akan menghapus akses masuk akun tersebut.`}
           confirmLabel="Ya, Hapus Akun"
           loadingLabel="Menghapus akun..."
           isLoading={deleting}

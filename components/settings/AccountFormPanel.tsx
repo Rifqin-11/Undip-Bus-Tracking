@@ -127,7 +127,7 @@ export function AccountFormPanel({ mode, onClose }: AccountFormPanelProps) {
         } = await supabase.auth.getUser();
 
         if (!user) {
-          throw new Error("Sesi tidak ditemukan. Silakan login ulang.");
+          throw new Error("Sesi tidak ditemukan. Silakan Sign-In ulang.");
         }
 
         const authUpdate: {
