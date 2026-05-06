@@ -13,15 +13,20 @@ import {
   Zap,
   Timer,
   Clock,
+  MapPin,
+  Route,
 } from "lucide-react";
 import type { Buggy } from "@/types/buggy";
 import type { BuggySession } from "@/types/buggy-session";
+import { HALTE_LOCATIONS } from "@/lib/transit/buggy-data";
+import { haversineMeters } from "@/lib/transit/buggy-route-utils";
 
 type AdminStatisticsPanelProps = {
   buggies: Buggy[];
 };
 
 type StatTone = "navy" | "emerald" | "amber" | "rose" | "slate";
+type ChartDatum = { label: string; value: number; helper?: string };
 
 function formatDelta(current: number, previous: number): string {
   if (previous <= 0) return current > 0 ? "Baru" : "0%";
@@ -69,6 +74,138 @@ function StatTile({
       <p className="mt-1.5 text-[10px] font-medium leading-snug text-slate-400">
         {helper}
       </p>
+    </div>
+  );
+}
+
+function formatMinutes(value: number) {
+  if (value < 60) return `${Math.round(value)} mnt`;
+  const hours = Math.floor(value / 60);
+  const minutes = Math.round(value % 60);
+  return `${hours}j ${minutes}m`;
+}
+
+function getNearestHalteName(lat: number, lng: number) {
+  if (HALTE_LOCATIONS.length === 0) return "Area tidak diketahui";
+
+  let nearest = HALTE_LOCATIONS[0];
+  let nearestDistance = haversineMeters({ lat, lng }, nearest);
+
+  for (const halte of HALTE_LOCATIONS.slice(1)) {
+    const distance = haversineMeters({ lat, lng }, halte);
+    if (distance < nearestDistance) {
+      nearest = halte;
+      nearestDistance = distance;
+    }
+  }
+
+  return nearest.name;
+}
+
+function getMedian(values: number[]) {
+  if (values.length === 0) return 0;
+  const sorted = [...values].sort((a, b) => a - b);
+  const middle = Math.floor(sorted.length / 2);
+  return sorted.length % 2
+    ? sorted[middle]
+    : (sorted[middle - 1] + sorted[middle]) / 2;
+}
+
+function MiniAreaChart({
+  data,
+  color = "#0f1a3b",
+}: {
+  data: ChartDatum[];
+  color?: string;
+}) {
+  const width = 280;
+  const height = 86;
+  const maxValue = Math.max(1, ...data.map((item) => item.value));
+  const step = data.length > 1 ? width / (data.length - 1) : width;
+  const points = data.map((item, index) => {
+    const x = index * step;
+    const y = height - (item.value / maxValue) * (height - 12) - 6;
+    return { x, y, ...item };
+  });
+  const linePath = points
+    .map((point, index) => `${index === 0 ? "M" : "L"} ${point.x} ${point.y}`)
+    .join(" ");
+  const areaPath = `${linePath} L ${width} ${height} L 0 ${height} Z`;
+
+  return (
+    <div className="relative">
+      <svg
+        viewBox={`0 0 ${width} ${height}`}
+        className="h-24 w-full overflow-visible"
+        role="img"
+      >
+        <path d={areaPath} fill={color} opacity="0.12" />
+        <path
+          d={linePath}
+          fill="none"
+          stroke={color}
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          strokeWidth="3"
+        />
+        {points.map((point) => (
+          <circle
+            key={point.label}
+            cx={point.x}
+            cy={point.y}
+            r={point.value > 0 ? 3 : 0}
+            fill={color}
+            opacity="0.8"
+          />
+        ))}
+      </svg>
+      <div className="-mt-1 flex justify-between text-[9px] font-bold text-slate-400">
+        <span>{data[0]?.label ?? "-"}</span>
+        <span>{data[Math.floor(data.length / 2)]?.label ?? "-"}</span>
+        <span>{data[data.length - 1]?.label ?? "-"}</span>
+      </div>
+    </div>
+  );
+}
+
+function RankingBars({
+  data,
+  maxItems = 5,
+}: {
+  data: ChartDatum[];
+  maxItems?: number;
+}) {
+  const visible = data.slice(0, maxItems);
+  const maxValue = Math.max(1, ...visible.map((item) => item.value));
+
+  if (visible.length === 0) {
+    return (
+      <p className="rounded-2xl border border-dashed border-slate-200 bg-slate-50 px-3 py-5 text-center text-[12px] font-semibold text-slate-400">
+        Belum ada data.
+      </p>
+    );
+  }
+
+  return (
+    <div className="space-y-2.5">
+      {visible.map((item) => (
+        <div key={item.label}>
+          <div className="mb-1 flex items-center justify-between gap-2">
+            <p className="truncate text-[11px] font-bold text-slate-700">
+              {item.label}
+            </p>
+            <p className="shrink-0 text-[10px] font-black text-[#0f1a3b]">
+              {item.helper ?? item.value.toLocaleString("id-ID")}
+            </p>
+          </div>
+          <div className="h-2 overflow-hidden rounded-full bg-slate-100">
+            <div
+              className="h-full rounded-full bg-[#0f1a3b]"
+              style={{ width: `${Math.max(5, (item.value / maxValue) * 100)}%` }}
+            />
+          </div>
+        </div>
+      ))}
     </div>
   );
 }
@@ -198,6 +335,124 @@ export function AdminStatisticsPanel({ buggies }: AdminStatisticsPanelProps) {
     { day: 0, count: 0 },
   );
 
+  const hourlyPassengerDemand = useMemo(() => {
+    const livePassengerBaseline =
+      activeBuggies.length > 0
+        ? totalPassengers / activeBuggies.length
+        : buggies.length > 0
+          ? totalPassengers / buggies.length
+          : 0;
+    const buckets = Array.from({ length: 24 }, (_, hour) => ({
+      label: `${String(hour).padStart(2, "0")}:00`,
+      value: 0,
+    }));
+
+    for (const session of filteredSessions) {
+      const startedAt = new Date(session.startedAt);
+      if (Number.isNaN(startedAt.getTime())) continue;
+      const hour = startedAt.getHours();
+      buckets[hour].value += Math.max(1, livePassengerBaseline);
+    }
+
+    const currentHour = new Date().getHours();
+    buckets[currentHour].value += totalPassengers;
+
+    return buckets.map((item) => ({
+      ...item,
+      value: Math.round(item.value),
+    }));
+  }, [activeBuggies.length, buggies.length, filteredSessions, totalPassengers]);
+
+  const peakPassengerHour = hourlyPassengerDemand.reduce(
+    (best, item) => (item.value > best.value ? item : best),
+    hourlyPassengerDemand[0] ?? { label: "-", value: 0 },
+  );
+
+  const delayTrend = useMemo(() => {
+    const validDurations = filteredSessions
+      .map((session) => session.durationMinutes ?? 0)
+      .filter((duration) => duration > 0);
+    const typicalDuration = getMedian(validDurations);
+    const targetDuration = typicalDuration > 0 ? typicalDuration * 1.15 : 0;
+    const buckets = Array.from({ length: 24 }, (_, hour) => ({
+      label: `${String(hour).padStart(2, "0")}:00`,
+      value: 0,
+    }));
+
+    if (targetDuration === 0) return { data: buckets, targetDuration };
+
+    for (const session of filteredSessions) {
+      const startedAt = new Date(session.startedAt);
+      const duration = session.durationMinutes ?? 0;
+      if (Number.isNaN(startedAt.getTime()) || duration <= targetDuration) {
+        continue;
+      }
+
+      buckets[startedAt.getHours()].value += duration - targetDuration;
+    }
+
+    return {
+      data: buckets.map((item) => ({
+        ...item,
+        value: Number(item.value.toFixed(1)),
+      })),
+      targetDuration,
+    };
+  }, [filteredSessions]);
+
+  const peakDelay = delayTrend.data.reduce(
+    (best, item) => (item.value > best.value ? item : best),
+    delayTrend.data[0] ?? { label: "-", value: 0 },
+  );
+
+  const areaTrafficRanking = useMemo(() => {
+    const areaCounts = new Map<string, number>();
+
+    for (const session of filteredSessions) {
+      const sampledPoints = session.path.filter((_, index) => index % 4 === 0);
+      for (const [lat, lng] of sampledPoints) {
+        if (!Number.isFinite(lat) || !Number.isFinite(lng)) continue;
+        const areaName = getNearestHalteName(lat, lng);
+        areaCounts.set(areaName, (areaCounts.get(areaName) ?? 0) + 1);
+      }
+    }
+
+    return Array.from(areaCounts.entries())
+      .map(([label, value]) => ({
+        label,
+        value,
+        helper: `${value.toLocaleString("id-ID")} titik`,
+      }))
+      .sort((a, b) => b.value - a.value);
+  }, [filteredSessions]);
+
+  const dominantStopRanking = useMemo(() => {
+    const stopCounts = new Map<string, number>();
+
+    for (const session of filteredSessions) {
+      const points = session.path;
+      if (points.length === 0) continue;
+
+      const endpointCandidates = [points[0], points[points.length - 1]];
+      for (const [lat, lng] of endpointCandidates) {
+        if (!Number.isFinite(lat) || !Number.isFinite(lng)) continue;
+        const stopName = getNearestHalteName(lat, lng);
+        stopCounts.set(stopName, (stopCounts.get(stopName) ?? 0) + 1);
+      }
+    }
+
+    return Array.from(stopCounts.entries())
+      .map(([label, value]) => ({
+        label,
+        value,
+        helper: `${value.toLocaleString("id-ID")} stop`,
+      }))
+      .sort((a, b) => b.value - a.value);
+  }, [filteredSessions]);
+
+  const mostVisitedArea = areaTrafficRanking[0];
+  const dominantStop = dominantStopRanking[0];
+
   // Generate month options (e.g. current month and past 5 months)
   const monthOptions = useMemo(() => {
     const opts = [];
@@ -288,8 +543,31 @@ export function AdminStatisticsPanel({ buggies }: AdminStatisticsPanelProps) {
           </div>
         </div>
 
+        <div className="rounded-[20px] border border-slate-100 bg-white p-3.5 shadow-[0_8px_20px_rgba(15,23,42,0.02)] mb-3">
+          <div className="mb-3 flex items-start justify-between gap-3">
+            <div className="min-w-0">
+              <div className="mb-1 flex items-center gap-1.5">
+                <Users className="h-4 w-4 text-[#0f1a3b]" />
+                <p className="text-[9px] font-bold uppercase tracking-widest text-slate-500">
+                  Peak Passenger Time
+                </p>
+              </div>
+              <p className="text-[11px] font-medium leading-snug text-slate-400">
+                Estimasi beban penumpang per jam dari trip bulanan dan okupansi
+                live.
+              </p>
+            </div>
+            <span className="shrink-0 rounded-full bg-slate-100 px-2 py-1 text-[9px] font-black text-[#0f1a3b]">
+              {peakPassengerHour.value > 0
+                ? `${peakPassengerHour.label} · ${peakPassengerHour.value} org`
+                : "-"}
+            </span>
+          </div>
+          <MiniAreaChart data={hourlyPassengerDemand} />
+        </div>
+
         {/* Bottom Grid: Operational Stats */}
-        <div className="overflow-hidden rounded-[20px] border border-slate-100 bg-white shadow-[0_8px_20px_rgba(15,23,42,0.02)]">
+        <div className="overflow-hidden rounded-[20px] border border-slate-100 bg-white shadow-[0_8px_20px_rgba(15,23,42,0.02)] mb-3">
           <div className="grid grid-cols-2 border-b border-slate-100">
             <div className="border-r border-slate-100 p-3.5">
               <div className="mb-2 flex items-center gap-1.5">
@@ -365,6 +643,32 @@ export function AdminStatisticsPanel({ buggies }: AdminStatisticsPanelProps) {
           </div>
         </div>
 
+        <div className="rounded-[20px] border border-slate-100 bg-white p-3.5 shadow-[0_8px_20px_rgba(15,23,42,0.02)] mb-3">
+          <div className="mb-3 flex items-start justify-between gap-3">
+            <div className="min-w-0">
+              <div className="mb-1 flex items-center gap-1.5">
+                <AlertTriangle className="h-4 w-4 text-amber-500" />
+                <p className="text-[9px] font-bold uppercase tracking-widest text-slate-500">
+                  Keterlambatan Perjalanan
+                </p>
+              </div>
+              <p className="text-[11px] font-medium leading-snug text-slate-400">
+                Akumulasi durasi di atas target normal{" "}
+                {delayTrend.targetDuration > 0
+                  ? formatMinutes(delayTrend.targetDuration)
+                  : "-"}
+                .
+              </p>
+            </div>
+            <span className="shrink-0 rounded-full bg-amber-50 px-2 py-1 text-[9px] font-black text-amber-600">
+              {peakDelay.value > 0
+                ? `${peakDelay.label} · ${formatMinutes(peakDelay.value)}`
+                : "Normal"}
+            </span>
+          </div>
+          <MiniAreaChart data={delayTrend.data} color="#f59e0b" />
+        </div>
+
         <div className="mt-3 overflow-hidden rounded-[20px] border border-slate-100 bg-white shadow-[0_8px_20px_rgba(15,23,42,0.02)]">
           <div className="grid grid-cols-2 border-b border-slate-100">
             <StatTile
@@ -413,37 +717,6 @@ export function AdminStatisticsPanel({ buggies }: AdminStatisticsPanelProps) {
           </div>
         </div>
 
-        <div className="mt-3 grid grid-cols-3 gap-2 rounded-[20px] border border-slate-100 bg-slate-50/80 p-3">
-          <div>
-            <p className="text-[9px] font-bold uppercase tracking-widest text-slate-400">
-              Jarak / trip
-            </p>
-            <p className="mt-1 text-[18px] font-black text-[#0f1a3b]">
-              {isLoadingSessions
-                ? "-"
-                : `${averageDistancePerTrip.toFixed(1)} km`}
-            </p>
-          </div>
-          <div>
-            <p className="text-[9px] font-bold uppercase tracking-widest text-slate-400">
-              Durasi / trip
-            </p>
-            <p className="mt-1 text-[18px] font-black text-[#0f1a3b]">
-              {isLoadingSessions
-                ? "-"
-                : `${averageDurationPerTrip.toFixed(0)} mnt`}
-            </p>
-          </div>
-          <div>
-            <p className="text-[9px] font-bold uppercase tracking-widest text-slate-400">
-              Trip / armada
-            </p>
-            <p className="mt-1 text-[18px] font-black text-[#0f1a3b]">
-              {isLoadingSessions ? "-" : sessionsPerBuggy.toFixed(1)}
-            </p>
-          </div>
-        </div>
-
         {/* Trend Chart */}
         {!isLoadingSessions && filteredSessions.length > 0 && (
           <div className="mt-3 rounded-[16px] bg-slate-50/80 p-3.5">
@@ -486,6 +759,89 @@ export function AdminStatisticsPanel({ buggies }: AdminStatisticsPanelProps) {
             </div>
           </div>
         )}
+
+        <div className="mt-3 grid gap-3">
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div className="rounded-[20px] border border-slate-100 bg-white p-3.5 shadow-[0_8px_20px_rgba(15,23,42,0.02)]">
+              <div className="mb-3 flex items-start justify-between gap-2">
+                <div>
+                  <div className="mb-1 flex items-center gap-1.5">
+                    <Route className="h-4 w-4 text-[#0f1a3b]" />
+                    <p className="text-[9px] font-bold uppercase tracking-widest text-slate-500">
+                      Area Sering Dilalui
+                    </p>
+                  </div>
+                  <p className="text-[11px] font-medium leading-snug text-slate-400">
+                    Berdasarkan titik GPS yang paling dekat ke area halte.
+                  </p>
+                </div>
+              </div>
+              <RankingBars data={areaTrafficRanking} />
+              {mostVisitedArea ? (
+                <p className="mt-3 rounded-2xl bg-slate-50 px-3 py-2 text-[10px] font-semibold text-slate-500">
+                  Area dominan:{" "}
+                  <span className="font-black text-[#0f1a3b]">
+                    {mostVisitedArea.label}
+                  </span>
+                </p>
+              ) : null}
+            </div>
+
+            <div className="rounded-[20px] border border-slate-100 bg-white p-3.5 shadow-[0_8px_20px_rgba(15,23,42,0.02)]">
+              <div className="mb-3 flex items-start justify-between gap-2">
+                <div>
+                  <div className="mb-1 flex items-center gap-1.5">
+                    <MapPin className="h-4 w-4 text-emerald-500" />
+                    <p className="text-[9px] font-bold uppercase tracking-widest text-slate-500">
+                      Titik Pemberhentian Dominan
+                    </p>
+                  </div>
+                  <p className="text-[11px] font-medium leading-snug text-slate-400">
+                    Dihitung dari titik awal dan akhir sesi perjalanan.
+                  </p>
+                </div>
+              </div>
+              <RankingBars data={dominantStopRanking} />
+              {dominantStop ? (
+                <p className="mt-3 rounded-2xl bg-emerald-50 px-3 py-2 text-[10px] font-semibold text-emerald-700">
+                  Stop tersering:{" "}
+                  <span className="font-black">{dominantStop.label}</span>
+                </p>
+              ) : null}
+            </div>
+          </div>
+        </div>
+
+        <div className="mt-3 grid grid-cols-3 gap-2 rounded-[20px] border border-slate-100 bg-slate-50/80 p-3">
+          <div>
+            <p className="text-[9px] font-bold uppercase tracking-widest text-slate-400">
+              Jarak / trip
+            </p>
+            <p className="mt-1 text-[18px] font-black text-[#0f1a3b]">
+              {isLoadingSessions
+                ? "-"
+                : `${averageDistancePerTrip.toFixed(1)} km`}
+            </p>
+          </div>
+          <div>
+            <p className="text-[9px] font-bold uppercase tracking-widest text-slate-400">
+              Durasi / trip
+            </p>
+            <p className="mt-1 text-[18px] font-black text-[#0f1a3b]">
+              {isLoadingSessions
+                ? "-"
+                : `${averageDurationPerTrip.toFixed(0)} mnt`}
+            </p>
+          </div>
+          <div>
+            <p className="text-[9px] font-bold uppercase tracking-widest text-slate-400">
+              Trip / armada
+            </p>
+            <p className="mt-1 text-[18px] font-black text-[#0f1a3b]">
+              {isLoadingSessions ? "-" : sessionsPerBuggy.toFixed(1)}
+            </p>
+          </div>
+        </div>
 
         {/* Footer info */}
         <p className="mt-4 text-center text-[10px] leading-relaxed text-slate-400">
