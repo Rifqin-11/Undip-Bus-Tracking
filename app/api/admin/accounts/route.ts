@@ -1,6 +1,14 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/server";
 
+type CreateAccountBody = {
+  name?: string;
+  email?: string;
+  role?: "Admin" | "Driver" | "Pengguna umum";
+  password?: string;
+  buggy_id?: string;
+};
+
 export async function POST(request: Request) {
   const supabase = createAdminClient();
   if (!supabase) {
@@ -8,15 +16,12 @@ export async function POST(request: Request) {
   }
 
   try {
-    const body = await request.json();
-    const { name, username, role, password } = body;
+    const body = (await request.json()) as CreateAccountBody;
+    const { name, email, role, password, buggy_id } = body;
 
-    if (!username || !password || !name) {
-      return NextResponse.json({ message: "Nama, username, dan password wajib diisi." }, { status: 400 });
+    if (!email || !password || !name) {
+      return NextResponse.json({ message: "Nama, email, dan password wajib diisi." }, { status: 400 });
     }
-
-    // Karena Supabase Auth butuh email, kita format username jadi email jika belum format email
-    const email = username.includes("@") ? username : `${username}@simobi.local`;
 
     const { data: authData, error: authError } = await supabase.auth.admin.createUser({
       email,
@@ -36,10 +41,20 @@ export async function POST(request: Request) {
     // Tunggu sesaat agar trigger di Supabase selesai mengeksekusi insert ke tabel accounts
     await new Promise((resolve) => setTimeout(resolve, 500));
 
-    // Update role dan username di public.accounts (row sudah dibuat oleh trigger)
+    // Update role, email dan buggy_id di public.accounts (row sudah dibuat oleh trigger)
+    const updateData: {
+      role?: CreateAccountBody["role"];
+      email: string;
+      name: string;
+      buggy_id?: string;
+    } = { role, email, name };
+    if (role === "Driver" && buggy_id) {
+      updateData.buggy_id = buggy_id;
+    }
+
     const { error: updateError } = await supabase
       .from("accounts")
-      .update({ role, username, name })
+      .update(updateData)
       .eq("id", userId);
 
     if (updateError) {
@@ -50,7 +65,12 @@ export async function POST(request: Request) {
     }
 
     return NextResponse.json({ message: "Akun berhasil dibuat", user: authData.user }, { status: 201 });
-  } catch (err: any) {
-    return NextResponse.json({ message: err.message || "Terjadi kesalahan" }, { status: 500 });
+  } catch (err: unknown) {
+    return NextResponse.json(
+      {
+        message: err instanceof Error ? err.message : "Terjadi kesalahan",
+      },
+      { status: 500 },
+    );
   }
 }

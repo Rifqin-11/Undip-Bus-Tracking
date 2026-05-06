@@ -45,8 +45,9 @@ export function MobileBottomNav({
   showSettingsButton = true,
 }: MobileBottomNavProps) {
   const pathname = usePathname();
-  const isOnAdminPage = pathname.startsWith("/admin");
-  const shouldShowDataButton = isOnAdminPage && showDataButton;
+  const isOnOperatorPage =
+    pathname.startsWith("/admin") || pathname.startsWith("/driver");
+  const shouldShowDataButton = isOnOperatorPage && showDataButton;
   const shouldShowSettingsButton = showSettingsButton;
   const dragStartYRef = React.useRef<number | null>(null);
   const dragTriggeredRef = React.useRef(false);

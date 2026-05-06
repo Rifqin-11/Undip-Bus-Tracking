@@ -36,6 +36,7 @@ type AdminDataSectionProps = {
   onDeleteGeofence: (id: string) => Promise<boolean> | boolean;
   onToggleBrowserNotification: () => void;
   compactMode?: boolean;
+  readOnly?: boolean;
   /** Dipanggil setelah add atau delete buggy agar parent dapat refresh list */
   onBuggyMutated?: () => void;
 };
@@ -63,6 +64,7 @@ export function AdminDataSection({
   onDeleteGeofence,
   onToggleBrowserNotification,
   compactMode = false,
+  readOnly = false,
   onBuggyMutated,
 }: AdminDataSectionProps) {
   const [isAddingBuggy, setIsAddingBuggy] = useState(false);
@@ -105,7 +107,7 @@ export function AdminDataSection({
 
       {/* ── Data Operasional Buggy ─────────────────────────────────────── */}
       {activePanel === "buggy" ? (
-        isAddingBuggy ? (
+        isAddingBuggy && !readOnly ? (
           <AdminBuggyFormPanel
             buggy={null}
             onBack={() => setIsAddingBuggy(false)}
@@ -129,13 +131,15 @@ export function AdminDataSection({
                   <span className="rounded-full bg-slate-200/80 px-2.5 py-1 text-[10px] font-semibold text-slate-700">
                     {buggies.length} armada
                   </span>
-                  <button
-                    type="button"
-                    onClick={() => setIsAddingBuggy(true)}
-                    className="flex items-center gap-1 rounded-full border border-[#0f1a3b] bg-[#0f1a3b] px-3 py-2 text-[11px] font-bold text-white shadow-sm transition hover:bg-white hover:text-[#0f1a3b] active:scale-95"
-                  >
-                    <PlusIcon className="size-3" />
-                  </button>
+                  {!readOnly ? (
+                    <button
+                      type="button"
+                      onClick={() => setIsAddingBuggy(true)}
+                      className="flex items-center gap-1 rounded-full border border-[#0f1a3b] bg-[#0f1a3b] px-3 py-2 text-[11px] font-bold text-white shadow-sm transition hover:bg-white hover:text-[#0f1a3b] active:scale-95"
+                    >
+                      <PlusIcon className="size-3" />
+                    </button>
+                  ) : null}
                 </div>
               </div>
             </div>
@@ -179,6 +183,7 @@ export function AdminDataSection({
             onEditGeofence={onEditGeofence}
             onDeleteGeofence={onDeleteGeofence}
             onToggleBrowserNotification={onToggleBrowserNotification}
+            readOnly={readOnly}
           />
 
           {/* ── Event Geofence ─────────────────────────────────────────────── */}

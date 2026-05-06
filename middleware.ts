@@ -19,7 +19,7 @@ export async function middleware(request: NextRequest) {
         return request.cookies.getAll();
       },
       setAll(cookiesToSet) {
-        cookiesToSet.forEach(({ name, value, options }) =>
+        cookiesToSet.forEach(({ name, value }) =>
           request.cookies.set(name, value)
         );
         supabaseResponse = NextResponse.next({
@@ -39,17 +39,74 @@ export async function middleware(request: NextRequest) {
 
   const { pathname } = request.nextUrl;
   const authenticated = !!user;
+  const isAdminPage = pathname.startsWith("/admin");
+  const isDriverPage = pathname.startsWith("/driver");
+  const isAdminApi = pathname.startsWith("/api/admin");
+  const isGeofenceApi = pathname.startsWith("/api/geofences");
+  const isProtectedRoute =
+    isAdminPage || isDriverPage || isAdminApi || isGeofenceApi;
 
-  if (pathname.startsWith("/admin") || pathname.startsWith("/api/geofences") || pathname.startsWith("/api/admin")) {
+  let role: "Admin" | "Driver" | "Pengguna umum" = "Pengguna umum";
+
+  if (authenticated) {
+    const { data: account } = await supabase
+      .from("accounts")
+      .select("role")
+      .eq("id", user.id)
+      .single();
+
+    if (
+      account?.role === "Admin" ||
+      account?.role === "Driver" ||
+      account?.role === "Pengguna umum"
+    ) {
+      role = account.role;
+    }
+  }
+
+  if (isProtectedRoute) {
     if (!authenticated) {
+      if (pathname.startsWith("/api/")) {
+        return NextResponse.json(
+          { message: "Authentication required." },
+          { status: 401 },
+        );
+      }
+
       const loginUrl = new URL("/login", request.url);
       loginUrl.searchParams.set("next", pathname);
       return NextResponse.redirect(loginUrl);
     }
+
+    if ((isAdminPage || isDriverPage) && role === "Pengguna umum") {
+      return NextResponse.redirect(new URL("/", request.url));
+    }
+
+    if (isAdminApi && role !== "Admin") {
+      return NextResponse.json(
+        { message: "Admin access required." },
+        { status: 403 },
+      );
+    }
+
+    if (isGeofenceApi && request.method !== "GET" && role !== "Admin") {
+      return NextResponse.json(
+        { message: "Admin access required." },
+        { status: 403 },
+      );
+    }
   }
 
   if (pathname === "/login" && authenticated) {
-    return NextResponse.redirect(new URL("/admin", request.url));
+    if (role === "Admin") {
+      return NextResponse.redirect(new URL("/admin", request.url));
+    }
+
+    if (role === "Driver") {
+      return NextResponse.redirect(new URL("/driver", request.url));
+    }
+
+    return NextResponse.redirect(new URL("/", request.url));
   }
 
   return supabaseResponse;
@@ -58,6 +115,7 @@ export async function middleware(request: NextRequest) {
 export const config = {
   matcher: [
     "/admin/:path*",
+    "/driver/:path*",
     "/login",
     "/api/geofences/:path*",
     "/api/admin/:path*"

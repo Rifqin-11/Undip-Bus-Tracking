@@ -13,7 +13,6 @@ import { AppSettingsPanel } from "@/components/settings/AppSettingsPanel";
 import type { AccountFormMode } from "@/components/settings/AccountFormPanel";
 import { ToastStack } from "@/components/ui/ToastStack";
 import type { ToastItem } from "@/components/ui/ToastStack";
-import { createClient } from "@/lib/supabase/client";
 import {
   CENTER_UNDIP,
   HALTE_LOCATIONS,
@@ -29,6 +28,7 @@ import {
 import { GoogleMapsService } from "@/lib/services/google-maps-service";
 import type { PanelView } from "@/types/buggy";
 import type { DirectionResult } from "@/components/panel/DirectionPanel";
+import { createClient } from "@/lib/supabase/client";
 import type { LatLngLiteral } from "@/types/map-canvas";
 import type { Geofence, GeofenceEvent } from "@/types/geofence";
 import { LogoutIcon, MapPinSolidIcon, BellIcon } from "@/components/ui/Icons";
@@ -156,22 +156,37 @@ export default function DashboardPage() {
     useState<DirectionResult | null>(null);
 
   const [activeGeofences, setActiveGeofences] = useState<Geofence[]>([]);
-  
-  const [userProfile, setUserProfile] = useState<{ name: string; role: string; avatar: string } | null>(null);
+
+  const [userProfile, setUserProfile] = useState<{
+    name: string;
+    role: string;
+    avatar: string;
+    buggy_id?: string;
+  } | null>(null);
 
   useEffect(() => {
     async function fetchUser() {
       const supabase = createClient();
-      const { data: { user } } = await supabase.auth.getUser();
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
       if (!user) return;
-      
-      const { data: account } = await supabase.from('accounts').select('*').eq('id', user.id).single();
-      
-      const name = account?.name || user.user_metadata?.full_name || user.email?.split('@')[0] || "Admin";
+
+      const { data: account } = await supabase
+        .from("accounts")
+        .select("*")
+        .eq("id", user.id)
+        .single();
+
+      const name =
+        account?.name ||
+        user.user_metadata?.full_name ||
+        user.email?.split("@")[0] ||
+        "Admin";
       const role = account?.role || "SIMOBI Operator";
       const avatar = name.charAt(0).toUpperCase();
 
-      setUserProfile({ name, role, avatar });
+      setUserProfile({ name, role, avatar, buggy_id: account?.buggy_id });
     }
     fetchUser();
   }, []);
@@ -188,6 +203,20 @@ export default function DashboardPage() {
   const [draftGeofenceRadius, setDraftGeofenceRadius] = useState(
     GEOFENCE_DEFAULT_RADIUS_METERS,
   );
+
+  const driverFilteredBuggies = useMemo(() => {
+    if (userProfile?.role === "Driver" && userProfile.buggy_id) {
+      return liveBuggies.filter((b) => b.id === userProfile.buggy_id);
+    }
+    if (userProfile?.role === "Driver") {
+      return [];
+    }
+    return liveBuggies;
+  }, [liveBuggies, userProfile]);
+  const isAdminUser = userProfile?.role === "Admin";
+  const isDriverUser = userProfile?.role === "Driver";
+  const canManageDashboard = isAdminUser;
+  const visibleBuggies = driverFilteredBuggies;
   const [geofenceEvents, setGeofenceEvents] = useState<GeofenceEvent[]>([]);
   const [toasts, setToasts] = useState<ToastItem[]>([]);
   const browserNotificationEnabled = settings.browserNotificationEnabled;
@@ -392,7 +421,8 @@ export default function DashboardPage() {
   /** Simulasikan notifikasi bus mendekati halte — untuk keperluan testing */
   const handleLogout = async () => {
     try {
-      await fetch("/api/auth/logout", { method: "POST" });
+      const supabase = createClient();
+      await supabase.auth.signOut();
     } catch {
       // noop
     }
@@ -533,6 +563,8 @@ export default function DashboardPage() {
   }, []);
 
   const handleToggleCreateMode = useCallback(() => {
+    if (!canManageDashboard) return;
+
     setGeofenceCreateMode((prev) => {
       const next = !prev;
       if (next) {
@@ -553,9 +585,11 @@ export default function DashboardPage() {
     });
     setPanelOpen(true);
     setActiveView("data");
-  }, [geofences.length]);
+  }, [canManageDashboard, geofences.length]);
 
   const handleEditGeofence = useCallback((geofence: Geofence) => {
+    if (!canManageDashboard) return;
+
     setEditingGeofenceId(geofence.id);
     setDraftGeofenceCenter(geofence.center);
     setDraftGeofenceName(geofence.name);
@@ -563,7 +597,7 @@ export default function DashboardPage() {
     setGeofenceCreateMode(true);
     setPanelOpen(true);
     setActiveView("data");
-  }, []);
+  }, [canManageDashboard]);
 
   const handleDraftGeofenceChange = useCallback(
     (center: LatLngLiteral, radiusMeters: number) => {
@@ -582,6 +616,7 @@ export default function DashboardPage() {
   }, []);
 
   const handleSaveDraft = useCallback(async () => {
+    if (!canManageDashboard) return;
     if (!draftGeofenceCenter) return;
     const name = draftGeofenceName.trim();
     if (!name) {
@@ -644,10 +679,13 @@ export default function DashboardPage() {
     draftGeofenceRadius,
     editingGeofenceId,
     pushToast,
+    canManageDashboard,
   ]);
 
   const handleToggleGeofence = useCallback(
     async (id: string, enabled: boolean) => {
+      if (!canManageDashboard) return;
+
       try {
         const response = await fetch(`/api/geofences/${id}`, {
           method: "PATCH",
@@ -678,11 +716,13 @@ export default function DashboardPage() {
         );
       }
     },
-    [pushToast],
+    [canManageDashboard, pushToast],
   );
 
   const handleDeleteGeofence = useCallback(
     async (id: string) => {
+      if (!canManageDashboard) return false;
+
       const target = geofences.find((item) => item.id === id);
       try {
         const response = await fetch(`/api/geofences/${id}`, {
@@ -712,7 +752,7 @@ export default function DashboardPage() {
         return false;
       }
     },
-    [geofences, pushToast],
+    [canManageDashboard, geofences, pushToast],
   );
 
   const handleToggleBrowserNotification = useCallback(async () => {
@@ -1063,7 +1103,7 @@ export default function DashboardPage() {
     setDirectionResult(null);
   };
 
-  const mapBuggies = activeView === "halte" ? [] : liveBuggies;
+  const mapBuggies = activeView === "halte" ? [] : visibleBuggies;
   const mapRoutePath = activeView === "buggy" ? OFFICIAL_ROUTE_PATH : [];
   const mapDirectionPath =
     activeView === "buggy" ? (directionResult?.directionPath ?? []) : [];
@@ -1127,7 +1167,7 @@ export default function DashboardPage() {
               className="relative flex h-10 w-10 items-center justify-center rounded-full border border-white/20 bg-slate-900/50 text-white backdrop-blur-md transition hover:bg-slate-800/70 active:scale-95"
             >
               <span className="grid size-8 place-items-center rounded-full bg-[#0f1a3b]/70 text-sm font-black text-white">
-                A
+                {userProfile?.avatar ?? (isDriverUser ? "D" : "A")}
               </span>
             </button>
 
@@ -1182,37 +1222,45 @@ export default function DashboardPage() {
 
       <div className="absolute right-3 top-3 z-20 hidden items-center justify-end gap-2 xl:right-4 xl:top-4 xl:flex">
         <div className="relative">
-        <button
-          type="button"
-          aria-label="Menu account"
-          aria-expanded={desktopAdminMenuOpen}
-          onClick={() => setDesktopAdminMenuOpen((open) => !open)}
-          className="flex w-full items-center gap-3 rounded-full border border-white/60 bg-white px-3 py-2 text-left shadow-[0_10px_30px_rgba(15,23,42,0.12)] backdrop-blur-xl transition hover:bg-white/90 active:scale-[0.98]"
-        >
-          <div className="grid size-8 place-items-center rounded-full bg-[#0f1a3b] text-sm font-black text-white">
-            {userProfile?.avatar ?? "A"}
-          </div>
-          <div className="min-w-0 pr-1">
-            <p className="text-[13px] font-extrabold leading-tight text-slate-900">
-              {userProfile?.name ?? "Admin"}
-            </p>
-            <p className="text-[10px] font-semibold leading-tight text-slate-400">
-              {userProfile?.role ?? "SIMOBI Operator"}
-            </p>
-          </div>
-        </button>
-        {desktopAdminMenuOpen ? (
-          <div className="absolute right-0 top-full mt-1 w-full min-w-[150px] rounded-[22px] border border-white/70 bg-slate-100 p-1.5 text-slate-800 shadow-[0_14px_40px_rgba(15,23,42,0.16)] backdrop-blur-xl">
-            <button
-              type="button"
-              onClick={() => handleOpenSettings("edit")}
-              className="flex w-full items-center gap-2 rounded-2xl px-3 py-2 text-left text-[12px] font-bold transition hover:bg-slate-200 active:scale-[0.98]"
-            >
-              <PenIcon className="h-4 w-4 text-slate-500" />
-              Edit Account
-            </button>
-          </div>
-        ) : null}
+          <button
+            type="button"
+            aria-label="Menu account"
+            aria-expanded={desktopAdminMenuOpen}
+            onClick={() => setDesktopAdminMenuOpen((open) => !open)}
+            className="flex w-full items-center gap-3 rounded-full border border-white/60 bg-white px-3 py-2 text-left shadow-[0_10px_30px_rgba(15,23,42,0.12)] backdrop-blur-xl transition hover:bg-white/90 active:scale-[0.98]"
+          >
+            <div className="grid size-8 place-items-center rounded-full bg-[#0f1a3b] text-sm font-black text-white">
+              {userProfile?.avatar ?? "A"}
+            </div>
+            <div className="min-w-0 pr-1">
+              <p className="text-[13px] font-extrabold leading-tight text-slate-900">
+                {userProfile?.name ?? (isDriverUser ? "Driver" : "Admin")}
+              </p>
+              <p className="text-[10px] font-semibold leading-tight text-slate-400">
+                {userProfile?.role ?? "SIMOBI Operator"}
+              </p>
+            </div>
+          </button>
+          {desktopAdminMenuOpen ? (
+            <div className="absolute right-0 top-full mt-1 w-full min-w-[150px] rounded-[22px] border border-white/70 bg-slate-100 p-1.5 text-slate-800 shadow-[0_14px_40px_rgba(15,23,42,0.16)] backdrop-blur-xl">
+              <button
+                type="button"
+                onClick={() => handleOpenSettings("edit")}
+                className="flex w-full items-center gap-2 rounded-2xl px-3 py-2 text-left text-[12px] font-bold transition hover:bg-slate-200 active:scale-[0.98]"
+              >
+                <PenIcon className="h-4 w-4 text-slate-500" />
+                Edit Account
+              </button>
+              <button
+                type="button"
+                onClick={handleLogout}
+                className="flex w-full items-center gap-2 rounded-2xl px-3 py-2 text-left text-[12px] font-bold text-rose-600 transition hover:bg-rose-50 active:scale-[0.98]"
+              >
+                <LogoutIcon className="h-4 w-4" />
+                Logout
+              </button>
+            </div>
+          ) : null}
         </div>
       </div>
 
@@ -1239,7 +1287,7 @@ export default function DashboardPage() {
       />
 
       <BuggyList
-        buggies={liveBuggies}
+        buggies={visibleBuggies}
         panelOpen={panelOpen}
         activeView={activeView}
         onClose={() => setPanelOpen(false)}
@@ -1252,7 +1300,7 @@ export default function DashboardPage() {
         onCloseDirection={() => setDirectionResult(null)}
         dataViewContent={
           <AdminDataSection
-            buggies={liveBuggies}
+            buggies={driverFilteredBuggies}
             realtimeConnected={realtimeFeed.connected}
             realtimeSource={realtimeFeed.source}
             geofences={geofences}
@@ -1281,6 +1329,7 @@ export default function DashboardPage() {
             onDeleteGeofence={handleDeleteGeofence}
             onToggleBrowserNotification={handleToggleBrowserNotification}
             compactMode={settings.compactAdminPanels}
+            readOnly={!canManageDashboard}
             onBuggyMutated={() => void handleBuggyMutated()}
           />
         }
@@ -1289,7 +1338,7 @@ export default function DashboardPage() {
             <BuggyOperationalDetail
               buggy={
                 liveBuggies.find((b) => b.id === selectedAdminBuggyId) ??
-                liveBuggies[0]
+                visibleBuggies[0]
               }
               activeZones={geofenceStatuses[selectedAdminBuggyId] ?? []}
               onBack={() => {
@@ -1301,15 +1350,17 @@ export default function DashboardPage() {
                 setActiveView("data");
                 void handleBuggyMutated();
               }}
+              readOnly={!canManageDashboard}
             />
           ) : null
         }
         historyViewContent={
           <HistoryPanel
-            buggies={liveBuggies}
+            buggies={driverFilteredBuggies}
             onShowPath={(path) => {
               setHistoryPath(path);
             }}
+            readOnly={!canManageDashboard}
           />
         }
         settingsViewContent={
@@ -1318,11 +1369,12 @@ export default function DashboardPage() {
             settings={settings}
             onUpdateSetting={updateSetting}
             onToggleBrowserNotification={handleToggleBrowserNotification}
+            onLogout={handleLogout}
             accountForm={settingsAccountForm}
             onAccountFormChange={setSettingsAccountForm}
           />
         }
-        isAdmin
+        isAdmin={canManageDashboard}
       />
 
       <MobileBottomNav

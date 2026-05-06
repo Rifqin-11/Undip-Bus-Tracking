@@ -9,19 +9,21 @@ import { FloatingSidebar } from "@/components/sidebar/FloatingSidebar";
 import { MobileBottomNav } from "@/components/sidebar/MobileBottomNav";
 import { LiveSearchBar } from "@/components/search/LiveSearchBar";
 import { AppSettingsPanel } from "@/components/settings/AppSettingsPanel";
-import { MapPinSolidIcon, BellIcon, LoginIcon } from "@/components/ui/Icons";
+import {
+  MapPinSolidIcon,
+  BellIcon,
+  LoginIcon,
+} from "@/components/ui/Icons";
 import { ToastStack, type ToastItem } from "@/components/ui/ToastStack";
 import { useNearbyBusAlert } from "@/hooks/useNearbyBusAlert";
-import {
-  useAdminSettings,
-  type AdminSettings,
-} from "@/hooks/useAdminSettings";
+import { useAdminSettings, type AdminSettings } from "@/hooks/useAdminSettings";
 import { HALTE_LOCATIONS, OFFICIAL_ROUTE_PATH } from "@/lib/transit/buggy-data";
 import { haversineMeters } from "@/lib/transit/buggy-route-utils";
 import { useBuggyLiveFeed } from "@/hooks/useBuggyLiveFeed";
 import { GoogleMapsService } from "@/lib/services/google-maps-service";
 import type { PanelView } from "@/types/buggy";
 import type { DirectionResult } from "@/components/panel/DirectionPanel";
+import { createClient } from "@/lib/supabase/client";
 
 function normalize(s: string) {
   return s.trim().toLowerCase();
@@ -106,6 +108,45 @@ export default function DashboardPage() {
     lng: number;
   } | null>(null);
 
+  const [userProfile, setUserProfile] = useState<{
+    name: string;
+    role: string;
+    avatar: string;
+  } | null>(null);
+  const [userLoading, setUserLoading] = useState(true);
+
+  useEffect(() => {
+    async function fetchUser() {
+      const supabase = createClient();
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (!user) {
+        setUserProfile(null);
+        setUserLoading(false);
+        return;
+      }
+
+      const { data: account } = await supabase
+        .from("accounts")
+        .select("*")
+        .eq("id", user.id)
+        .single();
+
+      const name =
+        account?.name ||
+        user.user_metadata?.full_name ||
+        user.email?.split("@")[0] ||
+        "Admin";
+      const role = account?.role || "Pengguna umum";
+      const avatar = name.charAt(0).toUpperCase();
+
+      setUserProfile({ name, role, avatar });
+      setUserLoading(false);
+    }
+    void fetchUser();
+  }, []);
+
   // Toast notifications state
   const [toasts, setToasts] = useState<ToastItem[]>([]);
 
@@ -117,6 +158,39 @@ export default function DashboardPage() {
     const id = `toast-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
     setToasts((prev) => [...prev.slice(-4), { ...toast, id }]); // maks 5 toast sekaligus
   }, []);
+
+  const requireDirectionLogin = useCallback(() => {
+    if (userLoading) {
+      addToast({
+        tone: "info",
+        title: "Memeriksa sesi",
+        description: "Tunggu sebentar lalu coba lagi.",
+        duration: 3_000,
+      });
+      return false;
+    }
+
+    if (userProfile) {
+      return true;
+    }
+
+    addToast({
+      tone: "warning",
+      title: "Login diperlukan",
+      description: "Masuk terlebih dahulu untuk menggunakan pencarian rute.",
+      duration: 5_000,
+    });
+    router.push("/login?next=/");
+    return false;
+  }, [addToast, router, userLoading, userProfile]);
+
+  const handleLogout = useCallback(async () => {
+    const supabase = createClient();
+    await supabase.auth.signOut();
+    setUserProfile(null);
+    router.push("/");
+    router.refresh();
+  }, [router]);
 
   // Search state
   const [searchStep, setSearchStep] = useState<"destination" | "origin">(
@@ -254,6 +328,8 @@ export default function DashboardPage() {
 
   const handleRecommendedHalteDirection = useCallback(
     async (halteId: string) => {
+      if (!requireDirectionLogin()) return;
+
       const destinationHalte =
         HALTE_LOCATIONS.find((halte) => halte.id === halteId) ?? null;
       if (!destinationHalte) return;
@@ -364,12 +440,14 @@ export default function DashboardPage() {
         setIsSearching(false);
       }
     },
-    [getLatestUserPosition, liveBuggies],
+    [getLatestUserPosition, liveBuggies, requireDirectionLogin],
   );
 
   // ── Direction search ─────────────────────────────────────────────────────
 
   const handleDirectionSearch = async () => {
+    if (!requireDirectionLogin()) return;
+
     if (searchStep === "destination") {
       if (!normalize(toInput)) return;
       setSearchStep("origin");
@@ -608,13 +686,23 @@ export default function DashboardPage() {
           >
             <BellIcon className="h-5 w-5" />
           </button>
-          <Link
-            href="/login"
-            aria-label="Login admin"
-            className="relative flex h-10 w-10 items-center justify-center rounded-full border border-white/20 bg-slate-900/50 text-white backdrop-blur-md transition active:scale-95"
-          >
-            <LoginIcon className="h-5 w-5" />
-          </Link>
+          {userProfile ? (
+            <button
+              onClick={() => handleSelectView("settings")}
+              aria-label="Profile"
+              className="grid size-10 place-items-center rounded-full border border-white/20 bg-[#0f1a3b] text-sm font-black text-white shadow-sm transition active:scale-95"
+            >
+              {userProfile.avatar}
+            </button>
+          ) : (
+            <Link
+              href="/login"
+              aria-label="Login admin"
+              className="relative flex h-10 w-10 items-center justify-center rounded-full border border-white/20 bg-slate-900/50 text-white backdrop-blur-md transition active:scale-95"
+            >
+              <LoginIcon className="h-5 w-5" />
+            </Link>
+          )}
         </div>
       </section>
 
@@ -639,24 +727,45 @@ export default function DashboardPage() {
       </section>
 
       <div className="absolute right-3 top-3 z-20 hidden items-center justify-end gap-2 xl:right-4 xl:top-4 xl:flex">
-        <button
-          type="button"
-          aria-label="Settings"
-          onClick={() => router.push("/login")}
-          className="flex w-full items-center gap-2 rounded-full border border-white/60 bg-white px-2 py-2 text-left shadow-[0_10px_30px_rgba(15,23,42,0.12)] backdrop-blur-xl transition hover:bg-white/90 active:scale-[0.98]"
-        >
-          <div className="grid size-8 place-items-center rounded-full bg-[#0f1a3b] text-sm font-black text-white">
-            <LoginIcon className="size-4" />
-          </div>
-          <div className="min-w-0 pr-1">
-            <p className="text-[13px] font-extrabold leading-tight text-slate-900">
-              Login
-            </p>
-            <p className="text-[10px] font-semibold leading-tight text-slate-400">
-              Login admin
-            </p>
-          </div>
-        </button>
+        {userProfile ? (
+          <button
+            type="button"
+            aria-label="Menu account"
+            onClick={() => handleSelectView("settings")}
+            className="flex w-full items-center gap-3 rounded-full border border-white/60 bg-white px-3 py-2 text-left shadow-[0_10px_30px_rgba(15,23,42,0.12)] backdrop-blur-xl transition hover:bg-white/90 active:scale-[0.98]"
+          >
+            <div className="grid size-8 place-items-center rounded-full bg-[#0f1a3b] text-sm font-black text-white">
+              {userProfile.avatar}
+            </div>
+            <div className="min-w-0 pr-1">
+              <p className="text-[13px] font-extrabold leading-tight text-slate-900">
+                {userProfile.name}
+              </p>
+              <p className="text-[10px] font-semibold leading-tight text-slate-400">
+                {userProfile.role}
+              </p>
+            </div>
+          </button>
+        ) : (
+          <button
+            type="button"
+            aria-label="Settings"
+            onClick={() => router.push("/login")}
+            className="flex w-full items-center gap-2 rounded-full border border-white/60 bg-white px-2 py-2 text-left shadow-[0_10px_30px_rgba(15,23,42,0.12)] backdrop-blur-xl transition hover:bg-white/90 active:scale-[0.98]"
+          >
+            <div className="grid size-8 place-items-center rounded-full bg-[#0f1a3b] text-sm font-black text-white">
+              <LoginIcon className="size-4" />
+            </div>
+            <div className="min-w-0 pr-1">
+              <p className="text-[13px] font-extrabold leading-tight text-slate-900">
+                Login
+              </p>
+              <p className="text-[10px] font-semibold leading-tight text-slate-400">
+                Login disini
+              </p>
+            </div>
+          </button>
+        )}
       </div>
 
       <FloatingSidebar
@@ -698,6 +807,7 @@ export default function DashboardPage() {
             settings={settings}
             onUpdateSetting={handleUpdateSetting}
             onLogin={() => router.push("/login")}
+            onLogout={handleLogout}
           />
         }
       />

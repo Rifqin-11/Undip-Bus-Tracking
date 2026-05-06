@@ -10,6 +10,28 @@ export async function GET(request: Request) {
     const supabase = await createClient();
     const { error } = await supabase.auth.exchangeCodeForSession(code);
     if (!error) {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+
+      if (user && (next === "/admin" || next === "/driver")) {
+        const { data: account } = await supabase
+          .from("accounts")
+          .select("role")
+          .eq("id", user.id)
+          .single();
+
+        if (account?.role === "Admin") {
+          return NextResponse.redirect(`${origin}/admin`);
+        }
+
+        if (account?.role === "Driver") {
+          return NextResponse.redirect(`${origin}/driver`);
+        }
+
+        return NextResponse.redirect(`${origin}/`);
+      }
+
       return NextResponse.redirect(`${origin}${next}`);
     }
   }

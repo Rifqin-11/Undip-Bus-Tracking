@@ -15,6 +15,7 @@ type BuggyOperationalDetailProps = {
   /** Dipanggil setelah buggy berhasil dihapus — bisa berbeda dari onBack jika perlu refresh */
   onDeleteSuccess?: () => void;
   geofenceManagerNode?: React.ReactNode;
+  readOnly?: boolean;
 };
 
 export function BuggyOperationalDetail({
@@ -23,6 +24,7 @@ export function BuggyOperationalDetail({
   onBack,
   onDeleteSuccess,
   geofenceManagerNode,
+  readOnly = false,
 }: BuggyOperationalDetailProps) {
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [isDeleteOpen, setIsDeleteOpen] = useState(false);
@@ -51,7 +53,7 @@ export function BuggyOperationalDetail({
     100,
   );
 
-  if (isEditOpen) {
+  if (isEditOpen && !readOnly) {
     return (
       <AdminBuggyFormPanel
         buggy={buggy}
@@ -113,17 +115,19 @@ export function BuggyOperationalDetail({
           </div>
         </div>
 
-        <div className="shrink-0 flex flex-col items-end gap-1.5">
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={() => setIsEditOpen(true)}
-              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-600 shadow-sm transition hover:border-slate-900 hover:bg-slate-900 hover:text-white active:scale-95"
-            >
-              <Edit2Icon className="size-3.5" />
-            </button>
+        {!readOnly ? (
+          <div className="shrink-0 flex flex-col items-end gap-1.5">
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setIsEditOpen(true)}
+                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-600 shadow-sm transition hover:border-slate-900 hover:bg-slate-900 hover:text-white active:scale-95"
+              >
+                <Edit2Icon className="size-3.5" />
+              </button>
+            </div>
           </div>
-        </div>
+        ) : null}
       </div>
 
       <DeleteConfirmModal

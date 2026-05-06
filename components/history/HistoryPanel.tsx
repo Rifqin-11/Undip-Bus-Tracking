@@ -13,6 +13,7 @@ import { HistorySessionDetail } from "./HistorySessionDetail";
 type HistoryPanelProps = {
   buggies: Buggy[];
   onShowPath: (path: [number, number][]) => void;
+  readOnly?: boolean;
 };
 
 type ViewMode = "buggy-list" | "session-list" | "session-detail";
@@ -44,7 +45,11 @@ function getBuggyNorm(b: Buggy): string {
 
 // ── Component ─────────────────────────────────────────────────────────────────
 
-export function HistoryPanel({ buggies, onShowPath }: HistoryPanelProps) {
+export function HistoryPanel({
+  buggies,
+  onShowPath,
+  readOnly = false,
+}: HistoryPanelProps) {
   const [sessions, setSessions] = useState<BuggySession[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -189,6 +194,7 @@ export function HistoryPanel({ buggies, onShowPath }: HistoryPanelProps) {
           void load(true);
           goBackFromDetail();
         }}
+        readOnly={readOnly}
       />
     );
   }

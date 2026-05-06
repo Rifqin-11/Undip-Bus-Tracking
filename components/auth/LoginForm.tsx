@@ -40,9 +40,32 @@ export default function LoginForm() {
         },
       });
       if (error) throw error;
-    } catch (err: any) {
-      setErrorMessage(err.message || "Gagal login dengan Google");
+    } catch (err: unknown) {
+      setErrorMessage(
+        err instanceof Error ? err.message : "Gagal login dengan Google",
+      );
     }
+  };
+
+  const getPostLoginPath = async () => {
+    if (redirectTo !== "/admin" && redirectTo !== "/driver") {
+      return redirectTo;
+    }
+
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (!user) return redirectTo;
+
+    const { data: account } = await supabase
+      .from("accounts")
+      .select("role")
+      .eq("id", user.id)
+      .single();
+
+    if (account?.role === "Admin") return "/admin";
+    if (account?.role === "Driver") return "/driver";
+    return "/";
   };
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
@@ -82,11 +105,13 @@ export default function LoginForm() {
 
         if (error) throw error;
 
-        router.replace(redirectTo);
+        router.replace(await getPostLoginPath());
         router.refresh();
       }
-    } catch (err: any) {
-      setErrorMessage(err.message || "Terjadi kesalahan.");
+    } catch (err: unknown) {
+      setErrorMessage(
+        err instanceof Error ? err.message : "Terjadi kesalahan.",
+      );
     } finally {
       setIsSubmitting(false);
     }

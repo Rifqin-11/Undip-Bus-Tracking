@@ -11,6 +11,7 @@ type HistorySessionDetailProps = {
   selectedSession: BuggySession;
   onBack: () => void;
   onDeleteSuccess?: () => void;
+  readOnly?: boolean;
 };
 
 export function HistorySessionDetail({
@@ -18,6 +19,7 @@ export function HistorySessionDetail({
   selectedSession: s,
   onBack,
   onDeleteSuccess,
+  readOnly = false,
 }: HistorySessionDetailProps) {
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -79,6 +81,10 @@ export function HistorySessionDetail({
           <span className="flex shrink-0 items-center gap-1.5 rounded-full bg-emerald-100 px-2.5 py-0.5 text-[10px] font-semibold text-emerald-700">
             <span className="inline-block h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-500" />
             Live
+          </span>
+        ) : readOnly ? (
+          <span className="rounded-full bg-slate-100 px-2.5 py-0.5 text-[10px] font-semibold text-slate-500">
+            Selesai
           </span>
         ) : (
           <div className="flex shrink-0 items-center gap-2">

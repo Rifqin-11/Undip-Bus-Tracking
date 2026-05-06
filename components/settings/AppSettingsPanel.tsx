@@ -4,10 +4,10 @@ import { useState, useEffect } from "react";
 import { createClient } from "@/lib/supabase/client";
 import {
   Bell,
-  CheckCircle2,
   Info,
   KeyRound,
   LogIn,
+  LogOut,
   PanelRightOpen,
   ShieldCheck,
   SlidersHorizontal,
@@ -31,6 +31,7 @@ type AppSettingsPanelProps = {
   ) => void;
   onToggleBrowserNotification?: () => Promise<void> | void;
   onLogin?: () => void;
+  onLogout?: () => Promise<void> | void;
   accountForm?: AccountFormMode | null;
   onAccountFormChange?: (mode: AccountFormMode | null) => void;
 };
@@ -73,6 +74,7 @@ export function AppSettingsPanel({
   onUpdateSetting,
   onToggleBrowserNotification,
   onLogin,
+  onLogout,
   accountForm: controlledAccountForm,
   onAccountFormChange,
 }: AppSettingsPanelProps) {
@@ -82,29 +84,74 @@ export function AppSettingsPanel({
         ? Notification.permission
         : "unsupported",
     );
-  const [localAccountForm, setLocalAccountForm] = useState<AccountFormMode | null>(
-    null,
-  );
-  const [userProfile, setUserProfile] = useState<{ name: string; role: string; avatar: string } | null>(null);
+  const [localAccountForm, setLocalAccountForm] =
+    useState<AccountFormMode | null>(null);
+  const [userProfile, setUserProfile] = useState<{
+    name: string;
+    role: string;
+    avatar: string;
+  } | null>(null);
 
   useEffect(() => {
+    let isMounted = true;
+
     async function fetchUser() {
       const supabase = createClient();
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
-      
-      const { data: account } = await supabase.from('accounts').select('*').eq('id', user.id).single();
-      
-      const name = account?.name || user.user_metadata?.full_name || user.email?.split('@')[0] || "Admin";
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (!user) {
+        if (isMounted) {
+          setUserProfile(null);
+        }
+        return;
+      }
+
+      const { data: account } = await supabase
+        .from("accounts")
+        .select("*")
+        .eq("id", user.id)
+        .single();
+
+      const name =
+        account?.name ||
+        user.user_metadata?.full_name ||
+        user.email?.split("@")[0] ||
+        "Admin";
       const role = account?.role || "SIMOBI Operator";
       const avatar = name.charAt(0).toUpperCase();
 
-      setUserProfile({ name, role, avatar });
+      if (isMounted) {
+        setUserProfile({ name, role, avatar });
+      }
     }
-    fetchUser();
-  }, []);
+    void fetchUser();
 
-  const isAdmin = mode === "admin";
+    const supabase = createClient();
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((event, session) => {
+      if (!isMounted) return;
+
+      if (event === "SIGNED_OUT" || !session?.user) {
+        setUserProfile(null);
+        setLocalAccountForm(null);
+        onAccountFormChange?.(null);
+        return;
+      }
+
+      void fetchUser();
+    });
+
+    return () => {
+      isMounted = false;
+      subscription.unsubscribe();
+    };
+  }, [onAccountFormChange]);
+
+  const isDashboardMode = mode === "admin";
+  const isAdminRole = userProfile?.role === "Admin";
+  const isDriverRole = userProfile?.role === "Driver";
   const activeAccountForm = controlledAccountForm ?? localAccountForm;
 
   const setActiveAccountForm = (nextMode: AccountFormMode | null) => {
@@ -126,6 +173,20 @@ export function AppSettingsPanel({
     setNotificationPermission(Notification.permission);
   };
 
+  const handleLogout = async () => {
+    setUserProfile(null);
+    setActiveAccountForm(null);
+
+    if (onLogout) {
+      await onLogout();
+      return;
+    }
+
+    const supabase = createClient();
+    await supabase.auth.signOut();
+    window.location.href = "/";
+  };
+
   const permissionLabel =
     notificationPermission === "unsupported"
       ? "Tidak didukung"
@@ -135,7 +196,7 @@ export function AppSettingsPanel({
           ? "Diblokir"
           : "Belum diminta";
 
-  if (isAdmin && activeAccountForm) {
+  if (activeAccountForm && (activeAccountForm === "edit" || isAdminRole)) {
     return (
       <AccountFormPanel
         mode={activeAccountForm}
@@ -150,8 +211,10 @@ export function AppSettingsPanel({
         <div className="mb-3">
           <h2 className="text-[17px] font-bold text-slate-900">Settings</h2>
           <p className="text-[11px] text-slate-400">
-            {isAdmin
-              ? "Akun dan preferensi dashboard admin"
+            {isDashboardMode
+              ? isDriverRole
+                ? "Profil driver dan akses data armada"
+                : "Akun dan preferensi dashboard admin"
               : "Profil dan preferensi aplikasi"}
           </p>
         </div>
@@ -159,43 +222,50 @@ export function AppSettingsPanel({
         <div className="rounded-[20px] border border-slate-200/80 bg-white p-3.5">
           <div className="flex items-center gap-3">
             <div className="grid size-12 shrink-0 place-items-center rounded-full bg-[#0f1a3b] text-lg font-black text-white">
-              {isAdmin ? (userProfile?.avatar ?? "A") : "L"}
+              {userProfile?.avatar ?? (isDashboardMode ? "A" : "L")}
             </div>
             <div className="min-w-0 flex-1">
               <div className="flex flex-wrap items-center gap-2">
                 <h3 className="text-[15px] font-black tracking-tight text-slate-900">
-                  {isAdmin ? (userProfile?.name ?? "Admin") : "Login"}
+                  {userProfile?.name ?? (isDashboardMode ? "Admin" : "Login")}
                 </h3>
-                {isAdmin ? (
-                  <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-1 text-[10px] font-bold text-emerald-700">
-                    <CheckCircle2 className="h-3 w-3" />
-                    Login aktif
-                  </span>
-                ) : null}
               </div>
               <p className="mt-0.5 text-[12px] font-semibold text-slate-400">
-                {isAdmin ? (userProfile?.role ?? "SIMOBI Operator") : "Masuk sebagai admin SIMOBI"}
+                {userProfile?.role ??
+                  (isDashboardMode
+                    ? "SIMOBI Operator"
+                    : "Login untuk akses fitur yang lebih lengkap")}
               </p>
             </div>
           </div>
 
-          {isAdmin ? (
-            <div className="mt-4 grid grid-cols-2 gap-2">
+          {userProfile ? (
+            <div className="mt-4 flex gap-2">
               <button
                 type="button"
                 onClick={() => setActiveAccountForm("edit")}
-                className="inline-flex items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white px-3 py-2.5 text-[12px] font-bold text-slate-700 transition hover:border-[#0f1a3b] hover:text-[#0f1a3b] active:scale-[0.98]"
+                className="flex-1 inline-flex items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white px-3 py-2.5 text-[12px] font-bold text-slate-700 transition hover:border-[#0f1a3b] hover:text-[#0f1a3b] active:scale-[0.98]"
               >
                 <UserCog className="h-4 w-4" />
                 Edit Account
               </button>
+              {isAdminRole ? (
+                <button
+                  type="button"
+                  onClick={() => setActiveAccountForm("create")}
+                  className="flex-1 inline-flex items-center justify-center gap-2 rounded-2xl bg-[#0f1a3b] px-3 py-2.5 text-[12px] font-bold text-white transition hover:bg-slate-900 active:scale-[0.98]"
+                >
+                  <UserPlus className="h-4 w-4" />
+                  Create Account
+                </button>
+              ) : null}
               <button
                 type="button"
-                onClick={() => setActiveAccountForm("create")}
-                className="inline-flex items-center justify-center gap-2 rounded-2xl bg-[#0f1a3b] px-3 py-2.5 text-[12px] font-bold text-white transition hover:bg-slate-900 active:scale-[0.98]"
+                onClick={() => void handleLogout()}
+                className="inline-flex items-center justify-center gap-2 rounded-2xl border border-rose-100 bg-rose-50 px-3 py-2.5 text-[12px] font-bold text-rose-600 transition hover:border-rose-200 hover:bg-rose-100 active:scale-[0.98]"
               >
-                <UserPlus className="h-4 w-4" />
-                Create Account
+                <LogOut className="h-4 w-4" />
+                Logout
               </button>
             </div>
           ) : (
@@ -227,8 +297,8 @@ export function AppSettingsPanel({
         </div>
         <div className="space-y-2 text-[12px] leading-relaxed text-slate-500">
           <p className="rounded-[18px] border border-slate-200 bg-white px-3 py-2.5">
-            SIMOBI membantu civitas UNDIP memantau bus kampus, halte, dan
-            rute aktif secara realtime.
+            SIMOBI membantu civitas UNDIP memantau bus kampus, halte, dan rute
+            aktif secara realtime.
           </p>
           <div className="grid grid-cols-2 gap-2">
             <div className="rounded-[18px] border border-slate-200 bg-white px-3 py-2.5">
@@ -257,7 +327,7 @@ export function AppSettingsPanel({
           </p>
         </div>
 
-        {isAdmin ? (
+        {isAdminRole ? (
           <div className={settingCardClass}>
             <div className="flex min-w-0 items-center gap-3">
               <span className="grid size-10 shrink-0 place-items-center rounded-2xl bg-amber-50 text-amber-600">
@@ -290,7 +360,7 @@ export function AppSettingsPanel({
                 Panel Terbuka
               </p>
               <p className="text-[11px] font-semibold text-slate-400">
-                {isAdmin ? "Dashboard admin" : "Dashboard utama"}
+                {isDashboardMode ? "Dashboard operator" : "Dashboard utama"}
               </p>
             </div>
           </div>
@@ -306,7 +376,7 @@ export function AppSettingsPanel({
           />
         </div>
 
-        {isAdmin ? (
+        {isAdminRole ? (
           <div className={settingCardClass}>
             <div className="flex min-w-0 items-center gap-3">
               <span className="grid size-10 shrink-0 place-items-center rounded-2xl bg-violet-50 text-violet-600">
@@ -335,14 +405,18 @@ export function AppSettingsPanel({
         ) : null}
 
         <div className="flex items-center gap-2 rounded-[18px] border border-slate-200/80 bg-slate-50 px-3 py-2.5 text-[11px] font-semibold text-slate-500">
-          {isAdmin ? (
+          {isAdminRole ? (
             <ShieldCheck className="h-4 w-4 shrink-0 text-emerald-600" />
           ) : (
             <KeyRound className="h-4 w-4 shrink-0 text-slate-500" />
           )}
-          {isAdmin
+          {isAdminRole
             ? "Session admin mengikuti autentikasi yang sudah aktif."
-            : "Login diperlukan untuk membuka fitur admin."}
+            : isDriverRole
+              ? "Driver hanya dapat melihat armada yang ditugaskan."
+              : userProfile
+                ? "Akun pengguna aktif untuk fitur publik."
+                : "Login diperlukan untuk membuka fitur tambahan."}
         </div>
       </div>
     </section>

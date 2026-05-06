@@ -21,6 +21,7 @@ type GeofenceManagerProps = {
   onEditGeofence: (geofence: Geofence) => void;
   onDeleteGeofence: (id: string) => Promise<boolean> | boolean;
   onToggleBrowserNotification: () => void;
+  readOnly?: boolean;
 };
 
 export function GeofenceManager({
@@ -39,6 +40,7 @@ export function GeofenceManager({
   onEditGeofence,
   onDeleteGeofence,
   onToggleBrowserNotification,
+  readOnly = false,
 }: GeofenceManagerProps) {
   const [pendingDeleteGeofence, setPendingDeleteGeofence] = useState<Geofence | null>(null);
   const [isDeletingGeofence, setIsDeletingGeofence] = useState(false);
@@ -67,6 +69,7 @@ export function GeofenceManager({
           <h2 className="text-[17px] font-semibold text-slate-900">Manajemen Geofence</h2>
           <p className="text-[11px] text-slate-400">{geofences.length} zona terdaftar</p>
         </div>
+        {!readOnly ? (
         <div className="flex gap-1.5">
           <button
             type="button"
@@ -94,10 +97,11 @@ export function GeofenceManager({
             {geofenceCreateMode ? <X className="size-4"/> : <Plus className="size-4"/>}
           </button>
         </div>
+        ) : null}
       </div>
 
       {/* Draft geofence form */}
-      {geofenceCreateMode && draftGeofence && (
+      {!readOnly && geofenceCreateMode && draftGeofence && (
         <div className="mb-3 rounded-2xl border border-emerald-200 bg-emerald-50/60 p-3">
           <div className="mb-2 flex items-center gap-2">
             <span className="h-2 w-2 animate-pulse rounded-full bg-emerald-500" />
@@ -173,7 +177,9 @@ export function GeofenceManager({
         <p className="py-2 text-[12px] text-slate-400">Memuat zona...</p>
       ) : geofences.length === 0 ? (
         <p className="py-2 text-[12px] text-slate-400">
-          Belum ada zona. Klik &quot;Buat&quot; untuk menambahkan.
+          {readOnly
+            ? "Belum ada zona yang dapat ditampilkan."
+            : "Belum ada zona. Klik \"Buat\" untuk menambahkan."}
         </p>
       ) : (
         <div className="space-y-2">
@@ -200,6 +206,7 @@ export function GeofenceManager({
                   </span>
                 </div>
               </div>
+              {!readOnly ? (
               <div className="flex shrink-0 items-center gap-2">
                 {/* Toggle Switch */}
                 <button
@@ -243,11 +250,17 @@ export function GeofenceManager({
                   <TrashIcon className="h-3.5 w-3.5" />
                 </button>
               </div>
+              ) : (
+                <span className="rounded-full bg-slate-100 px-2 py-1 text-[10px] font-semibold text-slate-500">
+                  Read-only
+                </span>
+              )}
             </div>
           ))}
         </div>
       )}
 
+      {!readOnly ? (
       <DeleteConfirmModal
         open={pendingDeleteGeofence !== null}
         title="Hapus Geofence?"
@@ -270,6 +283,7 @@ export function GeofenceManager({
           </div>
         ) : null}
       </DeleteConfirmModal>
+      ) : null}
     </div>
   );
 }
