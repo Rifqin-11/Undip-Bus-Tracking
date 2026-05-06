@@ -22,6 +22,7 @@ type FloatingSidebarProps = {
   onSelectView: (view: PanelView) => void;
   showDataButton?: boolean;
   showSettingsButton?: boolean;
+  onLogin?: () => void;
 };
 
 const actionButtonClass =
@@ -32,6 +33,7 @@ export function FloatingSidebar({
   onSelectView,
   showDataButton = true,
   showSettingsButton = true,
+  onLogin,
 }: FloatingSidebarProps) {
   const pathname = usePathname();
   const router = useRouter();
@@ -51,6 +53,11 @@ export function FloatingSidebar({
       }
       router.push("/");
       router.refresh();
+      return;
+    }
+
+    if (onLogin) {
+      onLogin();
       return;
     }
 

@@ -1,8 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { AuthModal } from "@/components/auth/AuthModal";
 import { MapCanvas } from "@/components/map/MapCanvas";
 import { BuggyList } from "@/components/buggy/PanelActive";
 import { FloatingSidebar } from "@/components/sidebar/FloatingSidebar";
@@ -116,6 +116,13 @@ export default function DashboardPage() {
 
   // Toast notifications state
   const [toasts, setToasts] = useState<ToastItem[]>([]);
+  const [authModalOpen, setAuthModalOpen] = useState(false);
+  const [authRedirectTo, setAuthRedirectTo] = useState("/");
+
+  const openAuthModal = useCallback((next = "/") => {
+    setAuthRedirectTo(next);
+    setAuthModalOpen(true);
+  }, []);
 
   const dismissToast = useCallback((id: string) => {
     setToasts((prev) => prev.filter((t) => t.id !== id));
@@ -147,9 +154,9 @@ export default function DashboardPage() {
       description: "Masuk terlebih dahulu untuk menggunakan pencarian rute.",
       duration: 5_000,
     });
-    router.push("/login?next=/");
+    openAuthModal("/");
     return false;
-  }, [addToast, isAuthenticated, router, userLoading]);
+  }, [addToast, isAuthenticated, openAuthModal, userLoading]);
 
   const handleLogout = useCallback(async () => {
     const supabase = createClient();
@@ -665,13 +672,14 @@ export default function DashboardPage() {
               {userProfile.avatar}
             </button>
           ) : (
-            <Link
-              href="/login"
+            <button
+              type="button"
+              onClick={() => openAuthModal("/admin")}
               aria-label="Login admin"
               className="relative flex h-10 w-10 items-center justify-center rounded-full border border-white/20 bg-slate-900/50 text-white backdrop-blur-md transition active:scale-95"
             >
               <LoginIcon className="h-5 w-5" />
-            </Link>
+            </button>
           )}
         </div>
       </section>
@@ -720,7 +728,7 @@ export default function DashboardPage() {
           <button
             type="button"
             aria-label="Settings"
-            onClick={() => router.push("/login")}
+            onClick={() => openAuthModal("/admin")}
             className="flex w-full items-center gap-2 rounded-full border border-white/60 bg-white px-2 py-2 text-left shadow-[0_10px_30px_rgba(15,23,42,0.12)] backdrop-blur-xl transition hover:bg-white/90 active:scale-[0.98]"
           >
             <div className="grid size-8 place-items-center rounded-full bg-[#0f1a3b] text-sm font-black text-white">
@@ -741,6 +749,7 @@ export default function DashboardPage() {
       <FloatingSidebar
         activeView={activeView}
         onSelectView={handleSelectView}
+        onLogin={() => openAuthModal("/admin")}
       />
 
       <LiveSearchBar
@@ -776,7 +785,7 @@ export default function DashboardPage() {
             mode="public"
             settings={settings}
             onUpdateSetting={handleUpdateSetting}
-            onLogin={() => router.push("/login")}
+            onLogin={() => openAuthModal("/")}
             onLogout={handleLogout}
           />
         }
@@ -790,6 +799,11 @@ export default function DashboardPage() {
 
       {/* Toast notifications */}
       <ToastStack toasts={toasts} onDismiss={dismissToast} />
+      <AuthModal
+        open={authModalOpen}
+        redirectTo={authRedirectTo}
+        onClose={() => setAuthModalOpen(false)}
+      />
     </main>
   );
 }
