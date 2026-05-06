@@ -8,9 +8,11 @@ import {
   RefreshCw,
   Save,
   Search,
+  Trash2,
   UserCog,
 } from "lucide-react";
 import { AccountFormPanel } from "@/components/settings/AccountFormPanel";
+import { DeleteConfirmModal } from "@/components/ui/DeleteConfirmModal";
 import { useUserRole } from "@/hooks/useUserRole";
 import { resolveAssignedBuggy } from "@/lib/buggy/assignment";
 import type { Buggy } from "@/types/buggy";
@@ -36,6 +38,10 @@ type AccountsResponse = {
 
 type UpdateResponse = {
   account?: ManagedAccount;
+  message?: string;
+};
+
+type DeleteResponse = {
   message?: string;
 };
 
@@ -69,6 +75,8 @@ export function AccountManagementPanel({ onClose }: AccountManagementPanelProps)
   const [buggyOptions, setBuggyOptions] = useState(fallbackBuggyOptions);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<ManagedAccount | null>(null);
   const [errorMsg, setErrorMsg] = useState("");
 
   const loadAccounts = useCallback(async () => {
@@ -237,6 +245,40 @@ export function AccountManagementPanel({ onClose }: AccountManagementPanelProps)
     }
   };
 
+  const handleDeleteAccount = async () => {
+    if (!deleteTarget) return;
+
+    setDeleting(true);
+    setErrorMsg("");
+
+    try {
+      const response = await fetch("/api/admin/accounts", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: deleteTarget.id }),
+      });
+      const payload = (await response.json()) as DeleteResponse;
+
+      if (!response.ok) {
+        throw new Error(payload.message || "Gagal menghapus akun.");
+      }
+
+      setAccounts((prev) =>
+        prev.filter((account) => account.id !== deleteTarget.id),
+      );
+
+      if (editingAccount?.id === deleteTarget.id) {
+        closeEditor();
+      }
+
+      setDeleteTarget(null);
+    } catch (err: unknown) {
+      setErrorMsg(err instanceof Error ? err.message : "Gagal menghapus akun.");
+    } finally {
+      setDeleting(false);
+    }
+  };
+
   if (creatingAccount) {
     return <AccountFormPanel mode="create" onClose={closeCreateAccount} />;
   }
@@ -246,6 +288,17 @@ export function AccountManagementPanel({ onClose }: AccountManagementPanelProps)
 
     return (
       <section className="space-y-3">
+        <DeleteConfirmModal
+          open={deleteTarget?.id === editingAccount.id}
+          title="Hapus Akun"
+          description={`Anda yakin ingin menghapus akun ${editingAccount.name}? Aksi ini akan menghapus akses login akun tersebut.`}
+          confirmLabel="Ya, Hapus Akun"
+          loadingLabel="Menghapus akun..."
+          isLoading={deleting}
+          onClose={() => setDeleteTarget(null)}
+          onConfirm={() => void handleDeleteAccount()}
+        />
+
         <div className="rounded-3xl border border-slate-200/80 bg-white/70 p-3 lg:p-4">
           <div className="mb-4 flex items-center gap-3">
             <button
@@ -382,6 +435,18 @@ export function AccountManagementPanel({ onClose }: AccountManagementPanelProps)
             )}
             {saving ? "Menyimpan..." : "Simpan Perubahan"}
           </button>
+
+          {!isEditingSelf ? (
+            <button
+              type="button"
+              onClick={() => setDeleteTarget(editingAccount)}
+              disabled={saving || deleting}
+              className="mt-2 inline-flex w-full items-center justify-center gap-2 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-[14px] font-bold text-rose-600 transition hover:border-rose-300 hover:bg-rose-100 active:scale-[0.98] disabled:opacity-70"
+            >
+              <Trash2 className="h-4 w-4" />
+              Delete Account
+            </button>
+          ) : null}
         </div>
       </section>
     );

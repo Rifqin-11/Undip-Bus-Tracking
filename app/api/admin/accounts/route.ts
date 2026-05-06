@@ -6,7 +6,7 @@ import {
 
 const ACCOUNT_ROLES = ["Admin", "Driver", "Pengguna umum"] as const;
 const SUPABASE_ADMIN_CONFIG_MESSAGE =
-  "Create/update akun membutuhkan SUPABASE_SERVICE_ROLE_KEY yang valid. Pastikan .env.local memakai service_role key dari Supabase Project Settings, lalu restart dev server.";
+  "Create/update/delete akun membutuhkan SUPABASE_SERVICE_ROLE_KEY yang valid. Pastikan .env.local memakai service_role key dari Supabase Project Settings, lalu restart dev server.";
 const SUPABASE_BEARER_TOKEN_ERROR = "valid Bearer token";
 
 type AccountRole = (typeof ACCOUNT_ROLES)[number];
@@ -20,6 +20,10 @@ type CreateAccountBody = {
 };
 
 type UpdateAccountBody = CreateAccountBody & {
+  id?: string;
+};
+
+type DeleteAccountBody = {
   id?: string;
 };
 
@@ -250,6 +254,74 @@ export async function PATCH(request: Request) {
     return NextResponse.json({
       account: normalizeAccount(data as AccountRow, trimmedEmail),
     });
+  } catch (err: unknown) {
+    return NextResponse.json(
+      {
+        message: err instanceof Error ? err.message : "Terjadi kesalahan",
+      },
+      { status: 500 },
+    );
+  }
+}
+
+export async function DELETE(request: Request) {
+  const supabase = createAdminClient();
+  if (!supabase) {
+    return NextResponse.json(
+      { message: SUPABASE_ADMIN_CONFIG_MESSAGE },
+      { status: 500 },
+    );
+  }
+
+  try {
+    const body = (await request.json()) as DeleteAccountBody;
+    const { id } = body;
+
+    if (!id) {
+      return NextResponse.json(
+        { message: "ID akun wajib diisi." },
+        { status: 400 },
+      );
+    }
+
+    const serverClient = await createServerClient();
+    const {
+      data: { user },
+    } = await serverClient.auth.getUser();
+
+    if (user?.id === id) {
+      return NextResponse.json(
+        { message: "Akun admin yang sedang aktif tidak dapat dihapus." },
+        { status: 400 },
+      );
+    }
+
+    const { error: authError } = await supabase.auth.admin.deleteUser(id);
+
+    if (authError) {
+      return NextResponse.json(
+        { message: formatSupabaseAdminError(authError.message) },
+        { status: 400 },
+      );
+    }
+
+    const { error: accountError } = await supabase
+      .from("accounts")
+      .delete()
+      .eq("id", id);
+
+    if (accountError) {
+      return NextResponse.json(
+        {
+          message:
+            "Akun auth berhasil dihapus, tapi profil akun gagal dibersihkan: " +
+            accountError.message,
+        },
+        { status: 500 },
+      );
+    }
+
+    return NextResponse.json({ message: "Akun berhasil dihapus." });
   } catch (err: unknown) {
     return NextResponse.json(
       {
