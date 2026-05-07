@@ -15,8 +15,8 @@ import type {
 import {
   BUGGY_PIN_ICON,
   BUGGY_SELECTED_PIN_ICON,
-  HALTE_PIN_ICON,
-  HALTE_SELECTED_PIN_ICON,
+  DESTINATION_PIN_ICON,
+  buildHalteIcon,
   buildBuggyInfoContent,
 } from "@/components/map/MapMarker";
 import {
@@ -24,6 +24,7 @@ import {
   HISTORY_POLYLINE_OPTIONS,
   ROUTE_POLYLINE_OPTIONS,
   WALKING_POLYLINE_OPTIONS,
+  buildPolylineEndpointIcon,
 } from "@/components/map/MapPolyline";
 
 // ─── Google Maps loader ──────────────────────────────────────────────────────
@@ -86,6 +87,17 @@ const MAP_TYPE_ID_BY_STYLE: Record<
   terrain: "terrain",
 };
 
+function getPathEndpoints(path: [number, number][]) {
+  if (path.length < 2) return [];
+  const [startLat, startLng] = path[0];
+  const [endLat, endLng] = path[path.length - 1];
+
+  return [
+    { lat: startLat, lng: startLng },
+    { lat: endLat, lng: endLng },
+  ];
+}
+
 export function MapCanvas({
   buggies,
   haltes,
@@ -124,6 +136,7 @@ export function MapCanvas({
   const directionPolylineRef = useRef<PolylineHandle | null>(null);
   const walkingToPolylineRef = useRef<PolylineHandle | null>(null);
   const walkingFromPolylineRef = useRef<PolylineHandle | null>(null);
+  const routeEndpointMarkersRef = useRef<MarkerHandle[]>([]);
   const historyPolylineRef = useRef<PolylineHandle | null>(null);
   const userLocationMarkerRef = useRef<MarkerHandle | null>(null);
   const userLocationPulseRef = useRef<CircleHandle | null>(null);
@@ -216,6 +229,8 @@ export function MapCanvas({
       directionPolylineRef.current?.setMap(null);
       walkingToPolylineRef.current?.setMap(null);
       walkingFromPolylineRef.current?.setMap(null);
+      routeEndpointMarkersRef.current.forEach((marker) => marker.setMap(null));
+      routeEndpointMarkersRef.current = [];
       historyPolylineRef.current?.setMap(null);
       userLocationMarkerRef.current?.setMap(null);
       userLocationPulseRef.current?.setMap(null);
@@ -268,6 +283,9 @@ export function MapCanvas({
     const map = mapInstanceRef.current;
     const maps = mapsApiRef.current;
 
+    routeEndpointMarkersRef.current.forEach((marker) => marker.setMap(null));
+    routeEndpointMarkersRef.current = [];
+
     directionPolylineRef.current?.setMap(null);
     directionPolylineRef.current =
       directionPath.length > 1
@@ -297,6 +315,24 @@ export function MapCanvas({
             ...WALKING_POLYLINE_OPTIONS,
           })
         : null;
+
+    const endpointIcon = buildPolylineEndpointIcon(maps);
+    const endpointPositions = [
+      ...getPathEndpoints(walkingToHaltePath),
+      ...getPathEndpoints(directionPath),
+      ...getPathEndpoints(walkingFromHaltePath),
+    ];
+
+    routeEndpointMarkersRef.current = endpointPositions.map(
+      (position, index) =>
+        new maps.Marker({
+          map,
+          position,
+          title: index % 2 === 0 ? "Awal garis" : "Akhir garis",
+          icon: endpointIcon,
+          zIndex: 30,
+        }),
+    );
   }, [directionPath, mapReady, walkingFromHaltePath, walkingToHaltePath]);
 
   // ── Render GPS history trail polyline ────────────────────────────────────
@@ -368,6 +404,7 @@ export function MapCanvas({
       },
       zIndex: 35,
     });
+
   }, [mapReady, userPosition]);
 
   // ── Render geofence circles ───────────────────────────────────────────────
@@ -416,7 +453,7 @@ export function MapCanvas({
           title: "Titik awal",
           icon: {
             path: maps.SymbolPath.CIRCLE,
-            fillColor: "#3b82f6",
+            fillColor: "#fefefe",
             fillOpacity: 1,
             strokeColor: "#ffffff",
             strokeWeight: 2,
@@ -432,14 +469,7 @@ export function MapCanvas({
           map,
           position: destinationMarkerPosition,
           title: "Tujuan",
-          icon: {
-            path: maps.SymbolPath.CIRCLE,
-            fillColor: "#ef4444",
-            fillOpacity: 1,
-            strokeColor: "#ffffff",
-            strokeWeight: 2,
-            scale: 7,
-          },
+          icon: DESTINATION_PIN_ICON,
           zIndex: 25,
         })
       : null;
@@ -586,15 +616,17 @@ export function MapCanvas({
     const map = mapInstanceRef.current;
     const maps = mapsApiRef.current;
     const halteById = new Map(haltes.map((h) => [h.id, h]));
+    const halteIcon = buildHalteIcon(maps, "default");
+    const halteActiveIcon = buildHalteIcon(maps, "active");
 
-    haltes.forEach((halte, index) => {
+    haltes.forEach((halte) => {
       const isSelected = selectedHalteId === halte.id;
       const existing = halteMarkersRef.current.get(halte.id);
 
       if (existing) {
         existing.setPosition({ lat: halte.lat, lng: halte.lng });
         existing.setTitle(halte.name);
-        existing.setIcon(isSelected ? HALTE_SELECTED_PIN_ICON : HALTE_PIN_ICON);
+        existing.setIcon(isSelected ? halteActiveIcon : halteIcon);
         return;
       }
 
@@ -602,9 +634,8 @@ export function MapCanvas({
         map,
         position: { lat: halte.lat, lng: halte.lng },
         title: halte.name,
-        label: { text: `H${index + 1}`, color: "#0f172a", fontWeight: "700" },
-        icon: isSelected ? HALTE_SELECTED_PIN_ICON : HALTE_PIN_ICON,
-        zIndex: 10,
+        icon: isSelected ? halteActiveIcon : halteIcon,
+        zIndex: isSelected ? 18 : 10,
       });
       marker.addListener("click", () => onHalteMarkerClick?.(halte.id));
       halteMarkersRef.current.set(halte.id, marker);

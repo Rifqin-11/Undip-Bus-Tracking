@@ -67,6 +67,8 @@ export type MapsApi = {
     options: Record<string, unknown>,
   ) => MapHandle;
   Marker: new (options: Record<string, unknown>) => MarkerHandle;
+  Size: new (width: number, height: number) => unknown;
+  Point: new (x: number, y: number) => unknown;
   InfoWindow: new () => InfoWindowHandle;
   Polyline: new (options: Record<string, unknown>) => PolylineHandle;
   Circle: new (options: Record<string, unknown>) => CircleHandle;

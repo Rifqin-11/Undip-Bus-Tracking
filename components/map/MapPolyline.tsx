@@ -1,3 +1,5 @@
+import type { MapsApi } from "@/types/map-canvas";
+
 // ─── Polyline style constants ────────────────────────────────────────────────
 
 export const ROUTE_POLYLINE_OPTIONS = {
@@ -21,17 +23,17 @@ export const DIRECTION_POLYLINE_OPTIONS = {
 export const WALKING_POLYLINE_OPTIONS = {
   geodesic: true,
   strokeColor: "#059669",
-  strokeOpacity: 0,
-  strokeWeight: 5,
+  strokeOpacity: 0.5,
+  strokeWeight: 6,
   clickable: false,
   zIndex: 4,
   icons: [
     {
       icon: {
-        path: "M 0,-1 0,1",
+        path: "M 0,1 0, 1",
         strokeOpacity: 1,
-        strokeWeight: 2,
-        scale: 3,
+        strokeWeight: 7,
+        scale: 10,
       },
       offset: "0",
       repeat: "15px",
@@ -48,3 +50,15 @@ export const HISTORY_POLYLINE_OPTIONS = {
   clickable: false,
   zIndex: 7,
 } as const;
+
+export function buildPolylineEndpointIcon(maps: Pick<MapsApi, "SymbolPath">) {
+  return {
+    path: maps.SymbolPath.CIRCLE,
+    fillColor: "#ffffff",
+    fillOpacity: 1,
+    strokeColor: "#111827",
+    strokeOpacity: 1,
+    strokeWeight: 2,
+    scale: 5.5,
+  };
+}
