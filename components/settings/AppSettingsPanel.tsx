@@ -449,50 +449,52 @@ export function AppSettingsPanel({
           </div>
         </div>
 
-        {/* Nearby alert radius ── chip selector */}
-        <div className="rounded-[20px] border border-slate-200/80 bg-white px-3.5 py-3 shadow-[0_8px_24px_rgba(15,23,42,0.05)]">
-          <div className="mb-2.5 flex items-center gap-3">
-            <span className="grid size-10 shrink-0 place-items-center rounded-2xl bg-sky-50 text-sky-600">
-              <Radar className="h-5 w-5" />
-            </span>
-            <div className="min-w-0 flex-1">
-              <p className="text-[13px] font-black text-slate-900">
-                Radius Alert Bus
-              </p>
-              <p className="text-[11px] font-semibold text-slate-400">
-                Bus dianggap mendekat halte saat &lt;{" "}
-                {settings.nearbyAlertRadiusMeters} m
-              </p>
+        {/* Nearby alert radius ── chip selector (hanya untuk user login) */}
+        {userProfile ? (
+          <div className="rounded-[20px] border border-slate-200/80 bg-white px-3.5 py-3 shadow-[0_8px_24px_rgba(15,23,42,0.05)]">
+            <div className="mb-2.5 flex items-center gap-3">
+              <span className="grid size-10 shrink-0 place-items-center rounded-2xl bg-sky-50 text-sky-600">
+                <Radar className="h-5 w-5" />
+              </span>
+              <div className="min-w-0 flex-1">
+                <p className="text-[13px] font-black text-slate-900">
+                  Radius Alert Bus
+                </p>
+                <p className="text-[11px] font-semibold text-slate-400">
+                  Bus dianggap mendekat halte saat &lt;{" "}
+                  {settings.nearbyAlertRadiusMeters} m
+                </p>
+              </div>
+            </div>
+            <div
+              role="radiogroup"
+              aria-label="Radius alert bus mendekat"
+              className="flex flex-wrap gap-1.5"
+            >
+              {NEARBY_ALERT_RADIUS_OPTIONS.map((opt) => {
+                const active = settings.nearbyAlertRadiusMeters === opt.value;
+                return (
+                  <button
+                    key={opt.value}
+                    type="button"
+                    role="radio"
+                    aria-checked={active}
+                    onClick={() =>
+                      onUpdateSetting("nearbyAlertRadiusMeters", opt.value)
+                    }
+                    className={`rounded-full px-3 py-1 text-[11px] font-bold transition active:scale-95 ${
+                      active
+                        ? "bg-[#0f1a3b] text-white shadow-sm"
+                        : "border border-slate-200 bg-white text-slate-600 hover:border-[#0f1a3b]/30 hover:text-[#0f1a3b]"
+                    }`}
+                  >
+                    {opt.label}
+                  </button>
+                );
+              })}
             </div>
           </div>
-          <div
-            role="radiogroup"
-            aria-label="Radius alert bus mendekat"
-            className="flex flex-wrap gap-1.5"
-          >
-            {NEARBY_ALERT_RADIUS_OPTIONS.map((opt) => {
-              const active = settings.nearbyAlertRadiusMeters === opt.value;
-              return (
-                <button
-                  key={opt.value}
-                  type="button"
-                  role="radio"
-                  aria-checked={active}
-                  onClick={() =>
-                    onUpdateSetting("nearbyAlertRadiusMeters", opt.value)
-                  }
-                  className={`rounded-full px-3 py-1 text-[11px] font-bold transition active:scale-95 ${
-                    active
-                      ? "bg-[#0f1a3b] text-white shadow-sm"
-                      : "border border-slate-200 bg-white text-slate-600 hover:border-[#0f1a3b]/30 hover:text-[#0f1a3b]"
-                  }`}
-                >
-                  {opt.label}
-                </button>
-              );
-            })}
-          </div>
-        </div>
+        ) : null}
 
         {isAdmin ? (
           <div className={settingCardClass}>
