@@ -11,6 +11,7 @@ import {
   ShareIcon,
   MapPinIcon,
 } from "@/components/ui/Icons";
+import { FavoriteStar } from "@/components/ui/FavoriteStar";
 
 function generateSchedule(halteId: string): string[] {
   const baseHour = 7;
@@ -70,6 +71,12 @@ type HalteDetailViewProps = {
   halteIndex: number;
   buggies?: Buggy[];
   onBack: () => void;
+  /** True jika user authenticated & favorit ready (UI tampilkan star). */
+  canFavorite?: boolean;
+  /** Apakah halte ini sudah di-favorit user. */
+  isFavorite?: boolean;
+  /** Toggle favorit halte. Wajib disediakan saat `canFavorite=true`. */
+  onToggleFavorite?: () => void | Promise<unknown>;
 };
 
 export function HalteDetailView({
@@ -77,13 +84,22 @@ export function HalteDetailView({
   halteIndex: _halteIndex,
   buggies = [],
   onBack,
+  canFavorite = false,
+  isFavorite = false,
+  onToggleFavorite,
 }: HalteDetailViewProps) {
-  const schedule = halte.schedule && halte.schedule.length > 0
-    ? halte.schedule
-    : generateSchedule(halte.id);
-  const facilities = halte.facilities && halte.facilities.length > 0
-    ? halte.facilities
-    : ["Gedung kuliah terdekat", "Area parkir tersedia", "Akses ramah disabilitas"];
+  const schedule =
+    halte.schedule && halte.schedule.length > 0
+      ? halte.schedule
+      : generateSchedule(halte.id);
+  const facilities =
+    halte.facilities && halte.facilities.length > 0
+      ? halte.facilities
+      : [
+          "Gedung kuliah terdekat",
+          "Area parkir tersedia",
+          "Akses ramah disabilitas",
+        ];
   const mapsUrl = `https://www.google.com/maps/dir/?api=1&destination=${halte.lat},${halte.lng}`;
 
   // Lazy-load Street View: URL hanya diset setelah komponen mount (panel terbuka)
@@ -204,6 +220,21 @@ export function HalteDetailView({
             )}
           </div>
         </div>
+        {canFavorite && onToggleFavorite ? (
+          <div className="shrink-0">
+            <FavoriteStar
+              active={isFavorite}
+              onToggle={onToggleFavorite}
+              size="md"
+              label={
+                isFavorite
+                  ? `Hapus ${halte.name} dari favorit`
+                  : `Tambah ${halte.name} ke favorit`
+              }
+            />
+          </div>
+        ) : null}
+
         <div className="grid h-10 w-10 shrink-0 place-items-center rounded-2xl bg-[#0f1a3b] shadow-md text-sm font-bold text-white transition-transform hover:scale-105">
           <BusStopIcon className="h-5 w-5" />
         </div>

@@ -2,17 +2,44 @@
 
 import { useCallback, useMemo, useSyncExternalStore } from "react";
 
+export type MapStyle = "standard" | "satellite" | "terrain";
+
 export type AdminSettings = {
   browserNotificationEnabled: boolean;
   openPanelOnDashboard: boolean;
   compactAdminPanels: boolean;
+  mapStyle: MapStyle;
+  /** Radius (meter) saat bus dianggap mendekati halte user. Min 50, max 1000. */
+  nearbyAlertRadiusMeters: number;
 };
 
 export const DEFAULT_ADMIN_SETTINGS: AdminSettings = {
   browserNotificationEnabled: false,
   openPanelOnDashboard: true,
   compactAdminPanels: false,
+  mapStyle: "standard",
+  nearbyAlertRadiusMeters: 150,
 };
+
+export const MAP_STYLE_OPTIONS: ReadonlyArray<{
+  value: MapStyle;
+  label: string;
+}> = [
+  { value: "standard", label: "Standar" },
+  { value: "satellite", label: "Satelit" },
+  { value: "terrain", label: "Terrain" },
+];
+
+export const NEARBY_ALERT_RADIUS_OPTIONS: ReadonlyArray<{
+  value: number;
+  label: string;
+}> = [
+  { value: 100, label: "100 m" },
+  { value: 150, label: "150 m" },
+  { value: 250, label: "250 m" },
+  { value: 350, label: "350 m" },
+  { value: 500, label: "500 m" },
+];
 
 const ADMIN_SETTINGS_STORAGE_KEY = "simobi_admin_settings";
 const ADMIN_SETTINGS_EVENT = "simobi-admin-settings-change";
@@ -88,5 +115,9 @@ export function useAdminSettings() {
     [],
   );
 
-  return { settings, updateSetting };
+  const resetSettings = useCallback(() => {
+    writeStoredSettings(DEFAULT_ADMIN_SETTINGS);
+  }, []);
+
+  return { settings, updateSetting, resetSettings };
 }

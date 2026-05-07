@@ -26,9 +26,12 @@ export type MapHandle = {
   setZoom: (zoom: number) => void;
   getCenter: () => { lat: () => number; lng: () => number } | null;
   fitBounds: (bounds: LatLngBoundsHandle, padding?: number) => void;
+  setMapTypeId: (mapTypeId: string) => void;
   addListener: (
     eventName: string,
-    handler: (event: { latLng?: { lat: () => number; lng: () => number } }) => void,
+    handler: (event: {
+      latLng?: { lat: () => number; lng: () => number };
+    }) => void,
   ) => { remove: () => void };
 };
 
@@ -82,10 +85,14 @@ export type GoogleMapsWindow = Window & {
   };
 };
 
+export type MapStyleId = "standard" | "satellite" | "terrain";
+
 export type MapCanvasProps = {
   buggies: Buggy[];
   haltes: HaltePoint[];
   routePath: [number, number][];
+  /** Style/jenis dasar peta. Default `"standard"`. */
+  mapStyle?: MapStyleId;
   directionPath?: [number, number][];
   walkingToHaltePath?: [number, number][];
   walkingFromHaltePath?: [number, number][];

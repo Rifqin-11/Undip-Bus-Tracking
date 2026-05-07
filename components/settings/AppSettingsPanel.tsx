@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import {
   Bell,
@@ -8,7 +8,10 @@ import {
   KeyRound,
   LogIn,
   LogOut,
+  Map as MapIcon,
   PanelRightOpen,
+  RotateCcw,
+  Radar,
   ShieldCheck,
   SlidersHorizontal,
   UserCog,
@@ -20,7 +23,11 @@ import {
 } from "@/components/settings/AccountFormPanel";
 import { AccountManagementPanel } from "@/components/settings/AccountManagementPanel";
 import { Skeleton } from "@/components/ui/Skeleton";
-import type { AdminSettings } from "@/hooks/useAdminSettings";
+import {
+  MAP_STYLE_OPTIONS,
+  NEARBY_ALERT_RADIUS_OPTIONS,
+  type AdminSettings,
+} from "@/hooks/useAdminSettings";
 import { useUserRole } from "@/hooks/useUserRole";
 
 type NotificationPermissionState = "unsupported" | NotificationPermission;
@@ -32,6 +39,8 @@ type AppSettingsPanelProps = {
     key: Key,
     value: AdminSettings[Key],
   ) => void;
+  /** Reset semua preferensi ke default. */
+  onResetSettings?: () => void;
   onToggleBrowserNotification?: () => Promise<void> | void;
   onLogin?: () => void;
   onLogout?: () => Promise<void> | void;
@@ -75,6 +84,7 @@ export function AppSettingsPanel({
   mode,
   settings,
   onUpdateSetting,
+  onResetSettings,
   onToggleBrowserNotification,
   onLogin,
   onLogout,
@@ -90,12 +100,40 @@ export function AppSettingsPanel({
   const [localAccountForm, setLocalAccountForm] =
     useState<AccountFormMode | null>(null);
   const [accountManagementOpen, setAccountManagementOpen] = useState(false);
+  const [pendingReset, setPendingReset] = useState(false);
+  const pendingResetTimerRef = useRef<ReturnType<typeof setTimeout> | null>(
+    null,
+  );
   const {
     userProfile,
     loading: userLoading,
     isAdmin,
     isDriver,
   } = useUserRole();
+
+  // Auto-revert konfirmasi reset setelah 4 detik agar tombol tidak "stuck".
+  useEffect(() => {
+    if (!pendingReset) return;
+    pendingResetTimerRef.current = setTimeout(() => {
+      setPendingReset(false);
+    }, 4000);
+    return () => {
+      if (pendingResetTimerRef.current) {
+        clearTimeout(pendingResetTimerRef.current);
+        pendingResetTimerRef.current = null;
+      }
+    };
+  }, [pendingReset]);
+
+  const handleResetClick = () => {
+    if (!onResetSettings) return;
+    if (!pendingReset) {
+      setPendingReset(true);
+      return;
+    }
+    onResetSettings();
+    setPendingReset(false);
+  };
 
   const isDashboardMode = mode === "admin";
   const rawAccountForm = controlledAccountForm ?? localAccountForm;
@@ -369,6 +407,93 @@ export function AppSettingsPanel({
           />
         </div>
 
+        {/* Map Style ── segmented control */}
+        <div className="rounded-[20px] border border-slate-200/80 bg-white px-3.5 py-3 shadow-[0_8px_24px_rgba(15,23,42,0.05)]">
+          <div className="mb-2.5 flex items-center gap-3">
+            <span className="grid size-10 shrink-0 place-items-center rounded-2xl bg-emerald-50 text-emerald-600">
+              <MapIcon className="h-5 w-5" />
+            </span>
+            <div className="min-w-0">
+              <p className="text-[13px] font-black text-slate-900">
+                Style Peta
+              </p>
+              <p className="text-[11px] font-semibold text-slate-400">
+                Pilih tampilan dasar peta
+              </p>
+            </div>
+          </div>
+          <div
+            role="radiogroup"
+            aria-label="Style peta"
+            className="grid grid-cols-3 gap-1 rounded-2xl bg-slate-100 p-1"
+          >
+            {MAP_STYLE_OPTIONS.map((opt) => {
+              const active = settings.mapStyle === opt.value;
+              return (
+                <button
+                  key={opt.value}
+                  type="button"
+                  role="radio"
+                  aria-checked={active}
+                  onClick={() => onUpdateSetting("mapStyle", opt.value)}
+                  className={`rounded-xl py-1.5 text-[11px] font-bold transition active:scale-95 ${
+                    active
+                      ? "bg-white text-[#0f1a3b] shadow-sm"
+                      : "text-slate-500 hover:text-slate-700"
+                  }`}
+                >
+                  {opt.label}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Nearby alert radius ── chip selector */}
+        <div className="rounded-[20px] border border-slate-200/80 bg-white px-3.5 py-3 shadow-[0_8px_24px_rgba(15,23,42,0.05)]">
+          <div className="mb-2.5 flex items-center gap-3">
+            <span className="grid size-10 shrink-0 place-items-center rounded-2xl bg-sky-50 text-sky-600">
+              <Radar className="h-5 w-5" />
+            </span>
+            <div className="min-w-0 flex-1">
+              <p className="text-[13px] font-black text-slate-900">
+                Radius Alert Bus
+              </p>
+              <p className="text-[11px] font-semibold text-slate-400">
+                Bus dianggap mendekat halte saat &lt;{" "}
+                {settings.nearbyAlertRadiusMeters} m
+              </p>
+            </div>
+          </div>
+          <div
+            role="radiogroup"
+            aria-label="Radius alert bus mendekat"
+            className="flex flex-wrap gap-1.5"
+          >
+            {NEARBY_ALERT_RADIUS_OPTIONS.map((opt) => {
+              const active = settings.nearbyAlertRadiusMeters === opt.value;
+              return (
+                <button
+                  key={opt.value}
+                  type="button"
+                  role="radio"
+                  aria-checked={active}
+                  onClick={() =>
+                    onUpdateSetting("nearbyAlertRadiusMeters", opt.value)
+                  }
+                  className={`rounded-full px-3 py-1 text-[11px] font-bold transition active:scale-95 ${
+                    active
+                      ? "bg-[#0f1a3b] text-white shadow-sm"
+                      : "border border-slate-200 bg-white text-slate-600 hover:border-[#0f1a3b]/30 hover:text-[#0f1a3b]"
+                  }`}
+                >
+                  {opt.label}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
         {isAdmin ? (
           <div className={settingCardClass}>
             <div className="flex min-w-0 items-center gap-3">
@@ -395,6 +520,29 @@ export function AppSettingsPanel({
               label="Mode compact panel data"
             />
           </div>
+        ) : null}
+
+        {/* Reset preferensi (2-step confirm, auto-revert 4s) */}
+        {onResetSettings ? (
+          <button
+            type="button"
+            onClick={handleResetClick}
+            className={`mt-1 flex w-full items-center justify-center gap-2 rounded-2xl border px-3 py-2.5 text-[12px] font-bold transition active:scale-[0.98] ${
+              pendingReset
+                ? "border-rose-200 bg-rose-50 text-rose-600 hover:bg-rose-100"
+                : "border-slate-200 bg-white text-slate-600 hover:border-[#0f1a3b]/30 hover:text-[#0f1a3b]"
+            }`}
+            aria-label={
+              pendingReset
+                ? "Konfirmasi reset preferensi"
+                : "Reset preferensi aplikasi"
+            }
+          >
+            <RotateCcw className="h-4 w-4" />
+            {pendingReset
+              ? "Tap lagi untuk konfirmasi reset"
+              : "Reset preferensi ke default"}
+          </button>
         ) : null}
 
         <div className="flex items-center gap-2 rounded-[18px] border border-slate-200/80 bg-slate-50 px-3 py-2.5 text-[11px] font-semibold text-slate-500">

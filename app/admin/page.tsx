@@ -33,6 +33,7 @@ import {
   DEFAULT_ADMIN_SETTINGS,
   useAdminSettings,
 } from "@/hooks/useAdminSettings";
+import { useFavorites } from "@/hooks/useFavorites";
 import { useUserRole } from "@/hooks/useUserRole";
 import { useUserPosition } from "@/hooks/useUserPosition";
 import { useToastStack } from "@/hooks/useToastStack";
@@ -81,13 +82,21 @@ function makeId() {
 
 export default function DashboardPage() {
   const realtimeFeed = useBuggyLiveFeed();
-  const { settings, updateSetting } = useAdminSettings();
+  const { settings, updateSetting, resetSettings } = useAdminSettings();
   const {
     userProfile,
     loading: userLoading,
     isAdmin: isAdminUser,
     isDriver: isDriverUser,
   } = useUserRole();
+  const {
+    favoriteBuggies,
+    favoriteHaltes,
+    canFavorite,
+    ready: favoritesReady,
+    toggleBuggy: toggleFavoriteBuggy,
+    toggleHalte: toggleFavoriteHalte,
+  } = useFavorites();
   const [driverNamesByBuggyId, setDriverNamesByBuggyId] = useState<
     Record<string, string>
   >({});
@@ -755,6 +764,7 @@ export default function DashboardPage() {
         buggies={mapBuggies}
         haltes={HALTE_LOCATIONS}
         routePath={mapRoutePath}
+        mapStyle={settings.mapStyle}
         directionPath={mapDirectionPath}
         walkingToHaltePath={directionResult?.walkingToHalte?.path}
         walkingFromHaltePath={directionResult?.walkingFromHalte?.path}
@@ -863,6 +873,11 @@ export default function DashboardPage() {
         onSelectHalte={handleSelectHalte}
         directionResult={directionResult}
         onCloseDirection={() => setDirectionResult(null)}
+        canFavorite={canFavorite && favoritesReady}
+        favoriteBuggies={favoriteBuggies}
+        favoriteHaltes={favoriteHaltes}
+        onToggleFavoriteBuggy={toggleFavoriteBuggy}
+        onToggleFavoriteHalte={toggleFavoriteHalte}
         dataViewContent={
           <AdminDataSection
             buggies={driverFilteredBuggies}
@@ -933,6 +948,7 @@ export default function DashboardPage() {
             mode="admin"
             settings={settings}
             onUpdateSetting={updateSetting}
+            onResetSettings={resetSettings}
             onToggleBrowserNotification={handleToggleBrowserNotification}
             onLogout={handleLogout}
             accountForm={settingsAccountForm}

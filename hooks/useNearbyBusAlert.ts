@@ -5,8 +5,8 @@ import type { Buggy } from "@/types/buggy";
 
 // ─── Configuration ────────────────────────────────────────────────────────────
 
-/** Radius (meter) bus dianggap "mendekati" halte */
-const NEARBY_THRESHOLD_METERS = 150;
+/** Default radius (meter) bus dianggap "mendekati" halte. Bisa di-override via prop. */
+const DEFAULT_NEARBY_THRESHOLD_METERS = 150;
 
 /** Radius (meter) maks halte dianggap sebagai "halte terdekat pengguna" */
 const USER_HALTE_RADIUS_METERS = 500;
@@ -26,6 +26,11 @@ type UseNearbyBusAlertOptions = {
   buggies: Buggy[];
   userPosition: { lat: number; lng: number } | null;
   onAlert: (alert: NearbyBusAlert) => void;
+  /**
+   * Override threshold (meter) bus dianggap mendekati halte.
+   * Default: 150 m. Akan di-clamp ke [50, 1000].
+   */
+  thresholdMeters?: number;
 };
 
 // ─── Hook ─────────────────────────────────────────────────────────────────────
@@ -39,9 +44,16 @@ export function useNearbyBusAlert({
   buggies,
   userPosition,
   onAlert,
+  thresholdMeters,
 }: UseNearbyBusAlertOptions): void {
   // Map cooldown: key = `${busId}::${halteId}`, value = timestamp terakhir notifikasi
   const cooldownRef = useRef<Map<string, number>>(new Map());
+
+  // Clamp threshold agar tetap masuk akal walau setting di-tweak.
+  const safeThreshold = Math.max(
+    50,
+    Math.min(1000, thresholdMeters ?? DEFAULT_NEARBY_THRESHOLD_METERS),
+  );
 
   useEffect(() => {
     // Tidak ada posisi user → skip
@@ -52,7 +64,10 @@ export function useNearbyBusAlert({
     let nearestHalteDistance = Infinity;
 
     for (const halte of HALTE_LOCATIONS) {
-      const d = haversineMeters(userPosition, { lat: halte.lat, lng: halte.lng });
+      const d = haversineMeters(userPosition, {
+        lat: halte.lat,
+        lng: halte.lng,
+      });
       if (d < nearestHalteDistance) {
         nearestHalteDistance = d;
         nearestHalte = halte;
@@ -60,7 +75,8 @@ export function useNearbyBusAlert({
     }
 
     // Jika halte terdekat di luar radius user → skip
-    if (!nearestHalte || nearestHalteDistance > USER_HALTE_RADIUS_METERS) return;
+    if (!nearestHalte || nearestHalteDistance > USER_HALTE_RADIUS_METERS)
+      return;
 
     const now = Date.now();
 
@@ -74,7 +90,7 @@ export function useNearbyBusAlert({
         lng: nearestHalte.lng,
       });
 
-      if (busToHalteDistance > NEARBY_THRESHOLD_METERS) continue;
+      if (busToHalteDistance > safeThreshold) continue;
 
       // Cek cooldown
       const cooldownKey = `${buggy.id}::${nearestHalte.id}`;
@@ -89,8 +105,8 @@ export function useNearbyBusAlert({
         distanceMeters: Math.round(busToHalteDistance),
       });
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [buggies, userPosition]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [buggies, userPosition, safeThreshold]);
   // onAlert tidak dimasukkan ke deps karena bisa menyebabkan infinite loop
   // jika caller tidak memoize. Ref digunakan sebagai workaround.
 }

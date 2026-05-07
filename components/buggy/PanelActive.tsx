@@ -19,7 +19,6 @@ import { DirectionPanel } from "@/components/panel/DirectionPanel";
 import { NotificationSection } from "@/components/notification/NotificationSection";
 import type { DirectionResult } from "@/components/panel/DirectionPanel";
 
-
 type BuggyListProps = {
   buggies: Buggy[];
   panelOpen: boolean;
@@ -38,6 +37,16 @@ type BuggyListProps = {
   settingsViewContent?: ReactNode;
   /** Jika true, HalteSection tampilkan fitur CRUD admin */
   isAdmin?: boolean;
+  /** Set ID buggy favorit user. */
+  favoriteBuggies?: Set<string>;
+  /** Toggle favorit buggy. Wajib disediakan saat `canFavorite=true`. */
+  onToggleFavoriteBuggy?: (buggyId: string) => void | Promise<unknown>;
+  /** Set ID halte favorit user. */
+  favoriteHaltes?: Set<string>;
+  /** Toggle favorit halte. Wajib disediakan saat `canFavorite=true`. */
+  onToggleFavoriteHalte?: (halteId: string) => void | Promise<unknown>;
+  /** True jika user authenticated & favorit-nya sudah ready (UI menampilkan star). */
+  canFavorite?: boolean;
 };
 
 export function BuggyList({
@@ -57,14 +66,19 @@ export function BuggyList({
   historyViewContent,
   settingsViewContent,
   isAdmin = false,
+  favoriteBuggies,
+  onToggleFavoriteBuggy,
+  favoriteHaltes,
+  onToggleFavoriteHalte,
+  canFavorite = false,
 }: BuggyListProps) {
   const [buggyViewMode, setBuggyViewMode] = useState<"list" | "detail">("list");
   const [halteViewMode, setHalteViewMode] = useState<"list" | "detail">(
     selectedHalteId ? "detail" : "list",
   );
-  const [selectedHalteIdLocal, setSelectedHalteIdLocal] = useState<string | null>(
-    selectedHalteId ?? null,
-  );
+  const [selectedHalteIdLocal, setSelectedHalteIdLocal] = useState<
+    string | null
+  >(selectedHalteId ?? null);
   const [cachedHalteObj, setCachedHalteObj] = useState<HaltePoint | null>(null);
 
   const [userLocation, setUserLocation] = useState<LatLng | null>(null);
@@ -123,15 +137,29 @@ export function BuggyList({
     return sortByDistance(userLocation);
   }, [buggies, userLocation, directionResult]);
 
-  const displayBuggies = sortedBuggies;
+  // Bubble favorit ke atas (stable sort: pertahankan urutan jarak/nomor di dalam grup).
+  const displayBuggies = useMemo(() => {
+    if (!canFavorite || !favoriteBuggies || favoriteBuggies.size === 0) {
+      return sortedBuggies;
+    }
+    const favs: Buggy[] = [];
+    const rest: Buggy[] = [];
+    for (const buggy of sortedBuggies) {
+      if (favoriteBuggies.has(buggy.id)) favs.push(buggy);
+      else rest.push(buggy);
+    }
+    return [...favs, ...rest];
+  }, [sortedBuggies, favoriteBuggies, canFavorite]);
 
   const selectedBuggy = selectedBuggyId
     ? (buggies.find((b) => b.id === selectedBuggyId) ?? null)
     : null;
 
-  const selectedHalte = cachedHalteObj || (selectedHalteIdLocal
-    ? (HALTE_LOCATIONS.find((h) => h.id === selectedHalteIdLocal) ?? null)
-    : null);
+  const selectedHalte =
+    cachedHalteObj ||
+    (selectedHalteIdLocal
+      ? (HALTE_LOCATIONS.find((h) => h.id === selectedHalteIdLocal) ?? null)
+      : null);
 
   const selectedHalteIndex = selectedHalte
     ? HALTE_LOCATIONS.findIndex((h) => h.id === selectedHalte.id)
@@ -193,16 +221,24 @@ export function BuggyList({
             </p>
           ) : (
             <div className="space-y-3">
-              {displayBuggies.map((buggy) => (
+              {displayBuggies.map((buggy, idx) => (
                 <BuggyCard
                   key={buggy.id}
                   buggy={buggy}
+                  index={idx}
                   isSelected={selectedBuggyId === buggy.id}
                   onFocus={onFocusBuggy}
                   onSelect={(id) => {
                     onSelectBuggy(id);
                     setBuggyViewMode("detail");
                   }}
+                  canFavorite={canFavorite}
+                  isFavorite={favoriteBuggies?.has(buggy.id) ?? false}
+                  onToggleFavorite={
+                    onToggleFavoriteBuggy
+                      ? () => onToggleFavoriteBuggy(buggy.id)
+                      : undefined
+                  }
                 />
               ))}
             </div>
@@ -217,24 +253,47 @@ export function BuggyList({
           halteIndex={selectedHalteIndex}
           buggies={buggies}
           onBack={handleBackToHalteList}
+          canFavorite={canFavorite}
+          isFavorite={favoriteHaltes?.has(selectedHalte.id) ?? false}
+          onToggleFavorite={
+            onToggleFavoriteHalte
+              ? () => onToggleFavoriteHalte(selectedHalte.id)
+              : undefined
+          }
         />
       ) : activeView === "halte" ? (
-        <HalteSection onSelectHalte={handleSelectHalte} isAdmin={isAdmin} />
+        <HalteSection
+          onSelectHalte={handleSelectHalte}
+          isAdmin={isAdmin}
+          canFavorite={canFavorite}
+          favoriteHaltes={favoriteHaltes}
+          onToggleFavoriteHalte={onToggleFavoriteHalte}
+        />
       ) : null}
 
-      {activeView === "notifikasi" && (
-        <NotificationSection isAdmin={isAdmin} />
-      )}
+      {activeView === "notifikasi" && <NotificationSection isAdmin={isAdmin} />}
       {activeView === "lapor" && (
         <div className="rounded-3xl border border-slate-200/80 bg-white/70 p-6 text-center">
           <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-2xl bg-slate-100 text-slate-400">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="h-6 w-6">
+            <svg
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.8"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              className="h-6 w-6"
+            >
               <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
             </svg>
           </div>
-          <p className="text-[15px] font-semibold text-slate-700">Lapor Masalah</p>
+          <p className="text-[15px] font-semibold text-slate-700">
+            Lapor Masalah
+          </p>
           <p className="mt-1 text-[12px] leading-relaxed text-slate-400">
-            Fitur pelaporan segera hadir.<br />Anda dapat melaporkan kondisi halte atau armada.
+            Fitur pelaporan segera hadir.
+            <br />
+            Anda dapat melaporkan kondisi halte atau armada.
           </p>
         </div>
       )}

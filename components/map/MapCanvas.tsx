@@ -76,10 +76,21 @@ function loadGoogleMapsScript(apiKey: string): Promise<MapsApi> {
 
 // ─── Component ───────────────────────────────────────────────────────────────
 
+// Mapping dari preset SIMOBI → mapTypeId Google Maps.
+const MAP_TYPE_ID_BY_STYLE: Record<
+  "standard" | "satellite" | "terrain",
+  string
+> = {
+  standard: "roadmap",
+  satellite: "satellite",
+  terrain: "terrain",
+};
+
 export function MapCanvas({
   buggies,
   haltes,
   routePath,
+  mapStyle = "standard",
   directionPath = [],
   walkingToHaltePath = [],
   walkingFromHaltePath = [],
@@ -157,6 +168,7 @@ export function MapCanvas({
           gestureHandling: "greedy",
           zoomControl: true,
           clickableIcons: false,
+          mapTypeId: MAP_TYPE_ID_BY_STYLE[mapStyle],
           styles: [{ featureType: "poi", stylers: [{ visibility: "off" }] }],
         });
 
@@ -181,10 +193,7 @@ export function MapCanvas({
         // (penting untuk iOS Safari dengan safe area & dynamic viewport)
         requestAnimationFrame(() => {
           if (mapInstanceRef.current && mapsApiRef.current) {
-            mapsApiRef.current.event.trigger(
-              mapInstanceRef.current,
-              "resize",
-            );
+            mapsApiRef.current.event.trigger(mapInstanceRef.current, "resize");
           }
         });
       })
@@ -221,7 +230,17 @@ export function MapCanvas({
       lastSelectedBuggyIdRef.current = null;
       setMapReady(false);
     };
+    // mapStyle sengaja tidak masuk deps: perubahannya di-handle di effect terpisah
+    // (lihat di bawah) agar tidak re-init seluruh instance Google Maps.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [apiKey, onInfoWindowClose]);
+
+  // ── Update map style on prop change ────────────────────────────────────────
+
+  useEffect(() => {
+    if (!mapReady || !mapInstanceRef.current) return;
+    mapInstanceRef.current.setMapTypeId(MAP_TYPE_ID_BY_STYLE[mapStyle]);
+  }, [mapReady, mapStyle]);
 
   // ── Render route polyline ──────────────────────────────────────────────────
 
@@ -407,20 +426,14 @@ export function MapCanvas({
       if (!onDraftGeofenceChange) return;
       const c = circle.getCenter();
       if (!c) return;
-      onDraftGeofenceChange(
-        { lat: c.lat(), lng: c.lng() },
-        circle.getRadius(),
-      );
+      onDraftGeofenceChange({ lat: c.lat(), lng: c.lng() }, circle.getRadius());
     };
 
     const fireRadiusCb = () => {
       if (!onDraftGeofenceChange) return;
       const c = circle.getCenter();
       if (!c) return;
-      onDraftGeofenceChange(
-        { lat: c.lat(), lng: c.lng() },
-        circle.getRadius(),
-      );
+      onDraftGeofenceChange({ lat: c.lat(), lng: c.lng() }, circle.getRadius());
     };
 
     draftCircleListenersRef.current = [
@@ -436,8 +449,14 @@ export function MapCanvas({
       draftCircleRef.current?.setMap(null);
       draftCircleRef.current = null;
     };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [draftGeofence?.center.lat, draftGeofence?.center.lng, draftGeofence?.radiusMeters, mapReady, onDraftGeofenceChange]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [
+    draftGeofence?.center.lat,
+    draftGeofence?.center.lng,
+    draftGeofence?.radiusMeters,
+    mapReady,
+    onDraftGeofenceChange,
+  ]);
 
   // ── Sync draft circle radius when slider changes ──────────────────────────
 

@@ -16,6 +16,7 @@ import { BellIcon, LoginIcon } from "@/components/ui/Icons";
 import { ToastStack } from "@/components/ui/ToastStack";
 import { useNearbyBusAlert } from "@/hooks/useNearbyBusAlert";
 import { useAdminSettings, type AdminSettings } from "@/hooks/useAdminSettings";
+import { useFavorites } from "@/hooks/useFavorites";
 import { HALTE_LOCATIONS, OFFICIAL_ROUTE_PATH } from "@/lib/transit/buggy-data";
 import { useBuggyLiveFeed } from "@/hooks/useBuggyLiveFeed";
 import { useUserRole } from "@/hooks/useUserRole";
@@ -35,8 +36,16 @@ const HALTE_FALLBACK_POSITION = {
 export default function DashboardPage() {
   const router = useRouter();
   const realtimeFeed = useBuggyLiveFeed();
-  const { settings, updateSetting } = useAdminSettings();
+  const { settings, updateSetting, resetSettings } = useAdminSettings();
   const { userProfile, loading: userLoading, isAuthenticated } = useUserRole();
+  const {
+    favoriteBuggies,
+    favoriteHaltes,
+    canFavorite,
+    ready: favoritesReady,
+    toggleBuggy: toggleFavoriteBuggy,
+    toggleHalte: toggleFavoriteHalte,
+  } = useFavorites();
   const liveBuggies = useMemo(
     () => (realtimeFeed.liveBuggies ?? []).filter((buggy) => buggy.isActive),
     [realtimeFeed.liveBuggies],
@@ -192,6 +201,7 @@ export default function DashboardPage() {
   useNearbyBusAlert({
     buggies: liveBuggies,
     userPosition,
+    thresholdMeters: settings.nearbyAlertRadiusMeters,
     onAlert: ({ busName, halteName, distanceMeters }) => {
       addToast({
         tone: "bus",
@@ -225,6 +235,7 @@ export default function DashboardPage() {
         buggies={mapBuggies}
         haltes={HALTE_LOCATIONS}
         routePath={mapRoutePath}
+        mapStyle={settings.mapStyle}
         directionPath={mapDirectionPath}
         walkingToHaltePath={directionResult?.walkingToHalte?.path}
         walkingFromHaltePath={directionResult?.walkingFromHalte?.path}
@@ -319,11 +330,17 @@ export default function DashboardPage() {
         onSelectHalte={handleSelectHalte}
         directionResult={directionResult}
         onCloseDirection={() => setDirectionResult(null)}
+        canFavorite={canFavorite && favoritesReady}
+        favoriteBuggies={favoriteBuggies}
+        favoriteHaltes={favoriteHaltes}
+        onToggleFavoriteBuggy={toggleFavoriteBuggy}
+        onToggleFavoriteHalte={toggleFavoriteHalte}
         settingsViewContent={
           <AppSettingsPanel
             mode="public"
             settings={settings}
             onUpdateSetting={handleUpdateSetting}
+            onResetSettings={resetSettings}
             onToggleBrowserNotification={handleToggleBrowserNotification}
             onLogin={() => openAuthModal("/")}
             onLogout={handleLogout}

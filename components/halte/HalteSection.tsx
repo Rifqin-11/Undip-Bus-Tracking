@@ -3,20 +3,30 @@
 import { useState, useEffect, useCallback } from "react";
 import { HALTE_LOCATIONS } from "@/lib/transit/buggy-data";
 import type { HaltePoint } from "@/types/buggy";
-import {
-  BusStopIcon,
-  ChevronRightIcon,
-} from "@/components/ui/Icons";
+import { BusStopIcon, ChevronRightIcon } from "@/components/ui/Icons";
 import { Plus, Pencil } from "lucide-react";
 import { AdminHalteFormPanel } from "./AdminHalteFormPanel";
+import { FavoriteStar } from "@/components/ui/FavoriteStar";
 
 type HalteSectionProps = {
   onSelectHalte?: (halteId: string, halteObj: HaltePoint) => void;
   /** Jika true, tampilkan tombol add/edit dan ambil data dari API */
   isAdmin?: boolean;
+  /** Set ID halte favorit user. */
+  favoriteHaltes?: Set<string>;
+  /** Toggle favorit halte. */
+  onToggleFavoriteHalte?: (halteId: string) => void | Promise<unknown>;
+  /** True jika user authenticated & favorit ready (UI tampilkan star). */
+  canFavorite?: boolean;
 };
 
-export function HalteSection({ onSelectHalte, isAdmin = false }: HalteSectionProps) {
+export function HalteSection({
+  onSelectHalte,
+  isAdmin = false,
+  favoriteHaltes,
+  onToggleFavoriteHalte,
+  canFavorite = false,
+}: HalteSectionProps) {
   // Admin: fetch dari API, User: pakai HALTE_LOCATIONS statis
   const [apiHaltes, setApiHaltes] = useState<HaltePoint[] | null>(null);
   /** null = list, "add" = form tambah, HaltePoint = form edit */
@@ -29,13 +39,17 @@ export function HalteSection({ onSelectHalte, isAdmin = false }: HalteSectionPro
         const data = await res.json();
         if (Array.isArray(data)) setApiHaltes(data as HaltePoint[]);
       }
-    } catch { /* ignore */ }
+    } catch {
+      /* ignore */
+    }
   }, []);
 
   useEffect(() => {
     if (isAdmin) void Promise.resolve().then(fetchHaltes);
   }, [isAdmin, fetchHaltes]);
 
+  // Urutan halte mengikuti data asli (HALTE_LOCATIONS atau dari API admin).
+  // Favorit ditandai dengan bintang & badge, tetapi tidak naik ke atas.
   const haltes = isAdmin && apiHaltes ? apiHaltes : HALTE_LOCATIONS;
 
   const handleSaved = () => {
@@ -58,8 +72,12 @@ export function HalteSection({ onSelectHalte, isAdmin = false }: HalteSectionPro
   return (
     <div className="rounded-3xl border border-slate-200/80 bg-white/70 p-3">
       {/* Header */}
-      <div className={`mb-3 ${isAdmin ? "w-full rounded-[20px] border border-white/60 bg-white/40 backdrop-blur-md py-3 px-3.5 shadow-[0_8px_20px_rgba(15,23,42,0.04)]" : "flex items-start justify-between gap-2"}`}>
-        <div className={isAdmin ? "flex items-center justify-between gap-2" : ""}>
+      <div
+        className={`mb-3 ${isAdmin ? "w-full rounded-[20px] border border-white/60 bg-white/40 backdrop-blur-md py-3 px-3.5 shadow-[0_8px_20px_rgba(15,23,42,0.04)]" : "flex items-start justify-between gap-2"}`}
+      >
+        <div
+          className={isAdmin ? "flex items-center justify-between gap-2" : ""}
+        >
           <div>
             <h2 className="text-[17px] font-bold text-slate-900 tracking-tight">
               Daftar Halte
@@ -87,54 +105,80 @@ export function HalteSection({ onSelectHalte, isAdmin = false }: HalteSectionPro
         </p>
       ) : (
         <div className="space-y-2">
-          {haltes.map((halte) => (
-            <div
-              key={halte.id}
-              className="group flex w-full items-center justify-between rounded-[20px] border border-slate-200/80 bg-white p-3 text-left transition-all hover:bg-slate-50 hover:shadow-sm hover:border-[#0f1a3b]/20"
-            >
-              {/* Left: halte info */}
-              <button
-                type="button"
-                onClick={() => onSelectHalte?.(halte.id, halte)}
-                className="flex flex-1 items-center gap-3 min-w-0 outline-none"
+          {haltes.map((halte) => {
+            const isFav = favoriteHaltes?.has(halte.id) ?? false;
+            return (
+              <div
+                key={halte.id}
+                className={`group flex w-full items-center justify-between rounded-[20px] border p-3 text-left transition-all hover:shadow-sm ${
+                  canFavorite && isFav
+                    ? "border-amber-200 bg-amber-50/40 hover:bg-amber-50"
+                    : "border-slate-200/80 bg-white hover:bg-slate-50 hover:border-[#0f1a3b]/20"
+                }`}
               >
-                <div className="grid h-8 w-8 shrink-0 place-items-center rounded-xl bg-[#0f1a3b] text-white shadow-sm transition-transform group-hover:scale-105">
-                  <BusStopIcon className="h-4 w-4" />
-                </div>
-                <div className="min-w-0 text-left">
-                  <p className="truncate text-[15px] font-bold text-slate-800 tracking-tight mb-1">
-                    {halte.name}
-                  </p>
-                  <p className="truncate text-[12px] font-medium text-slate-500">
-                    {isAdmin
-                      ? `${halte.lat.toFixed(5)}, ${halte.lng.toFixed(5)}`
-                      : "Titik keberangkatan"}
-                  </p>
-                </div>
-              </button>
-
-              {/* Right: edit (admin) + chevron */}
-              <div className="flex items-center gap-1.5 shrink-0 ml-2">
-                {isAdmin && (
-                  <button
-                    type="button"
-                    onClick={() => setFormTarget(halte)}
-                    className="grid h-7 w-7 place-items-center rounded-full bg-slate-100 text-slate-400 transition-colors hover:bg-amber-100 hover:text-amber-600 active:scale-95"
-                    title="Edit halte"
-                  >
-                    <Pencil className="h-3.5 w-3.5" />
-                  </button>
-                )}
+                {/* Left: halte info */}
                 <button
                   type="button"
                   onClick={() => onSelectHalte?.(halte.id, halte)}
-                  className="grid h-7 w-7 shrink-0 place-items-center rounded-full bg-slate-100 text-slate-400 transition-colors group-hover:bg-[#0f1a3b] group-hover:text-white"
+                  className="flex flex-1 items-center gap-3 min-w-0 outline-none"
                 >
-                  <ChevronRightIcon className="h-4 w-4" />
+                  <div className="grid h-8 w-8 shrink-0 place-items-center rounded-xl bg-[#0f1a3b] text-white shadow-sm transition-transform group-hover:scale-105">
+                    <BusStopIcon className="h-4 w-4" />
+                  </div>
+                  <div className="min-w-0 text-left">
+                    <div className="flex items-center gap-1.5">
+                      <p className="truncate text-[15px] font-bold text-slate-800 tracking-tight mb-1">
+                        {halte.name}
+                      </p>
+                      {canFavorite && isFav ? (
+                        <span className="shrink-0 rounded-full border border-amber-200 bg-amber-100 px-1.5 py-0 text-[8px] font-bold uppercase tracking-wide text-amber-700">
+                          ★ Favorit
+                        </span>
+                      ) : null}
+                    </div>
+                    <p className="truncate text-[12px] font-medium text-slate-500">
+                      {isAdmin
+                        ? `${halte.lat.toFixed(5)}, ${halte.lng.toFixed(5)}`
+                        : "Titik keberangkatan"}
+                    </p>
+                  </div>
                 </button>
+
+                {/* Right: favorite (auth) + edit (admin) + chevron */}
+                <div className="flex items-center gap-1.5 shrink-0 ml-2">
+                  {canFavorite && onToggleFavoriteHalte ? (
+                    <FavoriteStar
+                      active={isFav}
+                      onToggle={() => onToggleFavoriteHalte(halte.id)}
+                      size="sm"
+                      label={
+                        isFav
+                          ? `Hapus ${halte.name} dari favorit`
+                          : `Tambah ${halte.name} ke favorit`
+                      }
+                    />
+                  ) : null}
+                  {isAdmin && (
+                    <button
+                      type="button"
+                      onClick={() => setFormTarget(halte)}
+                      className="grid h-7 w-7 place-items-center rounded-full bg-slate-100 text-slate-400 transition-colors hover:bg-amber-100 hover:text-amber-600 active:scale-95"
+                      title="Edit halte"
+                    >
+                      <Pencil className="h-3.5 w-3.5" />
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => onSelectHalte?.(halte.id, halte)}
+                    className="grid h-7 w-7 shrink-0 place-items-center rounded-full bg-slate-100 text-slate-400 transition-colors group-hover:bg-[#0f1a3b] group-hover:text-white"
+                  >
+                    <ChevronRightIcon className="h-4 w-4" />
+                  </button>
+                </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
     </div>
