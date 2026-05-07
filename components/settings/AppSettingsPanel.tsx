@@ -94,6 +94,11 @@ export function AppSettingsPanel({
   const isDashboardMode = mode === "admin";
   const rawAccountForm = controlledAccountForm ?? localAccountForm;
   const activeAccountForm = userProfile ? rawAccountForm : null;
+  const notificationDescription = isDriver
+    ? "Notifikasi geofence armada"
+    : isAdmin
+      ? "Notifikasi operasional dashboard"
+      : "Notifikasi buggy mendekati halte";
 
   const setActiveAccountForm = (nextMode: AccountFormMode | null) => {
     if (onAccountFormChange) {
@@ -276,7 +281,7 @@ export function AppSettingsPanel({
           </p>
         </div>
 
-        {isAdmin ? (
+        {userProfile ? (
           <div className={settingCardClass}>
             <div className="flex min-w-0 items-center gap-3">
               <span className="grid size-10 shrink-0 place-items-center rounded-2xl bg-amber-50 text-amber-600">
@@ -287,7 +292,7 @@ export function AppSettingsPanel({
                   Browser Notification
                 </p>
                 <p className="text-[11px] font-semibold text-slate-400">
-                  {permissionLabel}
+                  {notificationDescription} · {permissionLabel}
                 </p>
               </div>
             </div>

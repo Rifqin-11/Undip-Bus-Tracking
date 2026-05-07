@@ -4,7 +4,15 @@ import { useState } from "react";
 import Image from "next/image";
 import type { Buggy } from "@/types/buggy";
 import { getBuggyStopNameAtOffset } from "@/lib/transit/buggy-route-utils";
-import { ChevronLeft, Edit2Icon } from "lucide-react";
+import {
+  ChevronLeft,
+  Edit2Icon,
+  BatteryMedium,
+  Gauge,
+  Route,
+  Zap,
+  MapPin,
+} from "lucide-react";
 import { AdminBuggyFormPanel } from "./AdminBuggyFormPanel";
 import { DeleteConfirmModal } from "@/components/ui/DeleteConfirmModal";
 import { getErrorMessage } from "@/lib/utils/error-message";
@@ -66,7 +74,6 @@ export function BuggyOperationalDetail({
       />
     );
   }
-
 
   const rows: { label: string; value: string }[] = [
     { label: "Kode Armada", value: buggy.code },
@@ -144,9 +151,44 @@ export function BuggyOperationalDetail({
       />
 
       {/* ── Buggy Visual & Energy (Redesigned) ─────────────────────────── */}
-      <div className="rounded-3xl border border-slate-200/80 bg-white/70 p-4">
-        {/* Cover Image */}
-        <div className="relative h-44 w-full flex justify-center mb-3">
+      <div className="relative overflow-hidden rounded-3xl border border-slate-200/80 bg-linear-to-b from-white via-white to-slate-50/80 p-4 shadow-[0_8px_24px_rgba(15,23,42,0.04)]">
+        {/* Hero: image on a soft glow backdrop with floating chips */}
+        <div className="relative h-40 w-full mb-4">
+          {/* Soft gradient backdrop */}
+          <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
+            <div className="h-28 w-60 rounded-full bg-linear-to-tr from-blue-100/70 via-emerald-50/60 to-amber-50/40 blur-2xl" />
+          </div>
+
+          {/* Status pill — top left */}
+          <div className="absolute top-0 left-0 z-10">
+            <span
+              className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider backdrop-blur-md ${
+                buggy.isActive
+                  ? "bg-emerald-500/10 text-emerald-700 border border-emerald-500/20"
+                  : "bg-slate-200/70 text-slate-500 border border-slate-300/40"
+              }`}
+            >
+              <span
+                className={`h-1.5 w-1.5 rounded-full ${
+                  buggy.isActive
+                    ? "bg-emerald-500 shadow-[0_0_6px_rgba(16,185,129,0.6)]"
+                    : "bg-slate-400"
+                }`}
+              />
+              {buggy.isActive ? "Beroperasi" : "Standby"}
+            </span>
+          </div>
+
+          {/* Locate button — top right */}
+          <button
+            type="button"
+            aria-label="Lihat lokasi armada"
+            className="absolute top-0 right-0 z-10 flex h-8 w-8 items-center justify-center rounded-full border border-slate-200 bg-white/80 text-slate-600 shadow-sm backdrop-blur-md transition hover:bg-[#0f1a3b] hover:text-white active:scale-95"
+          >
+            <MapPin className="size-3.5" />
+          </button>
+
+          {/* The image itself */}
           <Image
             src="/buggy.webp"
             alt="Buggy EV"
@@ -156,102 +198,75 @@ export function BuggyOperationalDetail({
           />
         </div>
 
-        {/* 3 Stats Boxes */}
-        <div className="grid grid-cols-3 gap-2 mb-2">
-          <div className="rounded-2xl border border-slate-200/80 bg-white p-3 flex flex-col justify-center shadow-sm">
-            <p className="text-[10px] font-semibold text-slate-400 mb-0.5">
-              Sisa Jarak
-            </p>
-            <p className="text-[14px] font-bold text-slate-800">
-              120{" "}
-              <span className="font-bold text-slate-400 text-[10px]">km</span>
+        {/* Prominent Battery Row */}
+        <div className="mb-3 rounded-2xl border border-slate-200/70 bg-white/80 p-3 shadow-sm">
+          <div className="mb-1.5 flex items-center justify-between">
+            <div className="flex items-center gap-1.5">
+              <BatteryMedium className="size-4 text-emerald-600" />
+              <span className="text-[12px] font-semibold text-slate-700">
+                Baterai
+              </span>
+            </div>
+            <span className="text-[13px] font-bold text-slate-900 tabular-nums">
+              85%
+            </span>
+          </div>
+          <div className="relative h-2 w-full overflow-hidden rounded-full bg-slate-100">
+            <div
+              className="absolute inset-y-0 left-0 rounded-full bg-linear-to-r from-emerald-400 to-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.45)] transition-all"
+              style={{ width: "85%" }}
+            />
+          </div>
+          <p className="mt-1.5 text-[10px] text-slate-400">
+            Estimasi sisa jarak{" "}
+            <span className="font-semibold text-slate-600">120 km</span>
+          </p>
+        </div>
+
+        {/* 3 Stats — with icons */}
+        <div className="grid grid-cols-3 gap-2">
+          <div className="rounded-2xl border border-slate-200/70 bg-white p-2.5 shadow-sm">
+            <div className="mb-1 flex items-center gap-1 text-slate-400">
+              <Route className="size-3" />
+              <p className="text-[10px] font-semibold uppercase tracking-wider">
+                Jarak
+              </p>
+            </div>
+            <p className="text-[14px] font-bold text-slate-800 tabular-nums">
+              120
+              <span className="ml-0.5 text-[10px] font-semibold text-slate-400">
+                km
+              </span>
             </p>
           </div>
-          <div className="rounded-2xl border border-slate-200/80 bg-white p-3 flex flex-col justify-center shadow-sm">
-            <p className="text-[10px] font-semibold text-slate-400 mb-0.5">
-              Konsumsi
-            </p>
-            <p className="text-[14px] font-bold text-slate-800">
-              142{" "}
-              <span className="font-bold text-slate-400 text-[10px]">
+          <div className="rounded-2xl border border-slate-200/70 bg-white p-2.5 shadow-sm">
+            <div className="mb-1 flex items-center gap-1 text-slate-400">
+              <Gauge className="size-3" />
+              <p className="text-[10px] font-semibold uppercase tracking-wider">
+                Konsumsi
+              </p>
+            </div>
+            <p className="text-[14px] font-bold text-slate-800 tabular-nums">
+              142
+              <span className="ml-0.5 text-[10px] font-semibold text-slate-400">
                 wh/km
               </span>
             </p>
           </div>
-          <div className="rounded-2xl border border-slate-200/80 bg-white p-3 flex flex-col justify-center shadow-sm">
-            <p className="text-[10px] font-semibold text-slate-400 mb-0.5">
-              Kapasitas
-            </p>
-            <p className="text-[14px] font-bold text-slate-800">
-              35.5{" "}
-              <span className="font-bold text-slate-400 text-[10px]">kWh</span>
-            </p>
-          </div>
-        </div>
-
-        {/* Battery & Action Row */}
-        <div className="flex gap-2">
-          <div className="relative flex-1 rounded-2xl bg-slate-100 overflow-hidden flex items-center justify-center p-3 shadow-inner border border-slate-200/60 cursor-default">
-            {/* Battery Fill Bar */}
-            <div
-              className="absolute left-0 top-0 bottom-0 bg-green-400 transition-all"
-              style={{ width: "85%" }}
-            />
-
-            {/* Battery Inner Content */}
-            <div className="relative z-10 flex items-center">
-              <svg
-                className="w-5 h-5 text-slate-900 mr-2 drop-shadow-sm"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth={2.5}
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  d="M4 7h14a2 2 0 012 2v6a2 2 0 01-2 2H4a2 2 0 01-2-2V9c0-1.1.9-2 2-2z"
-                />
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  d="M22 11v2"
-                />
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  d="M6 11h2v2H6z M10 11h2v2h-2z M14 11h2v2h-2z"
-                />
-              </svg>
-              <span className="text-[14px] font-bold text-slate-900 tracking-wide drop-shadow-sm">
-                85% Baterai
-              </span>
+          <div className="rounded-2xl border border-slate-200/70 bg-white p-2.5 shadow-sm">
+            <div className="mb-1 flex items-center gap-1 text-slate-400">
+              <Zap className="size-3" />
+              <p className="text-[10px] font-semibold uppercase tracking-wider">
+                Kapasitas
+              </p>
             </div>
+            <p className="text-[14px] font-bold text-slate-800 tabular-nums">
+              35.5
+              <span className="ml-0.5 text-[10px] font-semibold text-slate-400">
+                kWh
+              </span>
+            </p>
           </div>
-          <button
-            type="button"
-            className="w-[52px] shrink-0 rounded-2xl bg-white border border-slate-200 flex items-center justify-center shadow-sm hover:bg-slate-50 transition active:scale-95"
-          >
-            {/* Track/Location Icon */}
-            <svg
-              className="w-5 h-5 text-slate-700"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth={2}
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"
-              />
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"
-              />
-            </svg>
-          </button>
         </div>
       </div>
 

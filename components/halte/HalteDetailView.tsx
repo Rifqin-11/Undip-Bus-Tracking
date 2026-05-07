@@ -155,11 +155,11 @@ export function HalteDetailView({
   // ETA Calculation
   const activeBuggies = buggies.filter((b) => b.isActive);
   let etaMinutes: number | null = null;
-  
+
   if (activeBuggies.length > 0) {
     let minDistance = Infinity;
     let nearestSpeed = 15; // default 15 km/h
-    
+
     for (const b of activeBuggies) {
       const dist = haversineMeters(halte, b.position);
       if (dist < minDistance) {
@@ -167,7 +167,7 @@ export function HalteDetailView({
         nearestSpeed = b.speedKmh > 0 ? b.speedKmh : 15;
       }
     }
-    
+
     if (minDistance < Infinity) {
       const distKm = minDistance / 1000;
       const calculatedEta = (distKm / nearestSpeed) * 60;
@@ -178,9 +178,14 @@ export function HalteDetailView({
   return (
     <section className="mt-3 min-w-0 items-start">
       <div className="mb-3 flex items-start gap-3 rounded-[20px] border border-white/60 bg-white/40 backdrop-blur-md p-3 shadow-sm transition-all">
-        <div className="grid h-10 w-10 shrink-0 place-items-center rounded-2xl bg-[#0f1a3b] shadow-md text-sm font-bold text-white transition-transform hover:scale-105">
-          <BusStopIcon className="h-5 w-5" />
-        </div>
+        <button
+          type="button"
+          aria-label="Kembali"
+          onClick={onBack}
+          className="grid h-9 w-9 shrink-0 place-items-center rounded-xl border border-slate-300/60 bg-white/60 text-slate-700 shadow-sm transition hover:border-slate-900 hover:bg-slate-900 hover:text-white active:scale-95"
+        >
+          <ChevronLeftIcon className="h-4 w-4" />
+        </button>
 
         <div className="min-w-0 flex-1 flex flex-col justify-center">
           <p className="text-[10px] font-semibold uppercase tracking-widest text-slate-500 mb-0.5">
@@ -191,21 +196,17 @@ export function HalteDetailView({
               {halte.name}
             </h3>
             {etaMinutes !== null && (
-              <span className={`shrink-0 rounded-full px-2 py-0.5 text-[9px] font-bold shadow-sm ring-1 ${etaMinutes === 0 ? 'bg-emerald-100 text-emerald-700 ring-emerald-200' : 'bg-[#0f1a3b]/10 text-[#0f1a3b] ring-[#0f1a3b]/20'}`}>
+              <span
+                className={`shrink-0 rounded-full px-2 py-0.5 text-[9px] font-bold shadow-sm ring-1 ${etaMinutes === 0 ? "bg-emerald-100 text-emerald-700 ring-emerald-200" : "bg-[#0f1a3b]/10 text-[#0f1a3b] ring-[#0f1a3b]/20"}`}
+              >
                 {etaMinutes === 0 ? "Buggy Tiba" : `ETA ${etaMinutes}mnt`}
               </span>
             )}
           </div>
         </div>
-
-        <button
-          type="button"
-          aria-label="Kembali"
-          onClick={onBack}
-          className="grid h-9 w-9 shrink-0 place-items-center rounded-xl border border-slate-300/60 bg-white/60 text-slate-700 shadow-sm transition hover:border-slate-900 hover:bg-slate-900 hover:text-white active:scale-95"
-        >
-          <ChevronLeftIcon className="h-4 w-4" />
-        </button>
+        <div className="grid h-10 w-10 shrink-0 place-items-center rounded-2xl bg-[#0f1a3b] shadow-md text-sm font-bold text-white transition-transform hover:scale-105">
+          <BusStopIcon className="h-5 w-5" />
+        </div>
       </div>
 
       <div className="mt-4 w-full min-w-0 overflow-x-hidden rounded-3xl border border-slate-200/80 bg-white/70 p-3">
@@ -334,7 +335,10 @@ export function HalteDetailView({
         </p>
         <div className="space-y-2">
           {facilities.map((f, idx) => (
-            <div key={idx} className="flex items-center gap-2.5 text-[12px] font-medium text-slate-600">
+            <div
+              key={idx}
+              className="flex items-center gap-2.5 text-[12px] font-medium text-slate-600"
+            >
               <span className="h-1.5 w-1.5 rounded-full bg-[#0f1a3b]/60" />
               <span>{f}</span>
             </div>

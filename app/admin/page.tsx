@@ -6,13 +6,21 @@ import { BuggyList } from "@/components/buggy/PanelActive";
 import { FloatingSidebar } from "@/components/sidebar/FloatingSidebar";
 import { MobileBottomNav } from "@/components/sidebar/MobileBottomNav";
 import { LiveSearchBar } from "@/components/search/LiveSearchBar";
-import { AdminDataSection } from "@/components/data/AdminDataSection";
+import {
+  AdminDataSection,
+  type AdminDataPanel,
+} from "@/components/data/AdminDataSection";
 import { BuggyOperationalDetail } from "@/components/data/BuggyOperationalDetail";
 import { HistoryPanel } from "@/components/history/HistoryPanel";
 import { AppSettingsPanel } from "@/components/settings/AppSettingsPanel";
 import type { AccountFormMode } from "@/components/settings/AccountFormPanel";
 import { ToastStack } from "@/components/ui/ToastStack";
-import type { ToastItem } from "@/components/ui/ToastStack";
+import { MobileTopBar } from "@/components/layout/MobileTopBar";
+import { NearestHalteChips } from "@/components/layout/NearestHalteChips";
+import {
+  AccountPill,
+  type AccountMenuItem,
+} from "@/components/layout/AccountPill";
 import {
   CENTER_UNDIP,
   HALTE_LOCATIONS,
@@ -26,9 +34,12 @@ import {
   useAdminSettings,
 } from "@/hooks/useAdminSettings";
 import { useUserRole } from "@/hooks/useUserRole";
-import { GoogleMapsService } from "@/lib/services/google-maps-service";
+import { useUserPosition } from "@/hooks/useUserPosition";
+import { useToastStack } from "@/hooks/useToastStack";
+import { useNearestHaltes } from "@/hooks/useNearestHaltes";
+import { useBrowserNotificationToggle } from "@/hooks/useBrowserNotificationToggle";
+import { useDirectionSearch } from "@/hooks/useDirectionSearch";
 import type { PanelView } from "@/types/buggy";
-import type { DirectionResult } from "@/components/panel/DirectionPanel";
 import { createClient } from "@/lib/supabase/client";
 import {
   isBuggyAssignedToValue,
@@ -36,14 +47,17 @@ import {
 } from "@/lib/buggy/assignment";
 import type { LatLngLiteral } from "@/types/map-canvas";
 import type { Geofence, GeofenceEvent } from "@/types/geofence";
-import { LogoutIcon, MapPinSolidIcon, BellIcon } from "@/components/ui/Icons";
+import { LogoutIcon, BellIcon } from "@/components/ui/Icons";
 import { PenIcon } from "lucide-react";
 
 const GEOFENCE_DEFAULT_RADIUS_METERS = 100;
 const GEOFENCE_EVENT_LIMIT = 100;
 const GEOFENCE_EVENT_COOLDOWN_MS = 10_000;
-const TOAST_LIMIT = 4;
-const TOAST_TTL_MS = 4_500;
+
+const HALTE_FALLBACK_POSITION = {
+  lat: HALTE_LOCATIONS[0].lat,
+  lng: HALTE_LOCATIONS[0].lng,
+};
 
 type DriverAssignmentAccount = {
   name?: string | null;
@@ -65,73 +79,14 @@ function makeId() {
   return `${Date.now()}-${Math.random().toString(16).slice(2)}`;
 }
 
-function normalize(s: string) {
-  return s.trim().toLowerCase();
-}
-
-function findHalteByQuery(query: string) {
-  const n = normalize(query);
-  return HALTE_LOCATIONS.find((h) => normalize(h.name).includes(n)) ?? null;
-}
-
-function dist(
-  a: { lat: number; lng: number },
-  b: { lat: number; lng: number },
-) {
-  return Math.hypot(a.lat - b.lat, a.lng - b.lng);
-}
-
-/**
- * Find the closest index in OFFICIAL_ROUTE_PATH to a given halte position.
- */
-function findNearestPathIndex(lat: number, lng: number): number {
-  let bestIdx = 0;
-  let bestDist = Infinity;
-  for (let i = 0; i < OFFICIAL_ROUTE_PATH.length; i++) {
-    const d = Math.hypot(
-      OFFICIAL_ROUTE_PATH[i][0] - lat,
-      OFFICIAL_ROUTE_PATH[i][1] - lng,
-    );
-    if (d < bestDist) {
-      bestDist = d;
-      bestIdx = i;
-    }
-  }
-  return bestIdx;
-}
-
-/**
- * Extract the actual road path segment between two haltes
- * by tracing along OFFICIAL_ROUTE_PATH (forward direction, wrapping).
- */
-function getRouteBetweenHaltes(
-  originLat: number,
-  originLng: number,
-  destLat: number,
-  destLng: number,
-): [number, number][] {
-  const startIdx = findNearestPathIndex(originLat, originLng);
-  const endIdx = findNearestPathIndex(destLat, destLng);
-  const totalPoints = OFFICIAL_ROUTE_PATH.length;
-
-  const path: [number, number][] = [];
-  let cursor = startIdx;
-
-  // Walk forward along the route (the bus goes in one direction in a loop)
-  for (let i = 0; i < totalPoints; i++) {
-    path.push(OFFICIAL_ROUTE_PATH[cursor]);
-    if (cursor === endIdx) break;
-    cursor = (cursor + 1) % totalPoints;
-  }
-
-  return path;
-}
-
 export default function DashboardPage() {
   const realtimeFeed = useBuggyLiveFeed();
   const { settings, updateSetting } = useAdminSettings();
-  const { userProfile, isAdmin: isAdminUser, isDriver: isDriverUser } =
-    useUserRole();
+  const {
+    userProfile,
+    isAdmin: isAdminUser,
+    isDriver: isDriverUser,
+  } = useUserRole();
   const [driverNamesByBuggyId, setDriverNamesByBuggyId] = useState<
     Record<string, string>
   >({});
@@ -164,21 +119,12 @@ export default function DashboardPage() {
   const [selectedAdminBuggyId, setSelectedAdminBuggyId] = useState<
     string | null
   >(null);
+  const [adminDataPanel, setAdminDataPanel] =
+    useState<AdminDataPanel>("statistics");
   const [mapFollowingBuggyId, setMapFollowingBuggyId] = useState<string | null>(
     null,
   );
   const [selectedHalteId, setSelectedHalteId] = useState<string | null>(null);
-
-  const [searchStep, setSearchStep] = useState<"destination" | "origin">(
-    "destination",
-  );
-  const [fromInput, setFromInput] = useState("");
-  const [toInput, setToInput] = useState("");
-  const [isSearching, setIsSearching] = useState(false);
-  const [directionResult, setDirectionResult] =
-    useState<DirectionResult | null>(null);
-
-  const [activeGeofences, setActiveGeofences] = useState<Geofence[]>([]);
 
   const [geofences, setGeofences] = useState<Geofence[]>([]);
   const [geofenceLoading, setGeofenceLoading] = useState(true);
@@ -193,6 +139,12 @@ export default function DashboardPage() {
     GEOFENCE_DEFAULT_RADIUS_METERS,
   );
 
+  const [geofenceEvents, setGeofenceEvents] = useState<GeofenceEvent[]>([]);
+  const browserNotificationEnabled = settings.browserNotificationEnabled;
+  const [historyPath, setHistoryPath] = useState<[number, number][]>([]);
+  const [settingsAccountForm, setSettingsAccountForm] =
+    useState<AccountFormMode | null>(null);
+
   const driverFilteredBuggies = useMemo(() => {
     if (userProfile?.role === "Driver" && userProfile.buggy_id) {
       return liveBuggies.filter((buggy) =>
@@ -204,6 +156,54 @@ export default function DashboardPage() {
     }
     return liveBuggies;
   }, [liveBuggies, userProfile]);
+
+  const canManageDashboard = isAdminUser;
+  const visibleBuggies = driverFilteredBuggies;
+
+  const selectedAdminBuggy = useMemo(() => {
+    if (!selectedAdminBuggyId) return null;
+    return (
+      liveBuggies.find((buggy) => buggy.id === selectedAdminBuggyId) ??
+      visibleBuggies[0] ??
+      null
+    );
+  }, [liveBuggies, selectedAdminBuggyId, visibleBuggies]);
+
+  const { userPosition, getLatestUserPosition } = useUserPosition();
+  const { toasts, addToast, dismissToast } = useToastStack();
+  const nearestHalteRecommendations = useNearestHaltes({
+    haltes: HALTE_LOCATIONS,
+    userPosition,
+    fallback: liveBuggies[0]?.position ?? HALTE_FALLBACK_POSITION,
+  });
+
+  const {
+    fromInput,
+    setFromInput,
+    toInput,
+    setToInput,
+    searchStep,
+    isSearching,
+    directionResult,
+    setDirectionResult,
+    runDirectionSearch,
+    runRecommendedHalteDirection,
+    resetToDestination,
+  } = useDirectionSearch({
+    liveBuggies,
+    haltes: HALTE_LOCATIONS,
+    routePath: OFFICIAL_ROUTE_PATH,
+    getLatestUserPosition,
+    requireNearestBuggy: true,
+    onSearchComplete: (_result, nearest) => {
+      if (nearest) {
+        setSelectedBuggyId(nearest.id);
+        setMapFollowingBuggyId(nearest.id);
+      }
+      setActiveView("buggy");
+      setPanelOpen(true);
+    },
+  });
 
   const loadDriverAssignments = useCallback(async () => {
     if (isDriverUser) {
@@ -277,220 +277,12 @@ export default function DashboardPage() {
 
   useEffect(() => {
     if (activeView !== "data" && activeView !== "data-detail") return;
-
     void loadDriverAssignments();
   }, [activeView, loadDriverAssignments, selectedAdminBuggyId]);
 
-  const canManageDashboard = isAdminUser;
-  const visibleBuggies = driverFilteredBuggies;
-  const selectedAdminBuggy = useMemo(() => {
-    if (!selectedAdminBuggyId) return null;
-
-    return (
-      liveBuggies.find((buggy) => buggy.id === selectedAdminBuggyId) ??
-      visibleBuggies[0] ??
-      null
-    );
-  }, [liveBuggies, selectedAdminBuggyId, visibleBuggies]);
-  const [geofenceEvents, setGeofenceEvents] = useState<GeofenceEvent[]>([]);
-  const [toasts, setToasts] = useState<ToastItem[]>([]);
-  const browserNotificationEnabled = settings.browserNotificationEnabled;
-  const [historyPath, setHistoryPath] = useState<[number, number][]>([]);
-  const [mobileAdminMenuOpen, setMobileAdminMenuOpen] = useState(false);
-  const [desktopAdminMenuOpen, setDesktopAdminMenuOpen] = useState(false);
-  const [settingsAccountForm, setSettingsAccountForm] =
-    useState<AccountFormMode | null>(null);
-
-  const [userPosition, setUserPosition] = useState<{
-    lat: number;
-    lng: number;
-  } | null>(null);
-
-  useEffect(() => {
-    if (typeof window === "undefined" || !("geolocation" in navigator)) return;
-    navigator.geolocation.getCurrentPosition(
-      (position) => {
-        setUserPosition({
-          lat: position.coords.latitude,
-          lng: position.coords.longitude,
-        });
-      },
-      () => {},
-      { enableHighAccuracy: false, timeout: 8000, maximumAge: 60_000 },
-    );
-  }, []);
-
-  const nearestHalteRecommendations = useMemo(() => {
-    const fallbackPos = liveBuggies[0]?.position ?? {
-      lat: HALTE_LOCATIONS[0].lat,
-      lng: HALTE_LOCATIONS[0].lng,
-    };
-    const sourcePos = userPosition ?? fallbackPos;
-
-    return HALTE_LOCATIONS.map((halte) => ({
-      ...halte,
-      distanceMeters: haversineMeters(sourcePos, {
-        lat: halte.lat,
-        lng: halte.lng,
-      }),
-    }))
-      .sort((a, b) => a.distanceMeters - b.distanceMeters)
-      .slice(0, 3);
-  }, [liveBuggies, userPosition]);
-
-  const getLatestUserPosition = useCallback(async () => {
-    if (typeof window === "undefined" || !("geolocation" in navigator)) {
-      return userPosition;
-    }
-    return new Promise<{ lat: number; lng: number } | null>((resolve) => {
-      navigator.geolocation.getCurrentPosition(
-        (position) => {
-          const latest = {
-            lat: position.coords.latitude,
-            lng: position.coords.longitude,
-          };
-          setUserPosition(latest);
-          resolve(latest);
-        },
-        () => resolve(userPosition),
-        { enableHighAccuracy: true, timeout: 8000, maximumAge: 15_000 },
-      );
-    });
-  }, [userPosition]);
-
-  const handleRecommendedHalteDirection = useCallback(
-    async (halteId: string) => {
-      const destinationHalte =
-        HALTE_LOCATIONS.find((halte) => halte.id === halteId) ?? null;
-      if (!destinationHalte) return;
-
-      setIsSearching(true);
-
-      try {
-        if (
-          !(window as Window & { google?: { maps?: unknown } }).google?.maps
-        ) {
-          alert("Google Maps belum loading. Coba lagi.");
-          return;
-        }
-
-        const currentPos = await getLatestUserPosition();
-        if (!currentPos) {
-          alert(
-            "Lokasi pengguna belum tersedia. Aktifkan izin lokasi lalu coba lagi.",
-          );
-          return;
-        }
-
-        const mapsService = GoogleMapsService.fromWindow();
-        const originHalte = mapsService.findNearestHalte(
-          currentPos,
-          HALTE_LOCATIONS,
-        );
-        if (!originHalte) {
-          alert("Halte asal terdekat tidak ditemukan.");
-          return;
-        }
-
-        const walkToOriginHalte = await mapsService.getWalkingDirections(
-          currentPos,
-          { lat: originHalte.lat, lng: originHalte.lng },
-        );
-
-        const originIdx = HALTE_LOCATIONS.findIndex(
-          (h) => h.id === originHalte.id,
-        );
-        const destIdx = HALTE_LOCATIONS.findIndex(
-          (h) => h.id === destinationHalte.id,
-        );
-        if (originIdx < 0 || destIdx < 0) {
-          return;
-        }
-
-        const routeStopNames: string[] = [];
-        let cursor = originIdx;
-        while (true) {
-          routeStopNames.push(HALTE_LOCATIONS[cursor].name);
-          if (cursor === destIdx) break;
-          cursor = (cursor + 1) % HALTE_LOCATIONS.length;
-        }
-
-        const busRoutePath = getRouteBetweenHaltes(
-          originHalte.lat,
-          originHalte.lng,
-          destinationHalte.lat,
-          destinationHalte.lng,
-        );
-
-        const nearest = liveBuggies.reduce((best, buggy) => {
-          if (!best) return buggy;
-          return dist(buggy.position, originHalte) <
-            dist(best.position, originHalte)
-            ? buggy
-            : best;
-        }, liveBuggies[0]);
-
-        setFromInput("Lokasi Saya");
-        setToInput(destinationHalte.name);
-        setSearchStep("origin");
-        setSelectedHalteId(destinationHalte.id);
-
-        setDirectionResult({
-          originName: "Lokasi Saya",
-          destinationName: destinationHalte.name,
-          originPosition: currentPos,
-          destinationPosition: {
-            lat: destinationHalte.lat,
-            lng: destinationHalte.lng,
-          },
-          routeStopNames,
-          nearestBuggyName: nearest?.name,
-          nearestBuggyId: nearest?.id,
-          directionPath: busRoutePath,
-          walkingToHalte: walkToOriginHalte
-            ? {
-                originHalteName: originHalte.name,
-                distance: walkToOriginHalte.totalDistance,
-                duration: walkToOriginHalte.totalDuration,
-                path: walkToOriginHalte.decodedPath,
-              }
-            : undefined,
-        });
-
-        if (nearest) {
-          setSelectedBuggyId(nearest.id);
-          setMapFollowingBuggyId(nearest.id);
-        }
-        setActiveView("buggy");
-        setPanelOpen(true);
-      } catch (err) {
-        console.error("Recommendation direction error:", err);
-        alert("Terjadi kesalahan saat membuat rute dari lokasi Anda.");
-      } finally {
-        setIsSearching(false);
-      }
-    },
-    [getLatestUserPosition, liveBuggies],
-  );
-
   const geofenceMembershipRef = useRef<Map<string, boolean>>(new Map());
   const geofenceCooldownRef = useRef<Map<string, number>>(new Map());
-  const notificationPermissionRequestedRef = useRef(false);
 
-  const pushToast = useCallback(
-    (title: string, description?: string, tone: ToastItem["tone"] = "info") => {
-      const id = makeId();
-      setToasts((prev) =>
-        [{ id, title, description, tone }, ...prev].slice(0, TOAST_LIMIT),
-      );
-      window.setTimeout(() => {
-        setToasts((prev) => prev.filter((toast) => toast.id !== id));
-      }, TOAST_TTL_MS);
-    },
-    [],
-  );
-
-  /** Simulasikan notifikasi bus mendekati halte — untuk keperluan testing */
   const handleLogout = async () => {
     try {
       const supabase = createClient();
@@ -498,8 +290,6 @@ export default function DashboardPage() {
     } catch {
       // noop
     }
-    setMobileAdminMenuOpen(false);
-    setDesktopAdminMenuOpen(false);
     setSettingsAccountForm(null);
     window.location.href = "/";
   };
@@ -508,31 +298,14 @@ export default function DashboardPage() {
     setSettingsAccountForm(accountForm);
     setActiveView("settings");
     setPanelOpen(true);
-    setMobileAdminMenuOpen(false);
-    setDesktopAdminMenuOpen(false);
   };
 
-  const handleTestBusNotification = useCallback(() => {
-    const sampleBuggy = liveBuggies[0];
-    const sampleHalte = HALTE_LOCATIONS[0];
-    const busName = sampleBuggy?.name ?? "Buggy 1";
-    const halteName = sampleHalte?.name ?? "Halte Utama";
-    const fakeDistance = Math.floor(Math.random() * 120) + 10;
-
-    const id = makeId();
-    setToasts((prev) =>
-      [
-        {
-          id,
-          tone: "bus" as ToastItem["tone"],
-          title: `${busName} mendekati halte Anda`,
-          description: `${halteName} · ${fakeDistance} m lagi`,
-          duration: 7_000,
-        },
-        ...prev,
-      ].slice(0, TOAST_LIMIT),
-    );
-  }, [liveBuggies]);
+  const { toggle: handleToggleBrowserNotification } =
+    useBrowserNotificationToggle({
+      enabled: browserNotificationEnabled,
+      setEnabled: (next) => updateSetting("browserNotificationEnabled", next),
+      addToast,
+    });
 
   const loadGeofences = useCallback(async () => {
     setGeofenceLoading(true);
@@ -545,12 +318,16 @@ export default function DashboardPage() {
       setGeofences(Array.isArray(data) ? (data as Geofence[]) : []);
     } catch (error) {
       console.error("Load geofence error:", error);
-      pushToast("Gagal memuat geofence", "Coba refresh halaman.", "warning");
+      addToast({
+        tone: "warning",
+        title: "Gagal memuat geofence",
+        description: "Coba refresh halaman.",
+      });
       setGeofences([]);
     } finally {
       setGeofenceLoading(false);
     }
-  }, [pushToast]);
+  }, [addToast]);
 
   useEffect(() => {
     void loadGeofences();
@@ -560,11 +337,9 @@ export default function DashboardPage() {
     setActiveView(view);
     setPanelOpen(true);
     setSettingsAccountForm(null);
-    // Clear history path when leaving history view
     if (view !== "history") {
       setHistoryPath([]);
     }
-    // Clear admin detail when explicitly navigating away
     if (view !== "data-detail") {
       setSelectedAdminBuggyId(null);
     }
@@ -603,6 +378,7 @@ export default function DashboardPage() {
   const handleSelectAdminBuggy = useCallback((buggyId: string) => {
     setSelectedAdminBuggyId(buggyId);
     setActiveView("data-detail");
+    setAdminDataPanel("buggy");
     setPanelOpen(true);
   }, []);
 
@@ -644,7 +420,6 @@ export default function DashboardPage() {
       const next = !prev;
       if (next) {
         setEditingGeofenceId(null);
-        // Place draft at current map center (CENTER_UNDIP as fallback)
         setDraftGeofenceCenter({ lat: CENTER_UNDIP[0], lng: CENTER_UNDIP[1] });
         setDraftGeofenceRadius(GEOFENCE_DEFAULT_RADIUS_METERS);
         setDraftGeofenceName(
@@ -662,17 +437,20 @@ export default function DashboardPage() {
     setActiveView("data");
   }, [canManageDashboard, geofences.length]);
 
-  const handleEditGeofence = useCallback((geofence: Geofence) => {
-    if (!canManageDashboard) return;
+  const handleEditGeofence = useCallback(
+    (geofence: Geofence) => {
+      if (!canManageDashboard) return;
 
-    setEditingGeofenceId(geofence.id);
-    setDraftGeofenceCenter(geofence.center);
-    setDraftGeofenceName(geofence.name);
-    setDraftGeofenceRadius(geofence.radiusMeters);
-    setGeofenceCreateMode(true);
-    setPanelOpen(true);
-    setActiveView("data");
-  }, [canManageDashboard]);
+      setEditingGeofenceId(geofence.id);
+      setDraftGeofenceCenter(geofence.center);
+      setDraftGeofenceName(geofence.name);
+      setDraftGeofenceRadius(geofence.radiusMeters);
+      setGeofenceCreateMode(true);
+      setPanelOpen(true);
+      setActiveView("data");
+    },
+    [canManageDashboard],
+  );
 
   const handleDraftGeofenceChange = useCallback(
     (center: LatLngLiteral, radiusMeters: number) => {
@@ -695,11 +473,15 @@ export default function DashboardPage() {
     if (!draftGeofenceCenter) return;
     const name = draftGeofenceName.trim();
     if (!name) {
-      pushToast("Nama zona wajib diisi", undefined, "warning");
+      addToast({ tone: "warning", title: "Nama zona wajib diisi" });
       return;
     }
     if (!Number.isFinite(draftGeofenceRadius) || draftGeofenceRadius <= 0) {
-      pushToast("Radius tidak valid", "Isi radius > 0 meter.", "warning");
+      addToast({
+        tone: "warning",
+        title: "Radius tidak valid",
+        description: "Isi radius > 0 meter.",
+      });
       return;
     }
     try {
@@ -735,26 +517,27 @@ export default function DashboardPage() {
       setDraftGeofenceRadius(GEOFENCE_DEFAULT_RADIUS_METERS);
       setGeofenceCreateMode(false);
       setEditingGeofenceId(null);
-      pushToast(
-        isEdit ? "Zona berhasil diperbarui" : "Zona berhasil dibuat",
-        createdOrUpdated.name,
-        "success",
-      );
+      addToast({
+        tone: "success",
+        title: isEdit ? "Zona berhasil diperbarui" : "Zona berhasil dibuat",
+        description: createdOrUpdated.name,
+      });
     } catch (error) {
       console.error("Save geofence error:", error);
-      pushToast(
-        "Gagal menyimpan zona",
-        error instanceof Error ? error.message : "Terjadi kesalahan.",
-        "warning",
-      );
+      addToast({
+        tone: "warning",
+        title: "Gagal menyimpan zona",
+        description:
+          error instanceof Error ? error.message : "Terjadi kesalahan.",
+      });
     }
   }, [
+    addToast,
+    canManageDashboard,
     draftGeofenceCenter,
     draftGeofenceName,
     draftGeofenceRadius,
     editingGeofenceId,
-    pushToast,
-    canManageDashboard,
   ]);
 
   const handleToggleGeofence = useCallback(
@@ -777,21 +560,22 @@ export default function DashboardPage() {
         setGeofences((prev) =>
           prev.map((item) => (item.id === id ? updated : item)),
         );
-        pushToast(
-          `Geofence ${updated.enabled ? "diaktifkan" : "dinonaktifkan"}`,
-          updated.name,
-          "success",
-        );
+        addToast({
+          tone: "success",
+          title: `Geofence ${updated.enabled ? "diaktifkan" : "dinonaktifkan"}`,
+          description: updated.name,
+        });
       } catch (error) {
         console.error("Toggle geofence error:", error);
-        pushToast(
-          "Gagal mengubah geofence",
-          error instanceof Error ? error.message : "Terjadi kesalahan.",
-          "warning",
-        );
+        addToast({
+          tone: "warning",
+          title: "Gagal mengubah geofence",
+          description:
+            error instanceof Error ? error.message : "Terjadi kesalahan.",
+        });
       }
     },
-    [canManageDashboard, pushToast],
+    [addToast, canManageDashboard],
   );
 
   const handleDeleteGeofence = useCallback(
@@ -815,71 +599,25 @@ export default function DashboardPage() {
             geofenceMembershipRef.current.delete(key);
           }
         });
-        pushToast("Geofence dihapus", target?.name, "success");
+        addToast({
+          tone: "success",
+          title: "Geofence dihapus",
+          description: target?.name,
+        });
         return true;
       } catch (error) {
         console.error("Delete geofence error:", error);
-        pushToast(
-          "Gagal menghapus geofence",
-          error instanceof Error ? error.message : "Terjadi kesalahan.",
-          "warning",
-        );
+        addToast({
+          tone: "warning",
+          title: "Gagal menghapus geofence",
+          description:
+            error instanceof Error ? error.message : "Terjadi kesalahan.",
+        });
         return false;
       }
     },
-    [canManageDashboard, geofences, pushToast],
+    [addToast, canManageDashboard, geofences],
   );
-
-  const handleToggleBrowserNotification = useCallback(async () => {
-    if (typeof window === "undefined" || !("Notification" in window)) {
-      pushToast(
-        "Browser Notification tidak didukung",
-        "Gunakan browser modern untuk fitur ini.",
-        "warning",
-      );
-      return;
-    }
-
-    if (browserNotificationEnabled) {
-      updateSetting("browserNotificationEnabled", false);
-      pushToast("Browser Notification dimatikan", undefined, "info");
-      return;
-    }
-
-    if (Notification.permission === "granted") {
-      updateSetting("browserNotificationEnabled", true);
-      pushToast("Browser Notification aktif", undefined, "success");
-      return;
-    }
-
-    if (Notification.permission === "denied") {
-      pushToast(
-        "Izin notifikasi ditolak",
-        "Izinkan notifikasi dari pengaturan browser jika ingin mengaktifkan.",
-        "warning",
-      );
-      return;
-    }
-
-    if (notificationPermissionRequestedRef.current) {
-      pushToast("Izin notifikasi belum diberikan", undefined, "warning");
-      return;
-    }
-
-    notificationPermissionRequestedRef.current = true;
-    const result = await Notification.requestPermission();
-    if (result === "granted") {
-      updateSetting("browserNotificationEnabled", true);
-      pushToast("Browser Notification aktif", undefined, "success");
-      return;
-    }
-
-    pushToast(
-      "Browser Notification tetap nonaktif",
-      "Permission tidak diberikan.",
-      "warning",
-    );
-  }, [browserNotificationEnabled, pushToast, updateSetting]);
 
   const emitGeofenceEvent = useCallback(
     (event: GeofenceEvent) => {
@@ -888,11 +626,11 @@ export default function DashboardPage() {
       );
 
       const actionLabel = event.type === "ENTER" ? "masuk" : "keluar";
-      pushToast(
-        `${event.buggyName} ${actionLabel}`,
-        `${event.geofenceName} • ${new Date(event.timestamp).toLocaleTimeString("id-ID")}`,
-        event.type === "ENTER" ? "success" : "warning",
-      );
+      addToast({
+        tone: event.type === "ENTER" ? "success" : "warning",
+        title: `${event.buggyName} ${actionLabel}`,
+        description: `${event.geofenceName} • ${new Date(event.timestamp).toLocaleTimeString("id-ID")}`,
+      });
 
       if (
         browserNotificationEnabled &&
@@ -905,17 +643,17 @@ export default function DashboardPage() {
         });
       }
     },
-    [browserNotificationEnabled, pushToast],
+    [addToast, browserNotificationEnabled],
   );
 
   const geofenceStatuses = useMemo(() => {
     const statusByBuggy: Record<string, string[]> = {};
-    const activeGeofences = geofences.filter((geofence) => geofence.enabled);
-    if (activeGeofences.length === 0) return statusByBuggy;
+    const enabledGeofences = geofences.filter((geofence) => geofence.enabled);
+    if (enabledGeofences.length === 0) return statusByBuggy;
 
     liveBuggies.forEach((buggy) => {
       const activeZoneNames: string[] = [];
-      activeGeofences.forEach((geofence) => {
+      enabledGeofences.forEach((geofence) => {
         const inside =
           haversineMeters(buggy.position, geofence.center) <=
           geofence.radiusMeters;
@@ -931,11 +669,11 @@ export default function DashboardPage() {
   }, [geofences, liveBuggies]);
 
   useEffect(() => {
-    const activeGeofences = geofences.filter((geofence) => geofence.enabled);
+    const enabledGeofences = geofences.filter((geofence) => geofence.enabled);
     const previousMembership = geofenceMembershipRef.current;
     const nextMembership = new Map<string, boolean>();
 
-    if (activeGeofences.length === 0) {
+    if (enabledGeofences.length === 0) {
       geofenceMembershipRef.current = nextMembership;
       return;
     }
@@ -943,7 +681,7 @@ export default function DashboardPage() {
     const now = Date.now();
 
     liveBuggies.forEach((buggy) => {
-      activeGeofences.forEach((geofence) => {
+      enabledGeofences.forEach((geofence) => {
         const key = `${buggy.id}:${geofence.id}`;
         const inside =
           haversineMeters(buggy.position, geofence.center) <=
@@ -983,200 +721,26 @@ export default function DashboardPage() {
     geofenceMembershipRef.current = nextMembership;
   }, [emitGeofenceEvent, geofences, liveBuggies]);
 
-  // ── Direction search ─────────────────────────────────────────────────────
-
-  const handleDirectionSearch = async () => {
-    if (searchStep === "destination") {
-      if (!normalize(toInput)) return;
-      setSearchStep("origin");
-      return;
-    }
-
-    setIsSearching(true);
-
-    try {
-      if (!(window as Window & { google?: { maps?: unknown } }).google?.maps) {
-        alert("Google Maps belum loading. Coba lagi.");
-        setIsSearching(false);
-        return;
-      }
-
-      const mapsService = GoogleMapsService.fromWindow();
-
-      // Resolve origin
-      let originHalte = findHalteByQuery(fromInput);
-      let walkingToHalte: DirectionResult["walkingToHalte"];
-      let originPos: { lat: number; lng: number };
-
-      // Jika fromInput kosong, otomatis gunakan posisi GPS user
-      const effectiveFrom = normalize(fromInput);
-      if (!effectiveFrom) {
-        const currentPos = await getLatestUserPosition();
-        if (currentPos) {
-          originPos = currentPos;
-          setFromInput("Lokasi Saya");
-          originHalte = mapsService.findNearestHalte(
-            currentPos,
-            HALTE_LOCATIONS,
-          );
-          if (!originHalte) {
-            alert("Halte terdekat dari lokasi Anda tidak ditemukan.");
-            setIsSearching(false);
-            return;
-          }
-          const walk = await mapsService.getWalkingDirections(currentPos, {
-            lat: originHalte.lat,
-            lng: originHalte.lng,
-          });
-          if (walk) {
-            walkingToHalte = {
-              originHalteName: originHalte.name,
-              distance: walk.totalDistance,
-              duration: walk.totalDuration,
-              path: walk.decodedPath,
-            };
-          }
-        } else {
-          alert("Aktifkan izin lokasi atau ketik lokasi asal Anda.");
-          setIsSearching(false);
-          return;
-        }
-      } else if (!originHalte) {
-        const geocoded = await mapsService.geocodePlace(fromInput);
-        if (!geocoded) {
-          alert(
-            `Lokasi "${fromInput}" tidak ditemukan. Coba nama lengkap + UNDIP.`,
-          );
-          setIsSearching(false);
-          return;
-        }
-        originPos = { lat: geocoded.lat, lng: geocoded.lng };
-        originHalte = mapsService.findNearestHalte(geocoded, HALTE_LOCATIONS);
-        if (!originHalte) {
-          setIsSearching(false);
-          return;
-        }
-
-        const walk = await mapsService.getWalkingDirections(geocoded, {
-          lat: originHalte.lat,
-          lng: originHalte.lng,
-        });
-        if (walk) {
-          walkingToHalte = {
-            originHalteName: originHalte.name,
-            distance: walk.totalDistance,
-            duration: walk.totalDuration,
-            path: walk.decodedPath,
-          };
-        }
-      } else {
-        originPos = { lat: originHalte.lat, lng: originHalte.lng };
-      }
-
-      // Resolve destination
-      let destHalte = findHalteByQuery(toInput);
-      let walkingFromHalte: DirectionResult["walkingFromHalte"];
-      let destPos: { lat: number; lng: number };
-
-      if (!destHalte) {
-        const geocoded = await mapsService.geocodePlace(toInput);
-        if (!geocoded) {
-          alert(
-            `Lokasi "${toInput}" tidak ditemukan. Coba nama lengkap + UNDIP.`,
-          );
-          setIsSearching(false);
-          return;
-        }
-        destPos = { lat: geocoded.lat, lng: geocoded.lng };
-        destHalte = mapsService.findNearestHalte(geocoded, HALTE_LOCATIONS);
-        if (!destHalte) {
-          setIsSearching(false);
-          return;
-        }
-
-        const walk = await mapsService.getWalkingDirections(
-          { lat: destHalte.lat, lng: destHalte.lng },
-          geocoded,
-        );
-        if (walk) {
-          walkingFromHalte = {
-            destinationHalteName: destHalte.name,
-            distance: walk.totalDistance,
-            duration: walk.totalDuration,
-            path: walk.decodedPath,
-          };
-        }
-      } else {
-        destPos = { lat: destHalte.lat, lng: destHalte.lng };
-      }
-
-      const originIdx = HALTE_LOCATIONS.findIndex(
-        (h) => h.id === originHalte?.id,
-      );
-      const destIdx = HALTE_LOCATIONS.findIndex((h) => h.id === destHalte?.id);
-      if (originIdx < 0 || destIdx < 0) {
-        setIsSearching(false);
-        return;
-      }
-
-      const routeStopNames: string[] = [];
-      let cursor = originIdx;
-      while (true) {
-        routeStopNames.push(HALTE_LOCATIONS[cursor].name);
-        if (cursor === destIdx) break;
-        cursor = (cursor + 1) % HALTE_LOCATIONS.length;
-      }
-
-      const busRoutePath = getRouteBetweenHaltes(
-        originHalte!.lat,
-        originHalte!.lng,
-        destHalte!.lat,
-        destHalte!.lng,
-      );
-
-      const nearest = liveBuggies.reduce((best, b) => {
-        if (!best) return b;
-        return dist(b.position, originHalte!) <
-          dist(best.position, originHalte!)
-          ? b
-          : best;
-      }, liveBuggies[0]);
-
-      if (!nearest) {
-        setIsSearching(false);
-        return;
-      }
-
-      setDirectionResult({
-        originName: fromInput,
-        destinationName: toInput,
-        originPosition: originPos,
-        destinationPosition: destPos,
-        routeStopNames,
-        nearestBuggyName: nearest.name,
-        nearestBuggyId: nearest.id,
-        directionPath: busRoutePath,
-        walkingToHalte,
-        walkingFromHalte,
-      });
-
-      setSelectedBuggyId(nearest.id);
-      setMapFollowingBuggyId(nearest.id);
-      setActiveView("buggy");
-      setPanelOpen(true);
-    } catch (err) {
-      console.error("Direction search error:", err);
-      alert("Terjadi kesalahan saat mencari rute.");
-    } finally {
-      setIsSearching(false);
-    }
-  };
-
-  const handleBackToDestination = () => {
-    setSearchStep("destination");
-    setFromInput("");
-    setDirectionResult(null);
-  };
+  const accountMenuItems = useMemo<AccountMenuItem[]>(
+    () => [
+      {
+        label: "Edit Account",
+        icon: <PenIcon className="h-4 w-4 text-slate-500" />,
+        onClick: (): void => {
+          handleOpenSettings("edit");
+        },
+      },
+      {
+        label: "Logout",
+        icon: <LogoutIcon className="h-4 w-4" />,
+        onClick: (): void => {
+          void handleLogout();
+        },
+        tone: "danger",
+      },
+    ],
+    [],
+  );
 
   const mapBuggies = activeView === "halte" ? [] : visibleBuggies;
   const mapRoutePath = activeView === "buggy" ? OFFICIAL_ROUTE_PATH : [];
@@ -1212,131 +776,54 @@ export default function DashboardPage() {
         historyPath={mapHistoryPath}
       />
 
-      {/* Gradient overlay for mobile view */}
-      <div className="pointer-events-none absolute inset-x-0 top-0 z-20 h-52 bg-linear-to-b from-slate-900/45 via-slate-900/20 to-transparent xl:hidden" />
-
-      <section
-        className="absolute inset-x-0 z-50 flex items-center justify-between px-4 xl:hidden"
-        style={{ top: "calc(0.75rem + var(--sai-top, 0px))" }}
-      >
-        <h1 className="text-[26px] font-bold tracking-tight text-white drop-shadow-md">
-          SIMOBI
-        </h1>
-
-        <div className="flex items-center gap-2">
-          <button
-            type="button"
-            onClick={() => handleSelectView("notifikasi")}
-            aria-label="Notifikasi"
-            className="relative flex h-10 w-10 items-center justify-center rounded-full border border-white/20 bg-slate-900/50 text-white backdrop-blur-md transition active:scale-95"
-          >
-            <BellIcon className="h-5 w-5" />
-          </button>
-          <div className="relative">
+      <MobileTopBar
+        actions={
+          <>
             <button
               type="button"
-              aria-label="Menu admin"
-              aria-expanded={mobileAdminMenuOpen}
-              title="Admin"
-              onClick={() => setMobileAdminMenuOpen((open) => !open)}
-              className="relative flex h-10 w-10 items-center justify-center rounded-full border border-white/20 bg-slate-900/50 text-white backdrop-blur-md transition hover:bg-slate-800/70 active:scale-95"
+              onClick={() => handleSelectView("notifikasi")}
+              aria-label="Notifikasi"
+              className="relative flex h-10 w-10 items-center justify-center rounded-full border border-white/20 bg-slate-900/50 text-white backdrop-blur-md transition active:scale-95"
             >
-              <span className="grid size-8 place-items-center rounded-full bg-[#0f1a3b]/70 text-sm font-black text-white">
-                {userProfile?.avatar ?? (isDriverUser ? "D" : "A")}
-              </span>
+              <BellIcon className="h-5 w-5" />
             </button>
-
-            {mobileAdminMenuOpen ? (
-              <div className="absolute right-0 z-60 mt-2 w-48 overflow-hidden rounded-2xl border border-white/70 bg-white/95 p-1.5 text-slate-800 shadow-[0_14px_40px_rgba(15,23,42,0.18)] backdrop-blur-xl">
-                <button
-                  type="button"
-                  onClick={() => handleOpenSettings("edit")}
-                  className="flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left text-[12px] font-bold transition hover:bg-slate-100 active:scale-[0.98]"
-                >
-                  <PenIcon className="h-4 w-4 text-slate-500" />
-                  Edit Account
-                </button>
-                <button
-                  type="button"
-                  onClick={handleLogout}
-                  className="flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left text-[12px] font-bold text-rose-600 transition hover:bg-rose-50 active:scale-[0.98]"
-                >
-                  <LogoutIcon className="h-4 w-4" />
-                  Logout
-                </button>
-              </div>
-            ) : null}
-          </div>
-        </div>
-      </section>
-
-      <section
-        className={`absolute left-1/2 z-40 w-[min(92vw,420px)] -translate-x-1/2 xl:hidden ${
-          searchStep === "origin" ? "top-40" : "top-28"
-        }`}
-      >
-        <div className="flex gap-2 overflow-x-auto pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-          {nearestHalteRecommendations.map((halte) => (
-            <button
-              key={halte.id}
-              type="button"
-              className="shrink-0 flex items-center gap-2 rounded-full border border-white/35 bg-slate-900/50 px-3 py-1.5 text-white backdrop-blur-md transition active:scale-[0.98]"
-              onClick={() => void handleRecommendedHalteDirection(halte.id)}
-            >
-              <MapPinSolidIcon className="h-4 w-4 shrink-0 text-white" />
-              <p className="text-[12px] font-bold leading-none">{halte.name}</p>
-            </button>
-          ))}
-        </div>
-      </section>
-
-      <ToastStack
-        toasts={toasts}
-        onDismiss={(id) => setToasts((prev) => prev.filter((t) => t.id !== id))}
+            <AccountPill
+              variant="mobile-icon"
+              user={
+                userProfile
+                  ? {
+                      ...userProfile,
+                      avatar: userProfile.avatar ?? (isDriverUser ? "D" : "A"),
+                    }
+                  : { avatar: isDriverUser ? "D" : "A" }
+              }
+              menuItems={accountMenuItems}
+            />
+          </>
+        }
       />
 
+      <NearestHalteChips
+        haltes={nearestHalteRecommendations}
+        onPick={(id) => void runRecommendedHalteDirection(id)}
+        topClass={searchStep === "origin" ? "top-40" : "top-28"}
+      />
+
+      <ToastStack toasts={toasts} onDismiss={dismissToast} />
+
       <div className="absolute right-3 top-3 z-20 hidden items-center justify-end gap-2 xl:right-4 xl:top-4 xl:flex">
-        <div className="relative">
-          <button
-            type="button"
-            aria-label="Menu account"
-            aria-expanded={desktopAdminMenuOpen}
-            onClick={() => setDesktopAdminMenuOpen((open) => !open)}
-            className="flex w-full items-center gap-3 rounded-full border border-white/60 bg-white px-3 py-2 text-left shadow-[0_10px_30px_rgba(15,23,42,0.12)] backdrop-blur-xl transition hover:bg-white/90 active:scale-[0.98] min-w-[150px]"
-          >
-            <div className="grid size-8 place-items-center rounded-full bg-[#0f1a3b] text-sm font-black text-white">
-              {userProfile?.avatar ?? "A"}
-            </div>
-            <div className="min-w-0 pr-1">
-              <p className="text-[13px] font-extrabold leading-tight text-slate-900">
-                {userProfile?.name ?? (isDriverUser ? "Driver" : "Admin")}
-              </p>
-              <p className="text-[10px] font-semibold leading-tight text-slate-400">
-                {userProfile?.role ?? "SIMOBI Operator"}
-              </p>
-            </div>
-          </button>
-          {desktopAdminMenuOpen ? (
-            <div className="absolute right-0 top-full mt-1 w-full min-w-[150px] rounded-[22px] border border-white/70 bg-white/95 p-1.5 text-slate-800 shadow-[0_14px_40px_rgba(15,23,42,0.16)] backdrop-blur-xl">
-              <button
-                type="button"
-                onClick={() => handleOpenSettings("edit")}
-                className="flex w-full items-center gap-2 rounded-2xl px-3 py-2 text-left text-[12px] font-bold transition hover:bg-slate-200 active:scale-[0.98]"
-              >
-                <PenIcon className="h-4 w-4 text-slate-500" />
-                Edit Account
-              </button>
-              <button
-                type="button"
-                onClick={handleLogout}
-                className="flex w-full items-center gap-2 rounded-2xl px-3 py-2 text-left text-[12px] font-bold text-rose-600 transition hover:bg-rose-50 active:scale-[0.98]"
-              >
-                <LogoutIcon className="h-4 w-4" />
-                Logout
-              </button>
-            </div>
-          ) : null}
-        </div>
+        <AccountPill
+          variant="desktop"
+          user={
+            userProfile ?? {
+              name: isDriverUser ? "Driver" : "Admin",
+              role: "SIMOBI Operator",
+              avatar: isDriverUser ? "D" : "A",
+            }
+          }
+          menuItems={accountMenuItems}
+          defaultName={isDriverUser ? "Driver" : "Admin"}
+        />
       </div>
 
       <FloatingSidebar
@@ -1353,9 +840,9 @@ export default function DashboardPage() {
           setToInput(val);
           setDirectionResult(null);
         }}
-        onSubmit={handleDirectionSearch}
+        onSubmit={runDirectionSearch}
         showOriginField={searchStep === "origin"}
-        onBackToDestination={handleBackToDestination}
+        onBackToDestination={resetToDestination}
         panelOpen={panelOpen}
         isSearching={isSearching}
         mobileTopClass="top-14"
@@ -1394,6 +881,8 @@ export default function DashboardPage() {
             draftName={draftGeofenceName}
             browserNotificationEnabled={browserNotificationEnabled}
             onSelectBuggy={handleSelectAdminBuggy}
+            activePanel={adminDataPanel}
+            onActivePanelChange={setAdminDataPanel}
             onToggleCreateMode={handleToggleCreateMode}
             onDraftNameChange={setDraftGeofenceName}
             onDraftRadiusChange={setDraftGeofenceRadius}

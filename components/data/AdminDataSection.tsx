@@ -11,7 +11,7 @@ import { GeofenceEventLog } from "./GeofenceEventLog";
 import { AdminBuggyFormPanel } from "./AdminBuggyFormPanel";
 import { PlusIcon } from "lucide-react";
 
-type AdminDataPanel = "statistics" | "buggy" | "geofence";
+export type AdminDataPanel = "statistics" | "buggy" | "geofence";
 
 type AdminDataSectionProps = {
   buggies: Buggy[];
@@ -39,6 +39,9 @@ type AdminDataSectionProps = {
   readOnly?: boolean;
   /** Dipanggil setelah add atau delete buggy agar parent dapat refresh list */
   onBuggyMutated?: () => void;
+  /** Optional controlled active panel (agar state bertahan lintas mount/unmount) */
+  activePanel?: AdminDataPanel;
+  onActivePanelChange?: (panel: AdminDataPanel) => void;
 };
 
 export function AdminDataSection({
@@ -66,9 +69,19 @@ export function AdminDataSection({
   compactMode = false,
   readOnly = false,
   onBuggyMutated,
+  activePanel: controlledActivePanel,
+  onActivePanelChange,
 }: AdminDataSectionProps) {
   const [isAddingBuggy, setIsAddingBuggy] = useState(false);
-  const [activePanel, setActivePanel] = useState<AdminDataPanel>("statistics");
+  const [internalActivePanel, setInternalActivePanel] =
+    useState<AdminDataPanel>("statistics");
+  const activePanel = controlledActivePanel ?? internalActivePanel;
+  const setActivePanel = (panel: AdminDataPanel) => {
+    if (controlledActivePanel === undefined) {
+      setInternalActivePanel(panel);
+    }
+    onActivePanelChange?.(panel);
+  };
 
   const tabs: { id: AdminDataPanel; label: string }[] = [
     { id: "statistics", label: "Statistik" },
