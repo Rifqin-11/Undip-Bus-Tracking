@@ -87,7 +87,7 @@ export function AuthForm({
           throw new Error("Nama lengkap wajib diisi.");
         }
         if (password !== confirmPassword) {
-          throw new Error("Password dan konfirmasi password tidak cocok.");
+          throw new Error("Kata sandi dan konfirmasi kata sandi tidak cocok.");
         }
 
         const { error } = await supabase.auth.signUp({
@@ -101,7 +101,7 @@ export function AuthForm({
         if (error) throw error;
 
         setSuccessMessage(
-          "Registrasi berhasil! Silakan Sign-In dengan akun yang baru dibuat.",
+          "Registrasi berhasil! Silakan masuk dengan akun yang baru dibuat.",
         );
         setIsRegister(false);
         setPassword("");
@@ -135,7 +135,7 @@ export function AuthForm({
         <button
           type="button"
           onClick={onClose}
-          aria-label="Tutup Sign-In"
+          aria-label="Tutup form masuk"
           className="absolute right-4 top-4 z-20 grid size-9 place-items-center rounded-full border border-slate-200 bg-white/90 text-lg font-bold text-slate-500 shadow-sm transition hover:bg-slate-100 hover:text-slate-900 active:scale-95"
         >
           ×
@@ -155,7 +155,7 @@ export function AuthForm({
               />
               <div>
                 <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-blue-100/90">
-                  Smart Mobility UNDIP
+                  Mobilitas Pintar UNDIP
                 </p>
                 <h1 className="text-xl font-bold tracking-tight">
                   SIMOBI
@@ -165,19 +165,19 @@ export function AuthForm({
 
             <p className="max-w-xs text-sm leading-relaxed text-blue-100/85">
               Kelola armada buggy listrik secara realtime, pantau rute, dan
-              kontrol area geofence dalam satu dashboard terintegrasi.
+              kontrol area geofence dalam satu dasbor terintegrasi.
             </p>
           </div>
 
           <div className="space-y-2.5 text-sm text-blue-50/90">
             <p className="rounded-xl border border-white/20 bg-white/10 px-3 py-2">
-              Realtime Tracking
+              Pelacakan Realtime
             </p>
             <p className="rounded-xl border border-white/20 bg-white/10 px-3 py-2">
-              Geofence Alert
+              Peringatan Geofence
             </p>
             <p className="rounded-xl border border-white/20 bg-white/10 px-3 py-2">
-              Smart Route Guidance
+              Panduan Rute Pintar
             </p>
           </div>
         </div>
@@ -193,25 +193,25 @@ export function AuthForm({
             />
             <div>
               <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500">
-                Smart Mobility UNDIP
+                Mobilitas Pintar UNDIP
               </p>
               <h1 className="text-[22px] font-bold tracking-tight text-slate-900">
-                {isRegister ? "Daftar Akun SIMOBI" : "Sign-In SIMOBI"}
+                {isRegister ? "Daftar Akun SIMOBI" : "Masuk SIMOBI"}
               </h1>
             </div>
           </div>
 
           <div className="mb-6 hidden md:block">
             <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500">
-              Sign-In
+              Masuk
             </p>
             <h2 className="mt-1 text-[28px] font-bold tracking-tight text-slate-900">
               {isRegister ? "Buat Akun Baru" : "Selamat Datang"}
             </h2>
             <p className="mt-1 text-sm text-slate-600">
               {isRegister
-                ? "Daftar untuk mengakses dashboard."
-                : "Masuk untuk membuka dashboard manajemen SIMOBI."}
+                ? "Daftar untuk mengakses dasbor."
+                : "Masuk untuk membuka dasbor manajemen SIMOBI."}
             </p>
           </div>
 
@@ -283,14 +283,14 @@ export function AuthForm({
 
             <label className="block">
               <span className="mb-1.5 block text-[13px] font-medium text-slate-700">
-                Password
+                Kata Sandi
               </span>
               <input
                 type="password"
                 className="h-11 w-full rounded-2xl border border-slate-300/80 bg-white/90 px-3.5 text-[14px] text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-[#2a4f8e] focus:ring-3 focus:ring-[#2a4f8e]/15"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                placeholder="Masukkan password"
+                placeholder="Masukkan kata sandi"
                 autoComplete={isRegister ? "new-password" : "current-password"}
                 required
               />
@@ -299,14 +299,14 @@ export function AuthForm({
             {isRegister ? (
               <label className="block">
                 <span className="mb-1.5 block text-[13px] font-medium text-slate-700">
-                  Konfirmasi Password
+                  Konfirmasi Kata Sandi
                 </span>
                 <input
                   type="password"
                   className="h-11 w-full rounded-2xl border border-slate-300/80 bg-white/90 px-3.5 text-[14px] text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-[#2a4f8e] focus:ring-3 focus:ring-[#2a4f8e]/15"
                   value={confirmPassword}
                   onChange={(e) => setConfirmPassword(e.target.value)}
-                  placeholder="Masukkan ulang password"
+                  placeholder="Masukkan ulang kata sandi"
                   autoComplete="new-password"
                   required
                 />
@@ -330,7 +330,7 @@ export function AuthForm({
               disabled={isSubmitting}
               className="mt-1 h-11 w-full rounded-2xl bg-[#0f1a3b] text-[14px] font-bold text-white transition hover:bg-[#1a2b59] disabled:cursor-not-allowed disabled:opacity-70"
             >
-              {isSubmitting ? "Loading..." : isRegister ? "Daftar" : "Sign-In"}
+              {isSubmitting ? "Memuat..." : isRegister ? "Daftar" : "Masuk"}
             </button>
 
             <div className="pt-2 text-center text-[13px] text-slate-600">
@@ -344,7 +344,7 @@ export function AuthForm({
                 }}
                 className="font-bold text-[#2a4f8e] hover:underline"
               >
-                {isRegister ? "Sign-In di sini" : "Daftar di sini"}
+                {isRegister ? "Masuk di sini" : "Daftar di sini"}
               </button>
             </div>
 

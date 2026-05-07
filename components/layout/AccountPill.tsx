@@ -14,7 +14,7 @@ export type AccountMenuItem = {
   label: string;
   icon?: ReactNode;
   onClick: () => void;
-  /** Untuk item destructive (Logout). */
+  /** Untuk item destruktif (keluar). */
   tone?: "default" | "danger";
 };
 
@@ -32,7 +32,7 @@ type AccountPillProps = {
     icon: ReactNode;
     onClick: () => void;
   };
-  /** Default avatar fallback char (e.g. "A" / "D"). */
+  /** Karakter avatar default, misalnya "A" atau "D". */
   defaultAvatar?: string;
   /** Default role fallback text. */
   defaultRole?: string;
@@ -152,7 +152,7 @@ export function AccountPill({
       <div ref={containerRef} className="relative">
         <button
           type="button"
-          aria-label="Profile"
+          aria-label="Profil"
           aria-expanded={hasMenu ? open : undefined}
           onClick={handleTriggerClick}
           className="relative flex h-10 w-10 items-center justify-center rounded-full border border-white/20 bg-slate-900/50 text-white backdrop-blur-md transition hover:bg-slate-800/70 active:scale-95"
@@ -173,7 +173,7 @@ export function AccountPill({
     <div ref={containerRef} className="relative">
       <button
         type="button"
-        aria-label="Menu account"
+        aria-label="Menu akun"
         aria-expanded={hasMenu ? open : undefined}
         onClick={handleTriggerClick}
         className="flex w-full min-w-37.5 items-center gap-3 rounded-full border border-white/60 bg-white px-3 py-2 text-left shadow-[0_10px_30px_rgba(15,23,42,0.12)] backdrop-blur-xl transition hover:bg-white/90 active:scale-[0.98]"

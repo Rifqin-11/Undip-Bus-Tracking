@@ -57,7 +57,7 @@ export async function POST(request: Request) {
       crowdLevel: "LONGGAR" as const,
       passengers: 0,
       capacity: data.capacity,
-      tag: "Real GPS",
+      tag: "GPS Nyata",
       updatedAt: new Date().toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" }),
       currentStopIndex: 0,
       stops: getHalteLocations().map(h => h.name),

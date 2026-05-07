@@ -470,7 +470,7 @@ export function AdminStatisticsPanel({ buggies }: AdminStatisticsPanelProps) {
       .map(([label, value]) => ({
         label,
         value,
-        helper: `${value.toLocaleString("id-ID")} stop`,
+        helper: `${value.toLocaleString("id-ID")} pemberhentian`,
       }))
       .sort((a, b) => b.value - a.value);
   }, [filteredSessions]);
@@ -522,7 +522,7 @@ export function AdminStatisticsPanel({ buggies }: AdminStatisticsPanelProps) {
           </div>
         </div>
 
-        {/* Top Card: Passengers */}
+        {/* Top Card: Penumpang */}
         <div className="relative mb-3 flex items-center justify-between rounded-[20px] border border-slate-100 bg-white p-4 shadow-[0_8px_20px_rgba(15,23,42,0.02)] overflow-hidden">
           {/* Abstract BG Pattern */}
           <div className="absolute right-0 top-0 h-full w-1/2 opacity-[0.03] pointer-events-none">
@@ -577,12 +577,12 @@ export function AdminStatisticsPanel({ buggies }: AdminStatisticsPanelProps) {
               <div className="mb-1 flex items-center gap-1.5">
                 <Users className="h-4 w-4 text-[#0f1a3b]" />
                 <p className="text-[9px] font-bold uppercase tracking-widest text-slate-500">
-                  Peak Passenger Time
+                  Waktu Puncak Penumpang
                 </p>
               </div>
               <p className="text-[11px] font-medium leading-snug text-slate-400">
                 Estimasi beban penumpang per jam dari trip bulanan dan okupansi
-                live.
+                langsung.
               </p>
             </div>
             <span className="shrink-0 rounded-full bg-slate-100 px-2 py-1 text-[9px] font-black text-[#0f1a3b]">
@@ -594,7 +594,7 @@ export function AdminStatisticsPanel({ buggies }: AdminStatisticsPanelProps) {
           <MiniAreaChart data={hourlyPassengerDemand} />
         </div>
 
-        {/* Bottom Grid: Operational Stats */}
+        {/* Grid Bawah: Statistik Operasional */}
         <div className="overflow-hidden rounded-[20px] border border-slate-100 bg-white shadow-[0_8px_20px_rgba(15,23,42,0.02)] mb-3">
           <div className="grid grid-cols-2 border-b border-slate-100">
             <div className="border-r border-slate-100 p-3.5">
@@ -661,7 +661,7 @@ export function AdminStatisticsPanel({ buggies }: AdminStatisticsPanelProps) {
                   )}
                 </span>
                 <span className="text-[10px] font-bold text-slate-400">
-                  km/h
+                  km/jam
                 </span>
               </span>
             </div>
@@ -676,7 +676,7 @@ export function AdminStatisticsPanel({ buggies }: AdminStatisticsPanelProps) {
                 {isLoadingSessions ? (
                   <SkeletonStat width="w-16" height="h-5" />
                 ) : (
-                  `${totalWaktuHours}h ${totalWaktuMins}m`
+                  `${totalWaktuHours}j ${totalWaktuMins}m`
                 )}
               </span>
             </div>
@@ -739,7 +739,7 @@ export function AdminStatisticsPanel({ buggies }: AdminStatisticsPanelProps) {
               icon={<Gauge className="h-4 w-4" />}
               label="Kec. live rata-rata"
               value={`${averageLiveSpeed.toFixed(1)}`}
-              helper={`Tertinggi ${fastestBuggy?.code ?? "-"} ${fastestBuggy ? `${fastestBuggy.speedKmh.toFixed(1)} km/h` : ""}`}
+              helper={`Tertinggi ${fastestBuggy?.code ?? "-"} ${fastestBuggy ? `${fastestBuggy.speedKmh.toFixed(1)} km/jam` : ""}`}
               className="border-r border-slate-100"
               tone="navy"
             />
@@ -853,7 +853,7 @@ export function AdminStatisticsPanel({ buggies }: AdminStatisticsPanelProps) {
               <RankingBars data={dominantStopRanking} />
               {dominantStop ? (
                 <p className="mt-3 rounded-2xl bg-emerald-50 px-3 py-2 text-[10px] font-semibold text-emerald-700">
-                  Stop tersering:{" "}
+                  Pemberhentian tersering:{" "}
                   <span className="font-black">{dominantStop.label}</span>
                 </p>
               ) : null}
@@ -866,44 +866,44 @@ export function AdminStatisticsPanel({ buggies }: AdminStatisticsPanelProps) {
             <p className="text-[9px] font-bold uppercase tracking-widest text-slate-400">
               Jarak / trip
             </p>
-            <p className="mt-1 text-[18px] font-black text-[#0f1a3b]">
+            <div className="mt-1 text-[18px] font-black text-[#0f1a3b]">
               {isLoadingSessions ? (
                 <SkeletonStat width="w-16" height="h-4" />
               ) : (
                 `${averageDistancePerTrip.toFixed(1)} km`
               )}
-            </p>
+            </div>
           </div>
           <div>
             <p className="text-[9px] font-bold uppercase tracking-widest text-slate-400">
               Durasi / trip
             </p>
-            <p className="mt-1 text-[18px] font-black text-[#0f1a3b]">
+            <div className="mt-1 text-[18px] font-black text-[#0f1a3b]">
               {isLoadingSessions ? (
                 <SkeletonStat width="w-16" height="h-4" />
               ) : (
                 `${averageDurationPerTrip.toFixed(0)} mnt`
               )}
-            </p>
+            </div>
           </div>
           <div>
             <p className="text-[9px] font-bold uppercase tracking-widest text-slate-400">
-              Trip / armada
+              Perjalanan / armada
             </p>
-            <p className="mt-1 text-[18px] font-black text-[#0f1a3b]">
+            <div className="mt-1 text-[18px] font-black text-[#0f1a3b]">
               {isLoadingSessions ? (
                 <SkeletonStat width="w-12" height="h-4" />
               ) : (
                 sessionsPerBuggy.toFixed(1)
               )}
-            </p>
+            </div>
           </div>
         </div>
 
         {/* Footer info */}
         <p className="mt-4 text-center text-[10px] leading-relaxed text-slate-400">
           *Statistik bulanan dihitung dari sesi perjalanan, sedangkan status
-          armada memakai data GPS live terbaru.
+          armada memakai data GPS langsung terbaru.
         </p>
       </div>
     </section>

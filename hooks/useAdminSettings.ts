@@ -27,7 +27,7 @@ export const MAP_STYLE_OPTIONS: ReadonlyArray<{
 }> = [
   { value: "standard", label: "Standar" },
   { value: "satellite", label: "Satelit" },
-  { value: "terrain", label: "Terrain" },
+  { value: "terrain", label: "Medan" },
 ];
 
 export const NEARBY_ALERT_RADIUS_OPTIONS: ReadonlyArray<{

@@ -78,13 +78,13 @@ export function BuggyOperationalDetail({
   const rows: { label: string; value: string }[] = [
     { label: "Kode Armada", value: buggy.code },
     { label: "Nama", value: buggy.name },
-    { label: "Driver", value: assignedDriverName || "-" },
+    { label: "Pengemudi", value: assignedDriverName || "-" },
     { label: "Rute", value: buggy.routeLabel || "-" },
     {
       label: "Koordinat",
       value: `${buggy.position.lat.toFixed(5)}, ${buggy.position.lng.toFixed(5)}`,
     },
-    { label: "Kecepatan", value: `${buggy.speedKmh} km/h` },
+    { label: "Kecepatan", value: `${buggy.speedKmh} km/jam` },
     { label: "ETA", value: `${buggy.etaMinutes} menit` },
     { label: "Halte Saat Ini", value: currentStop || "-" },
     { label: "Halte Berikutnya", value: nextStop || "-" },
@@ -96,7 +96,7 @@ export function BuggyOperationalDetail({
       label: "Status Geofence",
       value: activeZones.length > 0 ? activeZones.join(", ") : "Di luar zona",
     },
-    { label: "Terakhir Update", value: buggy.updatedAt },
+    { label: "Pembaruan Terakhir", value: buggy.updatedAt },
   ];
 
   return (

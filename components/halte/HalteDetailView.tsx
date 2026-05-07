@@ -193,7 +193,7 @@ export function HalteDetailView({
 
   return (
     <section className="mt-3 min-w-0 items-start">
-      <div className="mb-3 flex items-start gap-3 rounded-[20px] border border-white/60 bg-white/40 backdrop-blur-md p-3 shadow-sm transition-all">
+    <div className="mb-3 flex items-center justify-center gap-3 rounded-[20px] border border-white/60 bg-white/40 backdrop-blur-md p-3 shadow-sm transition-all">
         <button
           type="button"
           aria-label="Kembali"
@@ -221,7 +221,7 @@ export function HalteDetailView({
           </div>
         </div>
         {canFavorite && onToggleFavorite ? (
-          <div className="shrink-0">
+        <div className="grid size-10 shrink-0 place-items-center">
             <FavoriteStar
               active={isFavorite}
               onToggle={onToggleFavorite}

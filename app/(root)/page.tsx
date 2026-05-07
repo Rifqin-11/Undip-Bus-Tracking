@@ -91,7 +91,7 @@ export default function DashboardPage() {
 
     addToast({
       tone: "warning",
-      title: "Sign-In diperlukan",
+      title: "Masuk diperlukan",
       description: "Masuk terlebih dahulu untuk menggunakan pencarian rute.",
       duration: 5_000,
     });
@@ -266,7 +266,7 @@ export default function DashboardPage() {
               loading={userLoading}
               onClick={() => handleSelectView("settings")}
               fallback={{
-                label: "Sign-In",
+                label: "Masuk",
                 icon: <LoginIcon className="h-5 w-5" />,
                 onClick: () => openAuthModal("/admin"),
               }}
@@ -288,8 +288,8 @@ export default function DashboardPage() {
           loading={userLoading}
           onClick={() => handleSelectView("settings")}
           fallback={{
-            label: "Sign-In",
-            description: "Sign-In disini",
+            label: "Masuk",
+            description: "Masuk di sini",
             icon: <LoginIcon className="size-4" />,
             onClick: () => openAuthModal("/admin"),
           }}

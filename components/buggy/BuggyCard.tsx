@@ -114,7 +114,7 @@ export function BuggyCard({
             </h3>
           ) : (
             <h3 className="text-[17px] font-black leading-tight tracking-tight text-slate-400 mt-1">
-              Offline<span className="text-[14px]"> 💤</span>
+              Tidak Aktif<span className="text-[14px]"> 💤</span>
             </h3>
           )}
         </div>

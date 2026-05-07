@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import GpsTrackerScrollFix from "./GpsTrackerScrollFix";
 
 export const metadata: Metadata = {
-  title: "GPS Tracker — SIMOBI",
+  title: "Pelacak GPS — SIMOBI",
   description: "Kirim data GPS buggy listrik ke server SIMOBI secara realtime.",
 };
 

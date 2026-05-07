@@ -12,15 +12,15 @@ function PanelHeader({ onClose }: { onClose: () => void }) {
     <div className="mb-4 flex items-start justify-between">
       <div>
         <p className="text-[8px] font-semibold uppercase tracking-[0.18em] text-slate-500">
-          Smart Mobility UNDIP
+          Mobilitas Pintar UNDIP
         </p>
         <h1 className="text-[22px] font-bold leading-[0.95] text-slate-900">
-          Buggy Monitoring
+          Pemantauan Buggy
         </h1>
       </div>
       <div className="flex items-center gap-2">
         <span className="rounded-full bg-emerald-100 px-2.5 py-1 text-[11px] font-semibold text-emerald-700">
-          Live
+          Langsung
         </span>
         <button
           type="button"

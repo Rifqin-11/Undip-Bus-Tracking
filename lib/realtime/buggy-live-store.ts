@@ -391,7 +391,7 @@ function autoRegisterBuggy(buggyId: string, point: BuggyTelemetryInput): Buggy {
     crowdLevel: resolveCrowdLevel(point.passengers ?? 0, point.capacity ?? 8),
     passengers: point.passengers ?? 0,
     capacity: point.capacity ?? 8,
-    tag: point.tag ?? "Real GPS",
+    tag: point.tag ?? "GPS Nyata",
     updatedAt: timestampToUpdatedAt(point.timestamp),
     currentStopIndex: stopIndex,
     stops: haltes.map((h) => h.name),
@@ -567,4 +567,3 @@ export function adminDeactivateBuggyInStore(buggyId: string): void {
 export function getBuggyByNumericId(numericId: number): Buggy | undefined {
   return getMutableState().buggies.find((b) => b.numericId === numericId);
 }
-

@@ -50,7 +50,7 @@ export function FloatingSidebar({
         const supabase = createClient();
         await supabase.auth.signOut();
       } catch (err) {
-        console.error("Logout failed:", err);
+        console.error("Gagal keluar:", err);
       }
       router.push("/");
       router.refresh();
@@ -99,7 +99,7 @@ export function FloatingSidebar({
         {shouldShowDataButton ? (
           <button
             className={`${actionButtonClass} ${activeView === "history" ? "bg-[#0f1a3b] text-white" : "text-slate-600 hover:bg-slate-100"}`}
-            aria-label="History"
+            aria-label="Riwayat"
             type="button"
             onClick={() => onSelectView("history")}
           >
@@ -144,7 +144,7 @@ export function FloatingSidebar({
         {shouldShowSettingsButton ? (
           <button
             className={`${actionButtonClass} ${activeView === "settings" ? "bg-[#0f1a3b] text-white" : "text-slate-600 hover:bg-slate-100"}`}
-            aria-label="Settings"
+            aria-label="Pengaturan"
             type="button"
             onClick={() => onSelectView("settings")}
           >
@@ -153,7 +153,7 @@ export function FloatingSidebar({
         ) : null}
         <button
           className="grid h-11 w-11 place-items-center rounded-2xl border border-[#0f1a3b] bg-[#0f1a3b] text-white transition hover:bg-white hover:text-[#0f1a3b] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-300"
-          aria-label={isAuthenticated || isOnOperatorPage ? "Logout" : "Login"}
+          aria-label={isAuthenticated || isOnOperatorPage ? "Keluar" : "Masuk"}
           type="button"
           onClick={handleAdminButtonClick}
         >

@@ -13,9 +13,9 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "SIMOBI - Sistem Monitoring Buggy Listrik Realtime",
+  title: "SIMOBI - Sistem Pemantauan Buggy Listrik Realtime",
   description:
-    "Sistem monitoring buggy listrik realtime untuk Smart Mobility Universitas Diponegoro.",
+    "Sistem pemantauan buggy listrik realtime untuk Mobilitas Pintar Universitas Diponegoro.",
   appleWebApp: {
     capable: true,
     statusBarStyle: "default",

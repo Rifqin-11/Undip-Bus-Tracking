@@ -96,7 +96,7 @@ export function BuggyDetailView({ buggy, onBack }: BuggyDetailViewProps) {
             </h2>
           </div>
           <p className="truncate text-[13px] text-slate-600">
-            From {stops[currentIndex]}
+            Dari {stops[currentIndex]}
           </p>
         </div>
         <span

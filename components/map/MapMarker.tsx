@@ -86,7 +86,7 @@ export function buildBuggyInfoContent(buggy: Buggy): string {
             </div>
             <div style="border: 1px solid #e2e8f0; border-radius: 10px; padding: 7px 8px; background: #f8fafc;">
               <div style="font-size: 10px; color: #64748b; margin-bottom: 2px;">Kecepatan</div>
-              <div style="font-size: 12px; font-weight: 700; color: #0f172a;">${buggy.speedKmh} km/h</div>
+              <div style="font-size: 12px; font-weight: 700; color: #0f172a;">${buggy.speedKmh} km/jam</div>
             </div>
           </div>
 
@@ -95,7 +95,7 @@ export function buildBuggyInfoContent(buggy: Buggy): string {
             <span style="color: #334155;">Penumpang: <strong>${buggy.passengers}/${buggy.capacity}</strong> (${occupancy}%)</span>
           </div>
 
-          <div style="font-size: 11px; color: #64748b;">Update ${buggy.updatedAt}</div>
+          <div style="font-size: 11px; color: #64748b;">Diperbarui ${buggy.updatedAt}</div>
         </div>
       </div>
     </div>

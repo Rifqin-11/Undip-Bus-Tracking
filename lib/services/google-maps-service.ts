@@ -173,7 +173,7 @@ export class GoogleMapsService {
         straightMeters < 1000
           ? `${Math.round(straightMeters)} m`
           : `${(straightMeters / 1000).toFixed(1)} km`,
-      totalDuration: `${Math.ceil(straightMeters / 80)} min`,
+      totalDuration: `${Math.ceil(straightMeters / 80)} mnt`,
       decodedPath: [
         [origin.lat, origin.lng],
         [destination.lat, destination.lng],

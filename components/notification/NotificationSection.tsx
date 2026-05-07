@@ -99,7 +99,7 @@ export function NotificationSection({
             {isAdmin ? "Manajemen Notifikasi" : "Pusat Informasi"}
           </h2>
           <p className="text-[11px] text-slate-400">
-            Pengumuman & Update Terkini
+            Pengumuman dan pembaruan terkini
           </p>
         </div>
         {isAdmin && (

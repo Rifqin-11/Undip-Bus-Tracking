@@ -86,7 +86,7 @@ export function AccountFormPanel({ mode, onClose }: AccountFormPanelProps) {
 
   useEffect(() => {
     if (confirmPassword && password !== confirmPassword) {
-      setErrorMsg("Password dan Konfirmasi Password tidak cocok!");
+      setErrorMsg("Kata sandi dan konfirmasi kata sandi tidak cocok!");
     } else {
       setErrorMsg("");
     }
@@ -94,7 +94,7 @@ export function AccountFormPanel({ mode, onClose }: AccountFormPanelProps) {
 
   const handleSave = async () => {
     if (password !== confirmPassword) {
-      setErrorMsg("Password dan Konfirmasi Password tidak cocok!");
+      setErrorMsg("Kata sandi dan konfirmasi kata sandi tidak cocok!");
       return;
     }
 
@@ -127,7 +127,7 @@ export function AccountFormPanel({ mode, onClose }: AccountFormPanelProps) {
         } = await supabase.auth.getUser();
 
         if (!user) {
-          throw new Error("Sesi tidak ditemukan. Silakan Sign-In ulang.");
+          throw new Error("Sesi tidak ditemukan. Silakan masuk ulang.");
         }
 
         const authUpdate: {
@@ -182,10 +182,10 @@ export function AccountFormPanel({ mode, onClose }: AccountFormPanelProps) {
           </button>
           <div className="min-w-0 flex-1">
             <p className="text-[10px] font-semibold uppercase tracking-widest text-slate-400">
-              Account
+              Akun
             </p>
             <h2 className="truncate text-[17px] font-bold tracking-tight text-slate-900">
-              {isCreate ? "Create Account" : "Edit Account"}
+              {isCreate ? "Buat Akun" : "Edit Akun"}
             </h2>
           </div>
         </div>
@@ -205,7 +205,7 @@ export function AccountFormPanel({ mode, onClose }: AccountFormPanelProps) {
           {isCreate ? (
             <label className="block rounded-2xl border border-slate-200 bg-white p-3">
               <span className="mb-1.5 block text-[11px] font-bold text-slate-500">
-                Role
+                Peran
               </span>
               <select
                 value={role}
@@ -213,7 +213,7 @@ export function AccountFormPanel({ mode, onClose }: AccountFormPanelProps) {
                 className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-[14px] font-medium text-slate-800 outline-none transition focus:border-[#0f1a3b] focus:ring-2 focus:ring-[#0f1a3b]/20 appearance-none"
               >
                 <option value="" disabled>
-                  Pilih Role
+                  Pilih Peran
                 </option>
                 <option value="Driver">Driver</option>
                 <option value="Admin">Admin</option>
@@ -223,7 +223,7 @@ export function AccountFormPanel({ mode, onClose }: AccountFormPanelProps) {
           ) : (
             <div className="block rounded-2xl border border-slate-200 bg-white p-3">
               <span className="mb-1.5 block text-[11px] font-bold text-slate-500">
-                Role
+                Peran
               </span>
               <p className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-[14px] font-medium text-slate-700">
                 {role || "Pengguna umum"}
@@ -266,26 +266,26 @@ export function AccountFormPanel({ mode, onClose }: AccountFormPanelProps) {
           </label>
           <label className="block rounded-2xl border border-slate-200 bg-white p-3">
             <span className="mb-1.5 block text-[11px] font-bold text-slate-500">
-              Password {isCreate ? "" : "(Kosongkan jika tidak ingin diubah)"}
+              Kata Sandi {isCreate ? "" : "(Kosongkan jika tidak ingin diubah)"}
             </span>
             <input
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-[14px] font-medium text-slate-800 outline-none transition focus:border-[#0f1a3b] focus:ring-2 focus:ring-[#0f1a3b]/20"
-              placeholder="Password"
+              placeholder="Kata sandi"
             />
           </label>
           <label className="block rounded-2xl border border-slate-200 bg-white p-3">
             <span className="mb-1.5 block text-[11px] font-bold text-slate-500">
-              Konfirmasi Password
+              Konfirmasi Kata Sandi
             </span>
             <input
               type="password"
               value={confirmPassword}
               onChange={(e) => setConfirmPassword(e.target.value)}
               className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-[14px] font-medium text-slate-800 outline-none transition focus:border-[#0f1a3b] focus:ring-2 focus:ring-[#0f1a3b]/20"
-              placeholder="Konfirmasi Password"
+              placeholder="Konfirmasi kata sandi"
             />
           </label>
           {errorMsg && (

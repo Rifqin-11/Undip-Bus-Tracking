@@ -104,8 +104,8 @@ export function AdminNotificationFormPanel({
             className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-[14px] font-medium text-slate-800 outline-none transition focus:border-blue-400 focus:ring-2 focus:ring-blue-100"
           >
             <option value="info">Info (Biru)</option>
-            <option value="warning">Warning (Kuning)</option>
-            <option value="alert">Alert (Merah)</option>
+            <option value="warning">Peringatan (Kuning)</option>
+            <option value="alert">Darurat (Merah)</option>
           </select>
         </div>
 

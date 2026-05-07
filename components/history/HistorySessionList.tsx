@@ -103,7 +103,7 @@ export function HistorySessionList({
               onClick={onRefresh}
               className="rounded-xl border border-transparent bg-[#0f1a3b] px-3 py-1.5 text-[10px] font-semibold text-white transition hover:bg-[#0f1a3b]/90 disabled:opacity-50"
             >
-              {refreshing ? "…" : "Refresh"}
+              {refreshing ? "…" : "Muat Ulang"}
             </button>
           </div>
         </div>
@@ -139,7 +139,7 @@ export function HistorySessionList({
                     {session.isOngoing && (
                       <span className="flex items-center gap-1 rounded-full bg-emerald-100 px-1.5 py-0.5 text-[9px] font-semibold text-emerald-700">
                         <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-500" />
-                        Live
+                        Langsung
                       </span>
                     )}
                   </div>
@@ -154,7 +154,7 @@ export function HistorySessionList({
                     {session.totalDistanceKm !== null ? `${session.totalDistanceKm.toFixed(2)} km` : "—"}
                   </span>
                   <span className="text-[11px] text-slate-400">
-                    {session.avgSpeedKmh !== null ? `${session.avgSpeedKmh.toFixed(1)} km/h` : "—"}
+                    {session.avgSpeedKmh !== null ? `${session.avgSpeedKmh.toFixed(1)} km/jam` : "—"}
                   </span>
                 </div>
               </div>

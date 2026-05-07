@@ -205,7 +205,7 @@ export function AccountManagementPanel({
   const handleSave = async () => {
     if (!editingAccount) return;
     if (password !== confirmPassword) {
-      setErrorMsg("Password dan Konfirmasi Password tidak cocok!");
+      setErrorMsg("Kata sandi dan konfirmasi kata sandi tidak cocok!");
       return;
     }
     if (!name.trim()) {
@@ -313,10 +313,10 @@ export function AccountManagementPanel({
             </button>
             <div className="min-w-0 flex-1">
               <p className="text-[10px] font-semibold uppercase tracking-widest text-slate-400">
-                Account
+              Akun
               </p>
               <h2 className="truncate text-[17px] font-bold tracking-tight text-slate-900">
-                Edit Account
+                Edit Akun
               </h2>
             </div>
           </div>
@@ -351,7 +351,7 @@ export function AccountManagementPanel({
 
             <label className="block rounded-2xl border border-slate-200 bg-white p-3">
               <span className="mb-1.5 block text-[11px] font-bold text-slate-500">
-                Role
+                Peran
               </span>
               <select
                 value={role}
@@ -367,7 +367,7 @@ export function AccountManagementPanel({
               </select>
               {isEditingSelf ? (
                 <p className="mt-1.5 text-[11px] font-semibold text-slate-400">
-                  Role akun yang sedang aktif tidak dapat diubah.
+                  Peran akun yang sedang aktif tidak dapat diubah.
                 </p>
               ) : null}
             </label>
@@ -394,7 +394,7 @@ export function AccountManagementPanel({
 
             <label className="block rounded-2xl border border-slate-200 bg-white p-3">
               <span className="mb-1.5 block text-[11px] font-bold text-slate-500">
-                Password Baru
+                Kata Sandi Baru
               </span>
               <input
                 type="password"
@@ -407,7 +407,7 @@ export function AccountManagementPanel({
 
             <label className="block rounded-2xl border border-slate-200 bg-white p-3">
               <span className="mb-1.5 block text-[11px] font-bold text-slate-500">
-                Konfirmasi Password Baru
+                Konfirmasi Kata Sandi Baru
               </span>
               <input
                 type="password"
@@ -447,7 +447,7 @@ export function AccountManagementPanel({
               className="mt-2 inline-flex w-full items-center justify-center gap-2 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-[14px] font-bold text-rose-600 transition hover:border-rose-300 hover:bg-rose-100 active:scale-[0.98] disabled:opacity-70"
             >
               <Trash2 className="h-4 w-4" />
-              Delete Account
+              Hapus Akun
             </button>
           ) : null}
         </div>
@@ -471,14 +471,14 @@ export function AccountManagementPanel({
               Admin
             </p>
             <h2 className="truncate text-[17px] font-bold tracking-tight text-slate-900">
-              Manage Accounts
+              Kelola Akun
             </h2>
           </div>
           <button
             type="button"
             onClick={() => void loadAccounts()}
             className="grid h-9 w-9 shrink-0 place-items-center rounded-full border border-slate-200 bg-white text-slate-600 transition hover:border-[#0f1a3b] hover:text-[#0f1a3b] active:scale-95"
-            aria-label="Refresh accounts"
+            aria-label="Muat ulang akun"
           >
             <RefreshCw className="h-4 w-4" />
           </button>
@@ -490,7 +490,7 @@ export function AccountManagementPanel({
           className="mb-3 inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-[#0f1a3b] px-3 py-2.5 text-[12px] font-bold text-white transition hover:bg-slate-900 active:scale-[0.98]"
         >
           <Plus className="h-4 w-4" />
-          Create Account
+          Buat Akun
         </button>
 
         <label className="mb-3 flex items-center gap-2 rounded-2xl border border-slate-200 bg-white px-3 py-2.5">
@@ -499,7 +499,7 @@ export function AccountManagementPanel({
             value={query}
             onChange={(event) => setQuery(event.target.value)}
             className="min-w-0 flex-1 bg-transparent text-[13px] font-medium text-slate-800 outline-none placeholder:text-slate-400"
-            placeholder="Cari nama, role, atau buggy"
+            placeholder="Cari nama, peran, atau buggy"
           />
         </label>
 

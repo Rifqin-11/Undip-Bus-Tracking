@@ -6,7 +6,7 @@ import {
 
 const ACCOUNT_ROLES = ["Admin", "Driver", "Pengguna umum"] as const;
 const SUPABASE_ADMIN_CONFIG_MESSAGE =
-  "Create/update/delete akun membutuhkan SUPABASE_SERVICE_ROLE_KEY yang valid. Pastikan .env.local memakai service_role key dari Supabase Project Settings, lalu restart dev server.";
+  "Membuat, memperbarui, atau menghapus akun membutuhkan SUPABASE_SERVICE_ROLE_KEY yang valid. Pastikan .env.local memakai service_role key dari Pengaturan Proyek Supabase, lalu restart dev server.";
 const SUPABASE_BEARER_TOKEN_ERROR = "valid Bearer token";
 
 type AccountRole = (typeof ACCOUNT_ROLES)[number];
@@ -194,7 +194,7 @@ export async function PATCH(request: Request) {
 
     if (user?.id === id && role !== "Admin") {
       return NextResponse.json(
-        { message: "Role akun admin yang sedang aktif tidak dapat diubah." },
+        { message: "Peran akun admin yang sedang aktif tidak dapat diubah." },
         { status: 400 },
       );
     }

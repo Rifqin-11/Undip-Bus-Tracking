@@ -80,7 +80,7 @@ export function HistorySessionDetail({
         {s.isOngoing ? (
           <span className="flex shrink-0 items-center gap-1.5 rounded-full bg-emerald-100 px-2.5 py-0.5 text-[10px] font-semibold text-emerald-700">
             <span className="inline-block h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-500" />
-            Live
+            Langsung
           </span>
         ) : readOnly ? (
           <span className="rounded-full bg-slate-100 px-2.5 py-0.5 text-[10px] font-semibold text-slate-500">
@@ -129,7 +129,7 @@ export function HistorySessionDetail({
           { label: "Durasi", value: fmtDuration(s.durationMinutes) },
           { label: "Titik GPS", value: `${s.pointCount} titik` },
           { label: "Jarak Tempuh", value: s.totalDistanceKm !== null ? `${s.totalDistanceKm.toFixed(2)} km` : "—" },
-          { label: "Kec. Rata-rata", value: s.avgSpeedKmh !== null ? `${s.avgSpeedKmh.toFixed(1)} km/h` : "—" },
+          { label: "Kec. Rata-rata", value: s.avgSpeedKmh !== null ? `${s.avgSpeedKmh.toFixed(1)} km/jam` : "—" },
           {
             label: "Baterai",
             value: s.batteryStart !== null && s.batteryEnd !== null

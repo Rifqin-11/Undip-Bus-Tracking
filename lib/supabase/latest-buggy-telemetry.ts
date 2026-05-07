@@ -113,7 +113,7 @@ export async function mergeLatestBuggyTelemetryFromHistory(
       ...buggy,
       isActive: Number.isFinite(recordedAtMs) && now - recordedAtMs <= ACTIVE_HISTORY_WINDOW_MS,
       speedKmh: typeof row.speed_kmh === "number" ? Math.max(0, row.speed_kmh) : buggy.speedKmh,
-      tag: "Real GPS",
+      tag: "GPS Nyata",
       updatedAt: toTimeLabel(row.recorded_at),
       currentStopIndex: resolveNearestHalteIndex(row.lat, row.lng),
       pathCursor: findNearestPathIndex(row.lat, row.lng),

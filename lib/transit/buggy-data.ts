@@ -254,7 +254,7 @@ const SOURCE_BUGGIES: SeedBuggy[] = [
     eta: 5,
     passengers: 7,
     capacity: 8,
-    tag: "Real GPS",
+    tag: "GPS Nyata",
     currentStopIndex: 4,
   },
   {
@@ -263,7 +263,7 @@ const SOURCE_BUGGIES: SeedBuggy[] = [
     eta: 5,
     passengers: 0,
     capacity: 8,
-    tag: "Real GPS",
+    tag: "GPS Nyata",
     currentStopIndex: 0,
   },
   {
@@ -272,7 +272,7 @@ const SOURCE_BUGGIES: SeedBuggy[] = [
     eta: 7,
     passengers: 0,
     capacity: 8,
-    tag: "Real GPS",
+    tag: "GPS Nyata",
     currentStopIndex: 3,
   },
   {
@@ -281,7 +281,7 @@ const SOURCE_BUGGIES: SeedBuggy[] = [
     eta: 7,
     passengers: 8,
     capacity: 8,
-    tag: "Real GPS",
+    tag: "GPS Nyata",
     currentStopIndex: 2,
   },
   {
@@ -290,7 +290,7 @@ const SOURCE_BUGGIES: SeedBuggy[] = [
     eta: 7,
     passengers: 0,
     capacity: 8,
-    tag: "Real GPS",
+    tag: "GPS Nyata",
     currentStopIndex: 6,
   },
 ];

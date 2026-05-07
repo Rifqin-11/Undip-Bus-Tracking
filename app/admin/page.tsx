@@ -734,14 +734,14 @@ export default function DashboardPage() {
   const accountMenuItems = useMemo<AccountMenuItem[]>(
     () => [
       {
-        label: "Edit Account",
+        label: "Edit Akun",
         icon: <PenIcon className="h-4 w-4 text-slate-500" />,
         onClick: (): void => {
           handleOpenSettings("edit");
         },
       },
       {
-        label: "Logout",
+        label: "Keluar",
         icon: <LogoutIcon className="h-4 w-4" />,
         onClick: (): void => {
           void handleLogout();

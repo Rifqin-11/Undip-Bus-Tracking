@@ -12,7 +12,7 @@ type UseBrowserNotificationToggleOptions = {
 };
 
 /**
- * Hook untuk mengelola toggle Browser Notification.
+ * Hook untuk mengelola toggle Notifikasi Browser.
  * Menangani: dukungan API, izin (granted/denied/default), permintaan izin satu kali per session.
  */
 export function useBrowserNotificationToggle({
@@ -26,7 +26,7 @@ export function useBrowserNotificationToggle({
     if (typeof window === "undefined" || !("Notification" in window)) {
       addToast({
         tone: "warning",
-        title: "Browser Notification tidak didukung",
+        title: "Notifikasi browser tidak didukung",
         description: "Gunakan browser modern untuk fitur ini.",
         duration: 5_000,
       });
@@ -37,7 +37,7 @@ export function useBrowserNotificationToggle({
       setEnabled(false);
       addToast({
         tone: "info",
-        title: "Browser Notification dimatikan",
+        title: "Notifikasi browser dimatikan",
         duration: 3_000,
       });
       return;
@@ -47,7 +47,7 @@ export function useBrowserNotificationToggle({
       setEnabled(true);
       addToast({
         tone: "success",
-        title: "Browser Notification aktif",
+        title: "Notifikasi browser aktif",
         duration: 3_000,
       });
       return;
@@ -78,7 +78,7 @@ export function useBrowserNotificationToggle({
       setEnabled(true);
       addToast({
         tone: "success",
-        title: "Browser Notification aktif",
+        title: "Notifikasi browser aktif",
         duration: 3_000,
       });
       return;
@@ -86,8 +86,8 @@ export function useBrowserNotificationToggle({
 
     addToast({
       tone: "warning",
-      title: "Browser Notification tetap nonaktif",
-      description: "Permission tidak diberikan.",
+      title: "Notifikasi browser tetap nonaktif",
+      description: "Izin tidak diberikan.",
       duration: 5_000,
     });
   }, [addToast, enabled, setEnabled]);

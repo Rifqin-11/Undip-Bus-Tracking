@@ -30,7 +30,7 @@ export function HistoryBuggyList({
       <div className="rounded-3xl border border-slate-200/80 bg-white/70 p-3">
         <div className="flex items-center justify-between gap-2">
           <h2 className="text-[17px] font-semibold text-slate-900">
-            History Sesi
+            Riwayat Sesi
           </h2>
           <div className="flex items-center gap-2">
             {refreshing && (
@@ -87,7 +87,7 @@ export function HistoryBuggyList({
                     {/* Right: Detail Button */}
                     <div className="shrink-0 self-start mt-0.5">
                       <span className="flex items-center gap-1 rounded-full border-[1.5px] border-slate-200/80 bg-slate-100/50 backdrop-blur-md px-3 py-1 text-[10px] font-bold text-slate-700 shadow-sm transition-all group-hover:border-slate-900 group-hover:bg-slate-900 group-hover:text-white">
-                        View
+                        Lihat
                         <ChevronRight className="w-3 h-3 text-slate-500 group-hover:text-white" />
                       </span>
                     </div>
@@ -115,7 +115,7 @@ export function HistoryBuggyList({
                       {latestSession?.isOngoing && (
                         <span className="flex items-center gap-1 rounded-full bg-blue-50/80 px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider text-blue-600 border border-blue-100">
                           <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-blue-500" />
-                          LIVE
+                          LANGSUNG
                         </span>
                       )}
                     </div>

@@ -131,7 +131,7 @@ async function bootstrapBuggies(): Promise<void> {
     crowdLevel: "LONGGAR" as const,
     passengers: 0,
     capacity: row.capacity,
-    tag: "Real GPS",
+    tag: "GPS Nyata",
     updatedAt: "--:--",
     currentStopIndex: 0,
     stops: haltes.map((h) => h.name),

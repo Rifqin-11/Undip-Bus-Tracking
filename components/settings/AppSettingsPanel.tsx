@@ -141,7 +141,7 @@ export function AppSettingsPanel({
   const notificationDescription = isDriver
     ? "Notifikasi geofence armada"
     : isAdmin
-      ? "Notifikasi operasional dashboard"
+      ? "Notifikasi operasional dasbor"
       : "Notifikasi buggy mendekati halte";
 
   const setActiveAccountForm = (nextMode: AccountFormMode | null) => {
@@ -205,12 +205,12 @@ export function AppSettingsPanel({
     <section className="space-y-3">
       <div className="rounded-3xl border border-slate-200/80 bg-white/70 p-3">
         <div className="mb-3">
-          <h2 className="text-[17px] font-bold text-slate-900">Settings</h2>
+          <h2 className="text-[17px] font-bold text-slate-900">Pengaturan</h2>
           <p className="text-[11px] text-slate-400">
             {isDashboardMode
               ? isDriver
                 ? "Profil driver dan akses data armada"
-                : "Akun dan preferensi dashboard admin"
+                : "Akun dan preferensi dasbor admin"
               : "Profil dan preferensi aplikasi"}
           </p>
         </div>
@@ -235,14 +235,14 @@ export function AppSettingsPanel({
                   <div className="flex flex-wrap items-center gap-2">
                     <h3 className="text-[15px] font-black tracking-tight text-slate-900">
                       {userProfile?.name ??
-                        (isDashboardMode ? "Admin" : "Guest")}
+                        (isDashboardMode ? "Admin" : "Tamu")}
                     </h3>
                   </div>
                   <p className="mt-0.5 text-[12px] font-semibold text-slate-400">
                     {userProfile?.role ??
                       (isDashboardMode
                         ? "SIMOBI Operator"
-                        : "Sign-In untuk akses fitur yang lebih lengkap")}
+                        : "Masuk untuk akses fitur yang lebih lengkap")}
                   </p>
                 </>
               )}
@@ -265,7 +265,7 @@ export function AppSettingsPanel({
                 className="flex-1 inline-flex items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white px-3 py-2.5 text-[12px] font-bold text-slate-700 transition hover:border-[#0f1a3b] hover:text-[#0f1a3b] active:scale-[0.98]"
               >
                 <UserCog className="h-4 w-4" />
-                Edit Account
+                Edit Akun
               </button>
               {isAdmin ? (
                 <button
@@ -274,7 +274,7 @@ export function AppSettingsPanel({
                   className="flex-1 inline-flex items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-[12px] font-bold text-slate-700 transition hover:border-[#0f1a3b] hover:text-[#0f1a3b] active:scale-[0.98]"
                 >
                   <Users className="h-4 w-4" />
-                  Manage Accounts
+                  Kelola Akun
                 </button>
               ) : null}
               <button
@@ -285,7 +285,7 @@ export function AppSettingsPanel({
                 }`}
               >
                 <LogOut className="h-4 w-4" />
-                Logout
+                Keluar
               </button>
             </div>
           ) : (
@@ -295,7 +295,7 @@ export function AppSettingsPanel({
               className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-[#0f1a3b] px-3 py-2.5 text-[12px] font-bold text-white transition hover:bg-slate-900 active:scale-[0.98]"
             >
               <LogIn className="h-4 w-4" />
-              Sign-In
+              Masuk
             </button>
           )}
         </div>
@@ -366,7 +366,7 @@ export function AppSettingsPanel({
               </span>
               <div className="min-w-0">
                 <p className="text-[13px] font-black text-slate-900">
-                  Browser Notification
+                  Notifikasi Browser
                 </p>
                 <p className="text-[11px] font-semibold text-slate-400">
                   {notificationDescription} · {permissionLabel}
@@ -376,7 +376,7 @@ export function AppSettingsPanel({
             <ToggleSwitch
               checked={settings.browserNotificationEnabled}
               onClick={() => void handleToggleNotification()}
-              label="Browser Notification"
+              label="Notifikasi Browser"
             />
           </div>
         ) : null}
@@ -391,7 +391,7 @@ export function AppSettingsPanel({
                 Panel Terbuka
               </p>
               <p className="text-[11px] font-semibold text-slate-400">
-                {isDashboardMode ? "Dashboard operator" : "Dashboard utama"}
+                {isDashboardMode ? "Dasbor operator" : "Dasbor utama"}
               </p>
             </div>
           </div>
@@ -415,7 +415,7 @@ export function AppSettingsPanel({
             </span>
             <div className="min-w-0">
               <p className="text-[13px] font-black text-slate-900">
-                Style Peta
+                Gaya Peta
               </p>
               <p className="text-[11px] font-semibold text-slate-400">
                 Pilih tampilan dasar peta
@@ -424,7 +424,7 @@ export function AppSettingsPanel({
           </div>
           <div
             role="radiogroup"
-            aria-label="Style peta"
+            aria-label="Gaya peta"
             className="grid grid-cols-3 gap-1 rounded-2xl bg-slate-100 p-1"
           >
             {MAP_STYLE_OPTIONS.map((opt) => {
@@ -458,7 +458,7 @@ export function AppSettingsPanel({
               </span>
               <div className="min-w-0 flex-1">
                 <p className="text-[13px] font-black text-slate-900">
-                  Radius Alert Bus
+                  Radius Peringatan Bus
                 </p>
                 <p className="text-[11px] font-semibold text-slate-400">
                   Bus dianggap mendekat halte saat &lt;{" "}
@@ -504,7 +504,7 @@ export function AppSettingsPanel({
               </span>
               <div className="min-w-0">
                 <p className="text-[13px] font-black text-slate-900">
-                  Mode Compact
+                  Mode Ringkas
                 </p>
                 <p className="text-[11px] font-semibold text-slate-400">
                   Panel data admin
@@ -554,12 +554,12 @@ export function AppSettingsPanel({
             <KeyRound className="h-4 w-4 shrink-0 text-slate-500" />
           )}
           {isAdmin
-            ? "Session admin mengikuti autentikasi yang sudah aktif."
+              ? "Sesi admin mengikuti autentikasi yang sudah aktif."
             : isDriver
               ? "Driver hanya dapat melihat armada yang ditugaskan."
               : userProfile
                 ? "Akun pengguna aktif untuk fitur publik."
-                : "Sign-In diperlukan untuk membuka fitur tambahan."}
+                : "Masuk diperlukan untuk membuka fitur tambahan."}
         </div>
       </div>
     </section>

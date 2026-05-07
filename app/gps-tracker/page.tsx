@@ -202,15 +202,15 @@ export default function GpsTrackerPage() {
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
           <span style={{ fontSize: 28 }}>📡</span>
           <div>
-            <h1 style={S.h1}>GPS Tracker</h1>
-            <p style={S.subtitle}>UNDIP Buggy #{buggyId} — Real GPS</p>
+            <h1 style={S.h1}>Pelacak GPS</h1>
+            <p style={S.subtitle}>Buggy UNDIP #{buggyId} — GPS Nyata</p>
           </div>
         </div>
         <div style={S.pills}>
           <Pill label={`GPS ${gpsDot}`} value={coords ? `±${Math.round(coords.accuracy)}m` : "–"} />
           <Pill label={`API ${apiDot}`} value={apiStatus} />
           <Pill label="📤" value={`${sendCount}x`} highlight />
-          <Pill label="⚡" value={`${speedKmh} km/h`} />
+          <Pill label="⚡" value={`${speedKmh} km/jam`} />
           {batteryLevel !== null && <Pill label={batteryLevel > 20 ? "🔋" : "🪫"} value={`${batteryLevel}%`} />}
         </div>
       </header>
@@ -227,9 +227,9 @@ export default function GpsTrackerPage() {
                   ["Latitude",   coords.lat.toFixed(7)],
                   ["Longitude",  coords.lng.toFixed(7)],
                   ["Akurasi",    `±${Math.round(coords.accuracy)} m`],
-                  ["Kecepatan",  `${speedKmh} km/h`],
-                  ["Heading",    coords.heading !== null ? `${Math.round(coords.heading)}°` : "–"],
-                  ["Altitude",   coords.altitude !== null ? `${Math.round(coords.altitude)} m` : "–"],
+                  ["Kecepatan",  `${speedKmh} km/jam`],
+                  ["Arah",    coords.heading !== null ? `${Math.round(coords.heading)}°` : "–"],
+                  ["Ketinggian",   coords.altitude !== null ? `${Math.round(coords.altitude)} m` : "–"],
                   ["ETA Terdekat", `${nearestEtaMin} menit`],
                 ].map(([label, value]) => (
                   <tr key={label}>
@@ -240,7 +240,7 @@ export default function GpsTrackerPage() {
               </tbody>
             </table>
           ) : (
-            <p style={S.dimText}>{isTracking ? "⏳ Menunggu sinyal GPS..." : "Belum tracking"}</p>
+            <p style={S.dimText}>{isTracking ? "⏳ Menunggu sinyal GPS..." : "Belum melacak"}</p>
           )}
         </Card>
 
@@ -248,7 +248,7 @@ export default function GpsTrackerPage() {
         {halteEtas.length > 0 && coords && (
           <Card title="🛑 ETA ke Semua Halte">
             <p style={{ margin: "0 0 8px", fontSize: 11, color: "#64748b" }}>
-              Dihitung dari kecepatan {speedKmh} km/h · {halteEtas.length} halte
+              Dihitung dari kecepatan {speedKmh} km/jam · {halteEtas.length} halte
             </p>
             <div style={{ maxHeight: 220, overflowY: "auto" }}>
               <table style={{ width: "100%", borderCollapse: "collapse" }}>
@@ -269,8 +269,8 @@ export default function GpsTrackerPage() {
                       <td style={{ ...S.tdValue, textAlign: "right", fontSize: 13 }}>
                         {distanceM >= 1000 ? `${(distanceM / 1000).toFixed(1)} km` : `${Math.round(distanceM)} m`}
                       </td>
-                      <td style={{ ...S.tdValue, textAlign: "right", fontSize: 13, paddingLeft: 8, color: i === 0 ? "#38bdf8" : "#f1f5f9" }}>
-                        {etaMin} min
+              <td style={{ ...S.tdValue, textAlign: "right", fontSize: 13, paddingLeft: 8, color: i === 0 ? "#38bdf8" : "#f1f5f9" }}>
+                        {etaMin} mnt
                       </td>
                     </tr>
                   ))}
@@ -280,9 +280,9 @@ export default function GpsTrackerPage() {
           </Card>
         )}
 
-        {/* Payload yang akan dikirim ke server (preview) */}
+        {/* Pratinjau data yang akan dikirim ke server */}
         {coords && (
-          <Card title="📦 Payload Dikirim ke Server">
+          <Card title="📦 Pratinjau Data ke Server">
             <pre style={S.pre}>
 {JSON.stringify({
   buggyId,
@@ -297,7 +297,7 @@ export default function GpsTrackerPage() {
 }, null, 2)}
             </pre>
             <p style={{ margin: "8px 0 0", fontSize: 11, color: "#475569" }}>
-              Format ini kompatibel dengan hardware Raspberry Pi
+              Format ini kompatibel dengan perangkat Raspberry Pi
             </p>
           </Card>
         )}
@@ -306,14 +306,14 @@ export default function GpsTrackerPage() {
         {isTracking && lastSent && (
           <Card title="📤 Status Kirim">
             <div style={S.infoRows}>
-              <span>Endpoint: <code style={S.code}>/api/gps-beacon</code></span>
-              <span>Interval: <strong style={{ color: "#f1f5f9" }}>{intervalMs / 1000}s</strong></span>
+              <span>Titik akhir: <code style={S.code}>/api/gps-beacon</code></span>
+              <span>Jeda kirim: <strong style={{ color: "#f1f5f9" }}>{intervalMs / 1000}s</strong></span>
               <span>Terakhir: <strong style={{ color: "#86efac" }}>{lastSent}</strong></span>
             </div>
           </Card>
         )}
 
-        {/* Settings */}
+        {/* Pengaturan */}
         {!isTracking && (
           <Card title="⚙️ Pengaturan">
             <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
@@ -343,7 +343,7 @@ export default function GpsTrackerPage() {
             opacity: isBusy ? 0.6 : 1,
           }}
         >
-          {isBusy ? "⏳ Memulai..." : isTracking ? "🛑 Stop Tracking" : "▶ Start Tracking"}
+          {isBusy ? "⏳ Memulai..." : isTracking ? "🛑 Hentikan Pelacakan" : "▶ Mulai Pelacakan"}
         </button>
 
         {/* Log */}
@@ -355,10 +355,10 @@ export default function GpsTrackerPage() {
           </Card>
         )}
 
-        {/* Cara pakai hardware */}
+        {/* Cara pakai perangkat */}
         <Card title="🔌 Format untuk Raspberry Pi">
           <p style={{ margin: "0 0 8px", fontSize: 12, color: "#64748b" }}>
-            Raspy cukup POST ke endpoint berikut:
+            Raspberry Pi cukup mengirim POST ke titik akhir berikut:
           </p>
           <pre style={S.pre}>{`POST /api/gps-beacon
 Content-Type: application/json
@@ -376,7 +376,7 @@ Content-Type: application/json
 }`}</pre>
         </Card>
 
-        <p style={S.footer}>UNDIP Electric Buggy Tracking System</p>
+        <p style={S.footer}>Sistem Pelacakan Buggy Listrik UNDIP</p>
       </div>
     </main>
   );

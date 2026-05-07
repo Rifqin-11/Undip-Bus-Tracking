@@ -106,7 +106,7 @@ export function MobileBottomNav({
         <button
           type="button"
           className={`${navButtonBase} ${activeView === "history" ? activeButtonClass : inactiveButtonClass}`}
-          aria-label="History"
+          aria-label="Riwayat"
           onClick={() => onSelectView("history")}
         >
           <HistoryIcon className="h-6 w-6" />
@@ -129,7 +129,7 @@ export function MobileBottomNav({
         <button
           type="button"
           className={`${navButtonBase} ${activeView === "settings" ? activeButtonClass : inactiveButtonClass}`}
-          aria-label="Settings"
+          aria-label="Pengaturan"
           onClick={() => onSelectView("settings")}
         >
           <Settings className="h-6 w-6" />
