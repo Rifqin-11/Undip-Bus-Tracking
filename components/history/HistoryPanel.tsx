@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { Buggy } from "@/types/buggy";
 import type { BuggySession } from "@/types/buggy-session";
 import { SpinnerIcon } from "@/components/ui/Icons";
+import { SkeletonRow } from "@/components/ui/Skeleton";
 import { HistoryBuggyList } from "./HistoryBuggyList";
 import { HistorySessionList } from "./HistorySessionList";
 import { HistorySessionDetail } from "./HistorySessionDetail";
@@ -57,7 +58,9 @@ export function HistoryPanel({
 
   const [viewMode, setViewMode] = useState<ViewMode>("buggy-list");
   const [selectedBuggyId, setSelectedBuggyId] = useState<string | null>(null);
-  const [selectedSessionId, setSelectedSessionId] = useState<string | null>(null);
+  const [selectedSessionId, setSelectedSessionId] = useState<string | null>(
+    null,
+  );
 
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
@@ -68,13 +71,22 @@ export function HistoryPanel({
     else setLoading(true);
 
     try {
-      const res = await fetch("/api/buggy-sessions?limit=200", { cache: "no-store" });
+      const res = await fetch("/api/buggy-sessions?limit=200", {
+        cache: "no-store",
+      });
       const payload = (await res.json()) as Partial<BuggySessionApiResponse>;
-      if (!res.ok) throw new Error(typeof payload.error === "string" ? payload.error : "Gagal memuat history sesi.");
+      if (!res.ok)
+        throw new Error(
+          typeof payload.error === "string"
+            ? payload.error
+            : "Gagal memuat history sesi.",
+        );
       setSessions(Array.isArray(payload.sessions) ? payload.sessions : []);
       setError(null);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Gagal memuat history sesi.");
+      setError(
+        err instanceof Error ? err.message : "Gagal memuat history sesi.",
+      );
       if (!silent) setSessions([]);
     } finally {
       setLoading(false);
@@ -85,7 +97,9 @@ export function HistoryPanel({
   useEffect(() => {
     void load();
     intervalRef.current = setInterval(() => void load(true), 10_000);
-    return () => { if (intervalRef.current) clearInterval(intervalRef.current); };
+    return () => {
+      if (intervalRef.current) clearInterval(intervalRef.current);
+    };
   }, [load]);
 
   // ── Derived data ───────────────────────────────────────────────────────────
@@ -113,14 +127,17 @@ export function HistoryPanel({
       map.set(norm, arr);
     }
     map.forEach((arr) =>
-      arr.sort((a, b) => new Date(b.startedAt).getTime() - new Date(a.startedAt).getTime()),
+      arr.sort(
+        (a, b) =>
+          new Date(b.startedAt).getTime() - new Date(a.startedAt).getTime(),
+      ),
     );
     return map;
   }, [sessions]);
 
   const selectedBuggySessions = useMemo(() => {
     if (!selectedBuggyId) return [];
-    const buggy = buggies.find(b => b.id === selectedBuggyId);
+    const buggy = buggies.find((b) => b.id === selectedBuggyId);
     if (!buggy) return [];
     return sessionsByBuggy.get(getBuggyNorm(buggy)) ?? [];
   }, [sessionsByBuggy, selectedBuggyId, buggies]);
@@ -151,7 +168,9 @@ export function HistoryPanel({
   const goToSessionDetail = (session: BuggySession) => {
     setSelectedSessionId(session.id);
     setViewMode("session-detail");
-    onShowPath(session.path.map(([lat, lng]) => [lat, lng] as [number, number]));
+    onShowPath(
+      session.path.map(([lat, lng]) => [lat, lng] as [number, number]),
+    );
   };
 
   const goBackFromDetail = () => {
@@ -164,9 +183,16 @@ export function HistoryPanel({
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center gap-2 rounded-3xl border border-slate-200/80 bg-white/70 p-8 text-[13px] text-slate-500">
-        <SpinnerIcon className="h-4 w-4 text-slate-400" />
-        Memuat history sesi…
+      <div className="rounded-3xl border border-slate-200/80 bg-white/70 p-3">
+        <div className="mb-3 flex items-center gap-2 px-1 text-[11px] font-semibold text-slate-400">
+          <SpinnerIcon className="h-3 w-3 animate-spin text-slate-400" />
+          Memuat history sesi…
+        </div>
+        <div className="space-y-2">
+          {Array.from({ length: 4 }).map((_, idx) => (
+            <SkeletonRow key={idx} />
+          ))}
+        </div>
       </div>
     );
   }
@@ -175,7 +201,11 @@ export function HistoryPanel({
     return (
       <div className="rounded-3xl border border-rose-200 bg-rose-50 p-4 text-[13px] text-rose-700">
         {error}
-        <button type="button" onClick={() => void load()} className="mt-2 block text-[12px] font-semibold underline">
+        <button
+          type="button"
+          onClick={() => void load()}
+          className="mt-2 block text-[12px] font-semibold underline"
+        >
           Coba lagi
         </button>
       </div>

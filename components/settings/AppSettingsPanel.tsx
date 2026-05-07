@@ -19,6 +19,7 @@ import {
   type AccountFormMode,
 } from "@/components/settings/AccountFormPanel";
 import { AccountManagementPanel } from "@/components/settings/AccountManagementPanel";
+import { Skeleton } from "@/components/ui/Skeleton";
 import type { AdminSettings } from "@/hooks/useAdminSettings";
 import { useUserRole } from "@/hooks/useUserRole";
 
@@ -89,7 +90,12 @@ export function AppSettingsPanel({
   const [localAccountForm, setLocalAccountForm] =
     useState<AccountFormMode | null>(null);
   const [accountManagementOpen, setAccountManagementOpen] = useState(false);
-  const { userProfile, isAdmin, isDriver } = useUserRole();
+  const {
+    userProfile,
+    loading: userLoading,
+    isAdmin,
+    isDriver,
+  } = useUserRole();
 
   const isDashboardMode = mode === "admin";
   const rawAccountForm = controlledAccountForm ?? localAccountForm;
@@ -173,25 +179,47 @@ export function AppSettingsPanel({
 
         <div className="rounded-[20px] border border-slate-200/80 bg-white p-3.5">
           <div className="flex items-center gap-3">
-            <div className="grid size-12 shrink-0 place-items-center rounded-full bg-[#0f1a3b] text-lg font-black text-white">
-              {userProfile?.avatar ?? (isDashboardMode ? "A" : "L")}
-            </div>
-            <div className="min-w-0 flex-1">
-              <div className="flex flex-wrap items-center gap-2">
-                <h3 className="text-[15px] font-black tracking-tight text-slate-900">
-                  {userProfile?.name ?? (isDashboardMode ? "Admin" : "Guest")}
-                </h3>
+            {userLoading ? (
+              <Skeleton className="size-12 shrink-0 rounded-full" />
+            ) : (
+              <div className="grid size-12 shrink-0 place-items-center rounded-full bg-[#0f1a3b] text-lg font-black text-white">
+                {userProfile?.avatar ?? (isDashboardMode ? "A" : "L")}
               </div>
-              <p className="mt-0.5 text-[12px] font-semibold text-slate-400">
-                {userProfile?.role ??
-                  (isDashboardMode
-                    ? "SIMOBI Operator"
-                    : "Sign-In untuk akses fitur yang lebih lengkap")}
-              </p>
+            )}
+            <div className="min-w-0 flex-1">
+              {userLoading ? (
+                <div className="space-y-1.5">
+                  <Skeleton className="h-4 w-32" />
+                  <Skeleton className="h-3 w-48" />
+                </div>
+              ) : (
+                <>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <h3 className="text-[15px] font-black tracking-tight text-slate-900">
+                      {userProfile?.name ??
+                        (isDashboardMode ? "Admin" : "Guest")}
+                    </h3>
+                  </div>
+                  <p className="mt-0.5 text-[12px] font-semibold text-slate-400">
+                    {userProfile?.role ??
+                      (isDashboardMode
+                        ? "SIMOBI Operator"
+                        : "Sign-In untuk akses fitur yang lebih lengkap")}
+                  </p>
+                </>
+              )}
             </div>
           </div>
 
-          {userProfile ? (
+          {userLoading ? (
+            <div className="mt-4 flex flex-wrap gap-2">
+              <Skeleton className="h-10 flex-1 rounded-2xl" />
+              {isDashboardMode ? (
+                <Skeleton className="h-10 flex-1 rounded-2xl" />
+              ) : null}
+              <Skeleton className="h-10 w-24 rounded-2xl" />
+            </div>
+          ) : userProfile ? (
             <div className="mt-4 flex flex-wrap gap-2">
               <button
                 type="button"
@@ -281,7 +309,18 @@ export function AppSettingsPanel({
           </p>
         </div>
 
-        {userProfile ? (
+        {userLoading ? (
+          <div className={settingCardClass}>
+            <div className="flex min-w-0 items-center gap-3">
+              <Skeleton className="h-10 w-10 shrink-0 rounded-2xl" />
+              <div className="min-w-0 space-y-1.5">
+                <Skeleton className="h-3 w-32" />
+                <Skeleton className="h-2.5 w-44" />
+              </div>
+            </div>
+            <Skeleton className="h-6 w-11 shrink-0 rounded-full" />
+          </div>
+        ) : userProfile ? (
           <div className={settingCardClass}>
             <div className="flex min-w-0 items-center gap-3">
               <span className="grid size-10 shrink-0 place-items-center rounded-2xl bg-amber-50 text-amber-600">

@@ -36,11 +36,7 @@ export default function DashboardPage() {
   const router = useRouter();
   const realtimeFeed = useBuggyLiveFeed();
   const { settings, updateSetting } = useAdminSettings();
-  const {
-    userProfile,
-    loading: userLoading,
-    isAuthenticated,
-  } = useUserRole();
+  const { userProfile, loading: userLoading, isAuthenticated } = useUserRole();
   const liveBuggies = useMemo(
     () => (realtimeFeed.liveBuggies ?? []).filter((buggy) => buggy.isActive),
     [realtimeFeed.liveBuggies],
@@ -131,7 +127,13 @@ export default function DashboardPage() {
     resetToDestination();
     router.push("/");
     router.refresh();
-  }, [resetToDestination, router, setDirectionResult, setFromInput, setToInput]);
+  }, [
+    resetToDestination,
+    router,
+    setDirectionResult,
+    setFromInput,
+    setToInput,
+  ]);
 
   const handleSelectView = useCallback((view: PanelView) => {
     setActiveView(view);
@@ -250,6 +252,7 @@ export default function DashboardPage() {
             <AccountPill
               variant="mobile-icon"
               user={userProfile}
+              loading={userLoading}
               onClick={() => handleSelectView("settings")}
               fallback={{
                 label: "Sign-In",
@@ -271,6 +274,7 @@ export default function DashboardPage() {
         <AccountPill
           variant="desktop"
           user={userProfile}
+          loading={userLoading}
           onClick={() => handleSelectView("settings")}
           fallback={{
             label: "Sign-In",

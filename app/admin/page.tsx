@@ -84,6 +84,7 @@ export default function DashboardPage() {
   const { settings, updateSetting } = useAdminSettings();
   const {
     userProfile,
+    loading: userLoading,
     isAdmin: isAdminUser,
     isDriver: isDriverUser,
   } = useUserRole();
@@ -789,6 +790,7 @@ export default function DashboardPage() {
             </button>
             <AccountPill
               variant="mobile-icon"
+              loading={userLoading}
               user={
                 userProfile
                   ? {
@@ -814,6 +816,7 @@ export default function DashboardPage() {
       <div className="absolute right-3 top-3 z-20 hidden items-center justify-end gap-2 xl:right-4 xl:top-4 xl:flex">
         <AccountPill
           variant="desktop"
+          loading={userLoading}
           user={
             userProfile ?? {
               name: isDriverUser ? "Driver" : "Admin",

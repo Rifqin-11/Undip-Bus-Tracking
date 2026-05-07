@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useMemo, type ReactNode } from "react";
+import { SkeletonStat, Skeleton } from "@/components/ui/Skeleton";
 import {
   Activity,
   AlertTriangle,
@@ -61,9 +62,7 @@ function StatTile({
   return (
     <div className={`p-3.5 ${className}`}>
       <div className="mb-2 flex items-center gap-1.5">
-        <span className={toneClass[tone]}>
-          {icon}
-        </span>
+        <span className={toneClass[tone]}>{icon}</span>
         <p className="min-w-0 text-[9px] font-bold uppercase tracking-widest text-slate-500">
           {label}
         </p>
@@ -201,7 +200,9 @@ function RankingBars({
           <div className="h-2 overflow-hidden rounded-full bg-slate-100">
             <div
               className="h-full rounded-full bg-[#0f1a3b]"
-              style={{ width: `${Math.max(5, (item.value / maxValue) * 100)}%` }}
+              style={{
+                width: `${Math.max(5, (item.value / maxValue) * 100)}%`,
+              }}
             />
           </div>
         </div>
@@ -216,13 +217,15 @@ export function AdminStatisticsPanel({ buggies }: AdminStatisticsPanelProps) {
   const [sessions, setSessions] = useState<BuggySession[]>([]);
   const [isLoadingSessions, setIsLoadingSessions] = useState(true);
   const [selectedMonth, setSelectedMonth] = useState<string>(
-    now.toISOString().slice(0, 7) // "YYYY-MM"
+    now.toISOString().slice(0, 7), // "YYYY-MM"
   );
 
   useEffect(() => {
     async function load() {
       try {
-        const res = await fetch("/api/buggy-sessions?limit=5000", { cache: "no-store" });
+        const res = await fetch("/api/buggy-sessions?limit=5000", {
+          cache: "no-store",
+        });
         if (res.ok) {
           const payload = await res.json();
           setSessions(payload.sessions || []);
@@ -265,16 +268,21 @@ export function AdminStatisticsPanel({ buggies }: AdminStatisticsPanelProps) {
     0,
   );
   const averagePassengersPerDay = totalPassengers / elapsedDaysInMonth;
-  const activeRate = buggies.length > 0 ? (activeBuggies.length / buggies.length) * 100 : 0;
-  const occupancyRate = totalCapacity > 0 ? (totalPassengers / totalCapacity) * 100 : 0;
+  const activeRate =
+    buggies.length > 0 ? (activeBuggies.length / buggies.length) * 100 : 0;
+  const occupancyRate =
+    totalCapacity > 0 ? (totalPassengers / totalCapacity) * 100 : 0;
   const availableSeats = Math.max(0, totalCapacity - totalPassengers);
   const nearFullBuggies = buggies.filter(
-    (buggy) => buggy.crowdLevel === "HAMPIR_PENUH" || buggy.crowdLevel === "PENUH",
+    (buggy) =>
+      buggy.crowdLevel === "HAMPIR_PENUH" || buggy.crowdLevel === "PENUH",
   ).length;
   const averageLiveSpeed =
     activeBuggies.length > 0
-      ? activeBuggies.reduce((sum, buggy) => sum + Math.max(0, buggy.speedKmh), 0) /
-        activeBuggies.length
+      ? activeBuggies.reduce(
+          (sum, buggy) => sum + Math.max(0, buggy.speedKmh),
+          0,
+        ) / activeBuggies.length
       : 0;
   const fastestBuggy = buggies.reduce<Buggy | null>((fastest, buggy) => {
     if (!fastest || buggy.speedKmh > fastest.speedKmh) return buggy;
@@ -287,20 +295,37 @@ export function AdminStatisticsPanel({ buggies }: AdminStatisticsPanelProps) {
   // Real operational stats from filtered sessions
   const totalPerjalanan = filteredSessions.length;
   const previousTotalPerjalanan = previousMonthSessions.length;
-  const totalJarakKm = filteredSessions.reduce((sum, s) => sum + (s.totalDistanceKm || 0), 0);
-  const previousTotalJarakKm = previousMonthSessions.reduce((sum, s) => sum + (s.totalDistanceKm || 0), 0);
-  const totalWaktuMenit = filteredSessions.reduce((sum, s) => sum + (s.durationMinutes || 0), 0);
+  const totalJarakKm = filteredSessions.reduce(
+    (sum, s) => sum + (s.totalDistanceKm || 0),
+    0,
+  );
+  const previousTotalJarakKm = previousMonthSessions.reduce(
+    (sum, s) => sum + (s.totalDistanceKm || 0),
+    0,
+  );
+  const totalWaktuMenit = filteredSessions.reduce(
+    (sum, s) => sum + (s.durationMinutes || 0),
+    0,
+  );
 
-  const averageSpeedKmh = totalWaktuMenit > 0 ? totalJarakKm / (totalWaktuMenit / 60) : 0;
-  const averageDistancePerTrip = totalPerjalanan > 0 ? totalJarakKm / totalPerjalanan : 0;
-  const averageDurationPerTrip = totalPerjalanan > 0 ? totalWaktuMenit / totalPerjalanan : 0;
-  const sessionsPerBuggy = buggies.length > 0 ? totalPerjalanan / buggies.length : 0;
+  const averageSpeedKmh =
+    totalWaktuMenit > 0 ? totalJarakKm / (totalWaktuMenit / 60) : 0;
+  const averageDistancePerTrip =
+    totalPerjalanan > 0 ? totalJarakKm / totalPerjalanan : 0;
+  const averageDurationPerTrip =
+    totalPerjalanan > 0 ? totalWaktuMenit / totalPerjalanan : 0;
+  const sessionsPerBuggy =
+    buggies.length > 0 ? totalPerjalanan / buggies.length : 0;
   const averageBatteryUsed = (() => {
-    const batterySessions = filteredSessions.filter((s) => typeof s.batteryUsed === "number");
+    const batterySessions = filteredSessions.filter(
+      (s) => typeof s.batteryUsed === "number",
+    );
     if (batterySessions.length === 0) return null;
     return (
-      batterySessions.reduce((sum, session) => sum + Math.max(0, session.batteryUsed ?? 0), 0) /
-      batterySessions.length
+      batterySessions.reduce(
+        (sum, session) => sum + Math.max(0, session.batteryUsed ?? 0),
+        0,
+      ) / batterySessions.length
     );
   })();
 
@@ -315,10 +340,10 @@ export function AdminStatisticsPanel({ buggies }: AdminStatisticsPanelProps) {
 
     const trends = Array.from({ length: daysInMonth }, (_, i) => ({
       day: i + 1,
-      count: 0
+      count: 0,
     }));
 
-    filteredSessions.forEach(s => {
+    filteredSessions.forEach((s) => {
       const dayStr = s.sessionDate.substring(8, 10);
       const day = parseInt(dayStr, 10);
       if (day >= 1 && day <= daysInMonth) {
@@ -329,7 +354,7 @@ export function AdminStatisticsPanel({ buggies }: AdminStatisticsPanelProps) {
     return trends;
   }, [filteredSessions, selectedMonth]);
 
-  const maxDailyCount = Math.max(1, ...dailyTrends.map(t => t.count));
+  const maxDailyCount = Math.max(1, ...dailyTrends.map((t) => t.count));
   const busiestDay = dailyTrends.reduce(
     (best, item) => (item.count > best.count ? item : best),
     { day: 0, count: 0 },
@@ -459,7 +484,10 @@ export function AdminStatisticsPanel({ buggies }: AdminStatisticsPanelProps) {
     for (let i = 0; i < 6; i++) {
       const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
       const val = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
-      const label = d.toLocaleDateString("id-ID", { month: "long", year: "numeric" });
+      const label = d.toLocaleDateString("id-ID", {
+        month: "long",
+        year: "numeric",
+      });
       opts.push({ value: val, label });
     }
     return opts;
@@ -578,9 +606,11 @@ export function AdminStatisticsPanel({ buggies }: AdminStatisticsPanelProps) {
               </div>
               <div className="flex items-center justify-between">
                 <span className="text-[20px] font-black text-[#0f1a3b]">
-                  {isLoadingSessions
-                    ? "-"
-                    : totalPerjalanan.toLocaleString("id-ID")}
+                  {isLoadingSessions ? (
+                    <SkeletonStat width="w-14" height="h-5" />
+                  ) : (
+                    totalPerjalanan.toLocaleString("id-ID")
+                  )}
                 </span>
                 <span className="rounded-full bg-slate-100 px-1.5 py-0.5 text-[9px] font-bold text-slate-600">
                   {formatDelta(totalPerjalanan, previousTotalPerjalanan)}
@@ -597,7 +627,11 @@ export function AdminStatisticsPanel({ buggies }: AdminStatisticsPanelProps) {
               <div className="flex items-center justify-between">
                 <span className="flex items-baseline gap-1">
                   <span className="text-[20px] font-black text-[#0f1a3b]">
-                    {isLoadingSessions ? "-" : totalJarakKm.toFixed(1)}
+                    {isLoadingSessions ? (
+                      <SkeletonStat width="w-12" height="h-5" />
+                    ) : (
+                      totalJarakKm.toFixed(1)
+                    )}
                   </span>
                   <span className="text-[10px] font-bold text-slate-400">
                     km
@@ -620,7 +654,11 @@ export function AdminStatisticsPanel({ buggies }: AdminStatisticsPanelProps) {
               </div>
               <span className="flex items-baseline gap-1">
                 <span className="text-[20px] font-black text-[#0f1a3b]">
-                  {isLoadingSessions ? "-" : averageSpeedKmh.toFixed(1)}
+                  {isLoadingSessions ? (
+                    <SkeletonStat width="w-12" height="h-5" />
+                  ) : (
+                    averageSpeedKmh.toFixed(1)
+                  )}
                 </span>
                 <span className="text-[10px] font-bold text-slate-400">
                   km/h
@@ -635,9 +673,11 @@ export function AdminStatisticsPanel({ buggies }: AdminStatisticsPanelProps) {
                 </p>
               </div>
               <span className="text-[20px] font-black text-[#0f1a3b]">
-                {isLoadingSessions
-                  ? "-"
-                  : `${totalWaktuHours}h ${totalWaktuMins}m`}
+                {isLoadingSessions ? (
+                  <SkeletonStat width="w-16" height="h-5" />
+                ) : (
+                  `${totalWaktuHours}h ${totalWaktuMins}m`
+                )}
               </span>
             </div>
           </div>
@@ -718,6 +758,15 @@ export function AdminStatisticsPanel({ buggies }: AdminStatisticsPanelProps) {
         </div>
 
         {/* Trend Chart */}
+        {isLoadingSessions ? (
+          <div className="mt-3 rounded-[16px] bg-slate-50/80 p-3.5">
+            <div className="mb-3 flex items-center justify-between gap-2">
+              <Skeleton className="h-2.5 w-40" />
+              <Skeleton className="h-5 w-16 rounded-full" />
+            </div>
+            <Skeleton className="h-14 w-full rounded-md" />
+          </div>
+        ) : null}
         {!isLoadingSessions && filteredSessions.length > 0 && (
           <div className="mt-3 rounded-[16px] bg-slate-50/80 p-3.5">
             <div className="mb-3 flex items-center justify-between gap-2">
@@ -818,9 +867,11 @@ export function AdminStatisticsPanel({ buggies }: AdminStatisticsPanelProps) {
               Jarak / trip
             </p>
             <p className="mt-1 text-[18px] font-black text-[#0f1a3b]">
-              {isLoadingSessions
-                ? "-"
-                : `${averageDistancePerTrip.toFixed(1)} km`}
+              {isLoadingSessions ? (
+                <SkeletonStat width="w-16" height="h-4" />
+              ) : (
+                `${averageDistancePerTrip.toFixed(1)} km`
+              )}
             </p>
           </div>
           <div>
@@ -828,9 +879,11 @@ export function AdminStatisticsPanel({ buggies }: AdminStatisticsPanelProps) {
               Durasi / trip
             </p>
             <p className="mt-1 text-[18px] font-black text-[#0f1a3b]">
-              {isLoadingSessions
-                ? "-"
-                : `${averageDurationPerTrip.toFixed(0)} mnt`}
+              {isLoadingSessions ? (
+                <SkeletonStat width="w-16" height="h-4" />
+              ) : (
+                `${averageDurationPerTrip.toFixed(0)} mnt`
+              )}
             </p>
           </div>
           <div>
@@ -838,7 +891,11 @@ export function AdminStatisticsPanel({ buggies }: AdminStatisticsPanelProps) {
               Trip / armada
             </p>
             <p className="mt-1 text-[18px] font-black text-[#0f1a3b]">
-              {isLoadingSessions ? "-" : sessionsPerBuggy.toFixed(1)}
+              {isLoadingSessions ? (
+                <SkeletonStat width="w-12" height="h-4" />
+              ) : (
+                sessionsPerBuggy.toFixed(1)
+              )}
             </p>
           </div>
         </div>

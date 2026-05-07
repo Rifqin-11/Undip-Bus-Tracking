@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import { AccountFormPanel } from "@/components/settings/AccountFormPanel";
 import { DeleteConfirmModal } from "@/components/ui/DeleteConfirmModal";
+import { Skeleton } from "@/components/ui/Skeleton";
 import { useUserRole } from "@/hooks/useUserRole";
 import { resolveAssignedBuggy } from "@/lib/buggy/assignment";
 import type { Buggy } from "@/types/buggy";
@@ -57,7 +58,9 @@ const fallbackBuggyOptions = [
   { id: "buggy-5", label: "Buggy 05" },
 ];
 
-export function AccountManagementPanel({ onClose }: AccountManagementPanelProps) {
+export function AccountManagementPanel({
+  onClose,
+}: AccountManagementPanelProps) {
   const { userProfile } = useUserRole();
   const [accounts, setAccounts] = useState<ManagedAccount[]>([]);
   const [creatingAccount, setCreatingAccount] = useState(false);
@@ -507,9 +510,23 @@ export function AccountManagementPanel({ onClose }: AccountManagementPanelProps)
         ) : null}
 
         {loading ? (
-          <div className="flex items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white py-6 text-[13px] font-semibold text-slate-500">
-            <Loader2 className="h-4 w-4 animate-spin" />
-            Memuat akun...
+          <div className="space-y-2">
+            {Array.from({ length: 4 }).map((_, idx) => (
+              <div
+                key={idx}
+                className="flex w-full items-center gap-3 rounded-2xl border border-slate-200 bg-white px-3 py-2.5"
+              >
+                <Skeleton className="h-10 w-10 shrink-0 rounded-2xl" />
+                <div className="flex min-w-0 flex-1 flex-col gap-1.5">
+                  <Skeleton className="h-3 w-2/5" />
+                  <Skeleton className="h-2.5 w-3/5" />
+                </div>
+                <div className="flex shrink-0 flex-col items-end gap-1">
+                  <Skeleton className="h-4 w-12 rounded-full" />
+                  <Skeleton className="h-2.5 w-16" />
+                </div>
+              </div>
+            ))}
           </div>
         ) : filteredAccounts.length === 0 ? (
           <p className="rounded-2xl border border-dashed border-slate-200 bg-slate-50 px-4 py-6 text-center text-[13px] text-slate-500">
