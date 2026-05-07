@@ -96,6 +96,8 @@ export type MapCanvasProps = {
   directionPath?: [number, number][];
   walkingToHaltePath?: [number, number][];
   walkingFromHaltePath?: [number, number][];
+  /** Posisi device/user saat ini dari browser geolocation. */
+  userPosition?: { lat: number; lng: number } | null;
   originMarkerPosition?: { lat: number; lng: number };
   destinationMarkerPosition?: { lat: number; lng: number };
   selectedBuggyId?: string | null;

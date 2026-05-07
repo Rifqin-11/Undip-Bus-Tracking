@@ -94,6 +94,7 @@ export function MapCanvas({
   directionPath = [],
   walkingToHaltePath = [],
   walkingFromHaltePath = [],
+  userPosition = null,
   originMarkerPosition,
   destinationMarkerPosition,
   geofences = [],
@@ -124,6 +125,8 @@ export function MapCanvas({
   const walkingToPolylineRef = useRef<PolylineHandle | null>(null);
   const walkingFromPolylineRef = useRef<PolylineHandle | null>(null);
   const historyPolylineRef = useRef<PolylineHandle | null>(null);
+  const userLocationMarkerRef = useRef<MarkerHandle | null>(null);
+  const userLocationPulseRef = useRef<CircleHandle | null>(null);
   const originMarkerRef = useRef<MarkerHandle | null>(null);
   const destinationMarkerRef = useRef<MarkerHandle | null>(null);
   const geofenceCirclesRef = useRef<Map<string, CircleHandle>>(new Map());
@@ -214,6 +217,8 @@ export function MapCanvas({
       walkingToPolylineRef.current?.setMap(null);
       walkingFromPolylineRef.current?.setMap(null);
       historyPolylineRef.current?.setMap(null);
+      userLocationMarkerRef.current?.setMap(null);
+      userLocationPulseRef.current?.setMap(null);
       originMarkerRef.current?.setMap(null);
       destinationMarkerRef.current?.setMap(null);
       geofenceCircles.forEach((circle) => circle.setMap(null));
@@ -312,6 +317,58 @@ export function MapCanvas({
           })
         : null;
   }, [historyPath, mapReady]);
+
+  // ── Render current device/user location marker ───────────────────────────
+
+  useEffect(() => {
+    if (!mapReady || !mapInstanceRef.current || !mapsApiRef.current) return;
+
+    const map = mapInstanceRef.current;
+    const maps = mapsApiRef.current;
+
+    if (!userPosition) {
+      userLocationMarkerRef.current?.setMap(null);
+      userLocationPulseRef.current?.setMap(null);
+      userLocationMarkerRef.current = null;
+      userLocationPulseRef.current = null;
+      return;
+    }
+
+    if (userLocationMarkerRef.current) {
+      userLocationMarkerRef.current.setPosition(userPosition);
+      userLocationMarkerRef.current.setTitle("Lokasi Anda");
+      userLocationPulseRef.current?.setCenter(userPosition);
+      return;
+    }
+
+    userLocationPulseRef.current = new maps.Circle({
+      map,
+      center: userPosition,
+      radius: 32,
+      clickable: false,
+      strokeColor: "#2563eb",
+      strokeOpacity: 0.28,
+      strokeWeight: 1,
+      fillColor: "#3b82f6",
+      fillOpacity: 0.14,
+      zIndex: 28,
+    });
+
+    userLocationMarkerRef.current = new maps.Marker({
+      map,
+      position: userPosition,
+      title: "Lokasi Anda",
+      icon: {
+        path: maps.SymbolPath.CIRCLE,
+        fillColor: "#2563eb",
+        fillOpacity: 1,
+        strokeColor: "#ffffff",
+        strokeWeight: 3,
+        scale: 8,
+      },
+      zIndex: 35,
+    });
+  }, [mapReady, userPosition]);
 
   // ── Render geofence circles ───────────────────────────────────────────────
 

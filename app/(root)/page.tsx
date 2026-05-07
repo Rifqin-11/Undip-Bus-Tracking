@@ -239,6 +239,7 @@ export default function DashboardPage() {
         directionPath={mapDirectionPath}
         walkingToHaltePath={directionResult?.walkingToHalte?.path}
         walkingFromHaltePath={directionResult?.walkingFromHalte?.path}
+        userPosition={userPosition}
         originMarkerPosition={directionResult?.originPosition}
         destinationMarkerPosition={directionResult?.destinationPosition}
         selectedBuggyId={mapFollowingBuggyId}
