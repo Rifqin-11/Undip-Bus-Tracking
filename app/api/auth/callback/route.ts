@@ -5,11 +5,17 @@ export async function GET(request: Request) {
   const { searchParams, origin } = new URL(request.url);
   const code = searchParams.get("code");
   const next = searchParams.get("next") ?? "/admin";
+  const safeNext = next.startsWith("/") ? next : "/";
+  const isPasswordReset = safeNext === "/reset-password";
 
   if (code) {
     const supabase = await createClient();
     const { error } = await supabase.auth.exchangeCodeForSession(code);
     if (!error) {
+      if (isPasswordReset) {
+        return NextResponse.redirect(`${origin}/reset-password`);
+      }
+
       const {
         data: { user },
       } = await supabase.auth.getUser();
@@ -33,11 +39,16 @@ export async function GET(request: Request) {
       }
 
       return NextResponse.redirect(
-        `${origin}${next.startsWith("/") ? next : "/"}`,
+        `${origin}${safeNext}`,
       );
     }
   }
 
-  // URL to redirect to after sign in process completes
+  if (isPasswordReset) {
+    return NextResponse.redirect(
+      `${origin}/reset-password?error=invalid_reset_link`,
+    );
+  }
+
   return NextResponse.redirect(`${origin}/login?error=Invalid+OAuth+Code`);
 }

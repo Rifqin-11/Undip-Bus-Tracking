@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useState } from "react";
+import { FormEvent, useEffect, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import logo from "@/public/logo.svg";
@@ -24,6 +24,30 @@ export function ResetPasswordForm() {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const hashParams = new URLSearchParams(window.location.hash.slice(1));
+    const error =
+      params.get("error") ||
+      hashParams.get("error_code") ||
+      hashParams.get("error");
+    const description = hashParams.get("error_description");
+
+    if (!error) return;
+
+    if (error === "invalid_reset_link" || error === "otp_expired") {
+      setErrorMessage(
+        "Link reset kata sandi tidak valid atau sudah kedaluwarsa. Silakan minta link reset baru dari halaman login.",
+      );
+      return;
+    }
+
+    setErrorMessage(
+      description?.replaceAll("+", " ") ||
+        "Link reset kata sandi tidak valid. Silakan minta link reset baru.",
+    );
+  }, []);
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
