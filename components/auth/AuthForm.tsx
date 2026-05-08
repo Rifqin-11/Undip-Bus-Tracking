@@ -18,6 +18,17 @@ function normalizeRedirect(next: string) {
   return next.startsWith("/") ? next : "/admin";
 }
 
+function formatAuthErrorMessage(err: unknown) {
+  if (!(err instanceof Error)) return "Terjadi kesalahan.";
+
+  const message = err.message.toLowerCase();
+  if (message.includes("email not confirmed")) {
+    return "Email belum diverifikasi. Silakan cek inbox Anda dan klik link verifikasi terlebih dahulu.";
+  }
+
+  return err.message;
+}
+
 export function AuthForm({
   redirectTo,
   variant = "page",
@@ -32,6 +43,9 @@ export function AuthForm({
   const [confirmPassword, setConfirmPassword] = useState("");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const [verificationEmailSentTo, setVerificationEmailSentTo] = useState<
+    string | null
+  >(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const isModal = variant === "modal";
   const safeRedirectTo = normalizeRedirect(redirectTo);
@@ -40,6 +54,7 @@ export function AuthForm({
   const handleGoogleLogin = async () => {
     setErrorMessage(null);
     setSuccessMessage(null);
+    setVerificationEmailSentTo(null);
 
     try {
       const { error } = await supabase.auth.signInWithOAuth({
@@ -50,9 +65,7 @@ export function AuthForm({
       });
       if (error) throw error;
     } catch (err: unknown) {
-      setErrorMessage(
-        err instanceof Error ? err.message : "Gagal sign-in dengan Google",
-      );
+      setErrorMessage(formatAuthErrorMessage(err));
     }
   };
 
@@ -90,20 +103,24 @@ export function AuthForm({
           throw new Error("Kata sandi dan konfirmasi kata sandi tidak cocok.");
         }
 
-        const { error } = await supabase.auth.signUp({
-          email: email.trim(),
+        const normalizedEmail = email.trim();
+        const { data, error } = await supabase.auth.signUp({
+          email: normalizedEmail,
           password,
           options: {
             data: { full_name: name.trim() },
+            emailRedirectTo: `${window.location.origin}/api/auth/callback?next=${safeRedirectTo}`,
           },
         });
 
         if (error) throw error;
 
-        setSuccessMessage(
-          "Registrasi berhasil! Silakan masuk dengan akun yang baru dibuat.",
-        );
-        setIsRegister(false);
+        if (data.session) {
+          await supabase.auth.signOut();
+        }
+
+        setVerificationEmailSentTo(normalizedEmail);
+        setSuccessMessage(null);
         setPassword("");
         setConfirmPassword("");
         return;
@@ -121,9 +138,7 @@ export function AuthForm({
       router.replace(path);
       router.refresh();
     } catch (err: unknown) {
-      setErrorMessage(
-        err instanceof Error ? err.message : "Terjadi kesalahan.",
-      );
+      setErrorMessage(formatAuthErrorMessage(err));
     } finally {
       setIsSubmitting(false);
     }
@@ -196,7 +211,11 @@ export function AuthForm({
                 Mobilitas Pintar UNDIP
               </p>
               <h1 className="text-[22px] font-bold tracking-tight text-slate-900">
-                {isRegister ? "Daftar Akun SIMOBI" : "Masuk SIMOBI"}
+                {verificationEmailSentTo
+                  ? "Verifikasi Email"
+                  : isRegister
+                    ? "Daftar Akun SIMOBI"
+                    : "Masuk SIMOBI"}
               </h1>
             </div>
           </div>
@@ -206,15 +225,78 @@ export function AuthForm({
               Masuk
             </p>
             <h2 className="mt-1 text-[28px] font-bold tracking-tight text-slate-900">
-              {isRegister ? "Buat Akun Baru" : "Selamat Datang"}
+              {verificationEmailSentTo
+                ? "Verifikasi Email"
+                : isRegister
+                  ? "Buat Akun Baru"
+                  : "Selamat Datang"}
             </h2>
             <p className="mt-1 text-sm text-slate-600">
-              {isRegister
+              {verificationEmailSentTo
+                ? "Selesaikan aktivasi akun melalui email yang kami kirimkan."
+                : isRegister
                 ? "Daftar untuk mengakses dasbor."
                 : "Masuk untuk membuka dasbor manajemen SIMOBI."}
             </p>
           </div>
 
+          {verificationEmailSentTo ? (
+            <div className="rounded-3xl border border-emerald-200 bg-emerald-50/80 p-4 text-center sm:p-5">
+              <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-2xl bg-emerald-600 text-white">
+                <svg
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  className="h-6 w-6"
+                >
+                  <path d="M20 6 9 17l-5-5" />
+                </svg>
+              </div>
+              <h3 className="text-lg font-bold text-slate-900">
+                Cek email Anda
+              </h3>
+              <p className="mt-2 text-sm leading-relaxed text-slate-600">
+                Kami sudah mengirim link verifikasi ke{" "}
+                <span className="font-bold text-slate-900">
+                  {verificationEmailSentTo}
+                </span>
+                . Klik tombol verifikasi di email tersebut sebelum masuk ke
+                SIMOBI.
+              </p>
+              <div className="mt-5 space-y-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsRegister(false);
+                    setVerificationEmailSentTo(null);
+                    setErrorMessage(null);
+                    setSuccessMessage(
+                      "Silakan masuk setelah email Anda berhasil diverifikasi.",
+                    );
+                  }}
+                  className="h-11 w-full rounded-2xl bg-[#0f1a3b] text-[14px] font-bold text-white transition hover:bg-[#1a2b59] active:scale-[0.98]"
+                >
+                  Saya sudah verifikasi
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsRegister(true);
+                    setVerificationEmailSentTo(null);
+                    setErrorMessage(null);
+                    setSuccessMessage(null);
+                  }}
+                  className="h-11 w-full rounded-2xl border border-slate-200 bg-white text-[14px] font-semibold text-slate-700 transition hover:bg-slate-50 active:scale-[0.98]"
+                >
+                  Gunakan email lain
+                </button>
+              </div>
+            </div>
+          ) : (
+            <>
           <button
             type="button"
             onClick={handleGoogleLogin}
@@ -341,6 +423,7 @@ export function AuthForm({
                   setIsRegister((current) => !current);
                   setErrorMessage(null);
                   setSuccessMessage(null);
+                  setVerificationEmailSentTo(null);
                 }}
                 className="font-bold text-[#2a4f8e] hover:underline"
               >
@@ -359,6 +442,8 @@ export function AuthForm({
               </div>
             ) : null}
           </form>
+            </>
+          )}
         </div>
       </div>
     </section>
