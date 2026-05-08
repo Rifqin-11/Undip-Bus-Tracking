@@ -43,11 +43,12 @@ function encodeSvg(svg: string) {
 export function buildHalteIcon(
   maps: Pick<MapsApi, "Point" | "Size">,
   tone: BusStopIconTone,
+  pixelSize = tone === "active" ? 28 : 24,
 ) {
   const active = tone === "active";
 
-  const bgColor = active ? "#facc15" : "#103255"; // yellow-400 : blue
-  const iconColor = active ? "#111827" : "#ffffff"; // dark : white
+  const bgColor = active ? "#facc15" : "#103255";
+  const iconColor = active ? "#111827" : "#ffffff";
 
   const svg = `
 <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 800 800">
@@ -59,8 +60,8 @@ export function buildHalteIcon(
 
   return {
     url: encodeSvg(svg),
-    scaledSize: new maps.Size(active ? 28 : 24, active ? 28 : 24),
-    anchor: new maps.Point(active ? 19 : 12, active ? 19 : 12),
+    scaledSize: new maps.Size(pixelSize, pixelSize),
+    anchor: new maps.Point(pixelSize / 2, pixelSize / 2),
   };
 }
 

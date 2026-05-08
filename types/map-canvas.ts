@@ -24,12 +24,13 @@ export type LatLngBoundsHandle = {
 export type MapHandle = {
   panTo: (position: LatLngLiteral) => void;
   setZoom: (zoom: number) => void;
+  getZoom: () => number | undefined;
   getCenter: () => { lat: () => number; lng: () => number } | null;
   fitBounds: (bounds: LatLngBoundsHandle, padding?: number) => void;
   setMapTypeId: (mapTypeId: string) => void;
   addListener: (
     eventName: string,
-    handler: (event: {
+    handler: (event?: {
       latLng?: { lat: () => number; lng: () => number };
     }) => void,
   ) => { remove: () => void };

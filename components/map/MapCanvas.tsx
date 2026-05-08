@@ -98,6 +98,11 @@ function getPathEndpoints(path: [number, number][]) {
   ];
 }
 
+function getHalteIconSize(zoom: number, isSelected: boolean) {
+  const baseSize = zoom <= 13 ? 16 : zoom <= 14 ? 20 : 24;
+  return isSelected ? baseSize + 4 : baseSize;
+}
+
 export function MapCanvas({
   buggies,
   haltes,
@@ -126,6 +131,7 @@ export function MapCanvas({
   const mapRef = useRef<HTMLDivElement | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [mapReady, setMapReady] = useState(false);
+  const [mapZoom, setMapZoom] = useState(15);
 
   const mapInstanceRef = useRef<MapHandle | null>(null);
   const mapsApiRef = useRef<MapsApi | null>(null);
@@ -150,6 +156,7 @@ export function MapCanvas({
   );
   const mapClickListenerRef = useRef<{ remove: () => void } | null>(null);
   const mapDragStartListenerRef = useRef<{ remove: () => void } | null>(null);
+  const mapZoomListenerRef = useRef<{ remove: () => void } | null>(null);
   const followSelectedBuggyRef = useRef(false);
   const lastSelectedBuggyIdRef = useRef<string | null>(null);
 
@@ -196,6 +203,14 @@ export function MapCanvas({
             followSelectedBuggyRef.current = false;
           },
         );
+        setMapZoom(mapInstanceRef.current.getZoom() ?? 15);
+        mapZoomListenerRef.current?.remove();
+        mapZoomListenerRef.current = mapInstanceRef.current.addListener(
+          "zoom_changed",
+          () => {
+            setMapZoom(mapInstanceRef.current?.getZoom() ?? 15);
+          },
+        );
         infoWindowCloseListenerRef.current?.remove();
         infoWindowCloseListenerRef.current = infoWindowRef.current.addListener(
           "closeclick",
@@ -240,10 +255,12 @@ export function MapCanvas({
       geofenceCircles.clear();
       mapClickListenerRef.current?.remove();
       mapDragStartListenerRef.current?.remove();
+      mapZoomListenerRef.current?.remove();
       infoWindowCloseListenerRef.current?.remove();
       infoWindowRef.current?.close();
       mapClickListenerRef.current = null;
       mapDragStartListenerRef.current = null;
+      mapZoomListenerRef.current = null;
       infoWindowCloseListenerRef.current = null;
       mapInstanceRef.current = null;
       followSelectedBuggyRef.current = false;
@@ -616,8 +633,16 @@ export function MapCanvas({
     const map = mapInstanceRef.current;
     const maps = mapsApiRef.current;
     const halteById = new Map(haltes.map((h) => [h.id, h]));
-    const halteIcon = buildHalteIcon(maps, "default");
-    const halteActiveIcon = buildHalteIcon(maps, "active");
+    const halteIcon = buildHalteIcon(
+      maps,
+      "default",
+      getHalteIconSize(mapZoom, false),
+    );
+    const halteActiveIcon = buildHalteIcon(
+      maps,
+      "active",
+      getHalteIconSize(mapZoom, true),
+    );
 
     haltes.forEach((halte) => {
       const isSelected = selectedHalteId === halte.id;
@@ -647,7 +672,7 @@ export function MapCanvas({
         halteMarkersRef.current.delete(id);
       }
     });
-  }, [haltes, mapReady, onHalteMarkerClick, selectedHalteId]);
+  }, [haltes, mapReady, mapZoom, onHalteMarkerClick, selectedHalteId]);
 
   // ── Info window on selected buggy ──────────────────────────────────────────
 
