@@ -308,7 +308,7 @@ export function MobileDrawer({ open, onClose, children }: MobileDrawerProps) {
                 Mobilitas Pintar UNDIP
               </p>
               <h2 className="text-[20px] font-bold leading-tight text-slate-900">
-                Pemantauan Buggy
+                Monitoring Buggy
               </h2>
             </motion.div>
             <div className="flex items-center gap-2">

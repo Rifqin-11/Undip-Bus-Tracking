@@ -15,7 +15,7 @@ function PanelHeader({ onClose }: { onClose: () => void }) {
           Mobilitas Pintar UNDIP
         </p>
         <h1 className="text-[22px] font-bold leading-[0.95] text-slate-900">
-          Pemantauan Buggy
+          Monitoring Buggy
         </h1>
       </div>
       <div className="flex items-center gap-2">

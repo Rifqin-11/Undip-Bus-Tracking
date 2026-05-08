@@ -67,7 +67,7 @@ export function FloatingSidebar({
 
   return (
     <aside
-      className="absolute z-30 hidden flex-col items-center justify-between rounded-[30px] border border-white/30 bg-white/55 px-3 py-4 shadow-[0_12px_45px_rgba(16,24,40,0.12)] backdrop-blur-xl xl:flex"
+      className="absolute z-30 hidden flex-col items-center justify-between rounded-[30px] border border-white/30 bg-white/50 px-3 py-4 shadow-[0_12px_45px_rgba(16,24,40,0.12)] backdrop-blur-xl xl:flex"
       style={{
         left: DESKTOP_LAYOUT.sideOffset,
         top: DESKTOP_LAYOUT.topOffset,

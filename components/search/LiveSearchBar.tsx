@@ -115,7 +115,7 @@ export function LiveSearchBar({
       }}
     >
       <div
-        className={`rounded-4xl border border-white/50 bg-white/70 shadow-[0_8px_32px_rgba(15,23,42,0.1)] backdrop-blur-xl transition-all duration-200 ${isFocused ? "border-slate-300/60 bg-white/85 shadow-[0_8px_32px_rgba(15,23,42,0.16)]" : ""}`}
+        className={`rounded-4xl border border-white/50 bg-white/50 shadow-[0_8px_32px_rgba(15,23,42,0.1)] backdrop-blur-xl transition-all duration-200 ${isFocused ? "border-slate-300/60 bg-white/85 shadow-[0_8px_32px_rgba(15,23,42,0.16)]" : ""}`}
       >
         {/* Origin field (shown after destination is entered) */}
         {showOriginField && (
