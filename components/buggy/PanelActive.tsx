@@ -29,6 +29,7 @@ type BuggyListProps = {
   onFocusBuggy: (buggyId: string) => void;
   onSelectBuggy: (buggyId: string) => void;
   onSelectHalte?: (halteId: string) => void;
+  onClearSelectedHalte?: () => void;
   directionResult?: DirectionResult | null;
   onCloseDirection?: () => void;
   dataViewContent?: ReactNode;
@@ -59,6 +60,7 @@ export function BuggyList({
   onFocusBuggy,
   onSelectBuggy,
   onSelectHalte,
+  onClearSelectedHalte,
   directionResult = null,
   onCloseDirection,
   dataViewContent,
@@ -176,6 +178,7 @@ export function BuggyList({
     setHalteViewMode("list");
     setSelectedHalteIdLocal(null);
     setCachedHalteObj(null);
+    onClearSelectedHalte?.();
   };
 
   useEffect(() => {

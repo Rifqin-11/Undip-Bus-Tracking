@@ -13,9 +13,8 @@ import type {
   PolylineHandle,
 } from "@/types/map-canvas";
 import {
-  BUGGY_PIN_ICON,
-  BUGGY_SELECTED_PIN_ICON,
   DESTINATION_PIN_ICON,
+  buildBuggyIcon,
   buildHalteIcon,
   buildBuggyInfoContent,
 } from "@/components/map/MapMarker";
@@ -597,11 +596,12 @@ export function MapCanvas({
     buggies.forEach((buggy) => {
       const isSelected = selectedBuggyId === buggy.id;
       const existing = buggyMarkersRef.current.get(buggy.id);
+      const icon = buildBuggyIcon(maps, buggy.code, isSelected);
 
       if (existing) {
         existing.setPosition(buggy.position);
         existing.setTitle(`${buggy.name} - ETA ${buggy.etaMinutes} menit`);
-        existing.setIcon(isSelected ? BUGGY_SELECTED_PIN_ICON : BUGGY_PIN_ICON);
+        existing.setIcon(icon);
         return;
       }
 
@@ -609,8 +609,7 @@ export function MapCanvas({
         map,
         position: buggy.position,
         title: `${buggy.name} - ETA ${buggy.etaMinutes} menit`,
-        label: { text: buggy.code, color: "#ffffff", fontWeight: "700" },
-        icon: isSelected ? BUGGY_SELECTED_PIN_ICON : BUGGY_PIN_ICON,
+        icon,
         zIndex: 20,
       });
       marker.addListener("click", () => onBuggyMarkerClick?.(buggy.id));

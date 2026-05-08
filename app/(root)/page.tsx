@@ -197,6 +197,10 @@ export default function DashboardPage() {
     setSelectedHalteId(halteId);
   }, []);
 
+  const handleClearSelectedHalte = useCallback(() => {
+    setSelectedHalteId(null);
+  }, []);
+
   // ── Nearby bus alert ──────────────────────────────────────────────────────
   useNearbyBusAlert({
     buggies: liveBuggies,
@@ -329,6 +333,7 @@ export default function DashboardPage() {
         onFocusBuggy={handleFocusBuggy}
         onSelectBuggy={handleSelectBuggy}
         onSelectHalte={handleSelectHalte}
+        onClearSelectedHalte={handleClearSelectedHalte}
         directionResult={directionResult}
         onCloseDirection={() => setDirectionResult(null)}
         canFavorite={canFavorite && favoritesReady}

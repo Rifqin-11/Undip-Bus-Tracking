@@ -423,6 +423,10 @@ export default function DashboardPage() {
     setSelectedHalteId(halteId);
   }, []);
 
+  const handleClearSelectedHalte = useCallback(() => {
+    setSelectedHalteId(null);
+  }, []);
+
   const handleToggleCreateMode = useCallback(() => {
     if (!canManageDashboard) return;
 
@@ -872,6 +876,7 @@ export default function DashboardPage() {
         onFocusBuggy={handleFocusBuggy}
         onSelectBuggy={handleSelectBuggy}
         onSelectHalte={handleSelectHalte}
+        onClearSelectedHalte={handleClearSelectedHalte}
         directionResult={directionResult}
         onCloseDirection={() => setDirectionResult(null)}
         canFavorite={canFavorite && favoritesReady}
