@@ -37,6 +37,7 @@ export function AuthForm({
 }: AuthFormProps) {
   const router = useRouter();
   const [isRegister, setIsRegister] = useState(false);
+  const [isResetRequest, setIsResetRequest] = useState(false);
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -86,6 +87,39 @@ export function AuthForm({
     return safeRedirectTo === "/admin" || safeRedirectTo === "/driver"
       ? "/"
       : safeRedirectTo;
+  };
+
+  const handlePasswordResetRequest = async (
+    event: FormEvent<HTMLFormElement>,
+  ) => {
+    event.preventDefault();
+    setErrorMessage(null);
+    setSuccessMessage(null);
+    setIsSubmitting(true);
+
+    try {
+      const normalizedEmail = email.trim();
+      if (!normalizedEmail) {
+        throw new Error("Email wajib diisi.");
+      }
+
+      const { error } = await supabase.auth.resetPasswordForEmail(
+        normalizedEmail,
+        {
+          redirectTo: `${window.location.origin}/api/auth/callback?next=/reset-password`,
+        },
+      );
+
+      if (error) throw error;
+
+      setSuccessMessage(
+        "Jika email terdaftar, link reset kata sandi sudah dikirim. Silakan cek inbox Anda.",
+      );
+    } catch (err: unknown) {
+      setErrorMessage(formatAuthErrorMessage(err));
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
@@ -211,11 +245,13 @@ export function AuthForm({
                 Mobilitas Pintar UNDIP
               </p>
               <h1 className="text-[22px] font-bold tracking-tight text-slate-900">
-                {verificationEmailSentTo
-                  ? "Verifikasi Email"
-                  : isRegister
-                    ? "Daftar Akun SIMOBI"
-                    : "Masuk SIMOBI"}
+              {verificationEmailSentTo
+                ? "Verifikasi Email"
+                : isResetRequest
+                  ? "Reset Kata Sandi"
+                : isRegister
+                  ? "Daftar Akun SIMOBI"
+                  : "Masuk SIMOBI"}
               </h1>
             </div>
           </div>
@@ -227,6 +263,8 @@ export function AuthForm({
             <h2 className="mt-1 text-[28px] font-bold tracking-tight text-slate-900">
               {verificationEmailSentTo
                 ? "Verifikasi Email"
+                : isResetRequest
+                  ? "Reset Kata Sandi"
                 : isRegister
                   ? "Buat Akun Baru"
                   : "Selamat Datang"}
@@ -234,6 +272,8 @@ export function AuthForm({
             <p className="mt-1 text-sm text-slate-600">
               {verificationEmailSentTo
                 ? "Selesaikan aktivasi akun melalui email yang kami kirimkan."
+                : isResetRequest
+                  ? "Masukkan email akun Anda untuk menerima link reset kata sandi."
                 : isRegister
                 ? "Daftar untuk mengakses dasbor."
                 : "Masuk untuk membuka dasbor manajemen SIMOBI."}
@@ -295,6 +335,57 @@ export function AuthForm({
                 </button>
               </div>
             </div>
+          ) : (
+            <>
+          {isResetRequest ? (
+          <form className="space-y-3.5" onSubmit={handlePasswordResetRequest}>
+            <label className="block">
+              <span className="mb-1.5 block text-[13px] font-medium text-slate-700">
+                Email
+              </span>
+              <input
+                type="email"
+                className="h-11 w-full rounded-2xl border border-slate-300/80 bg-white/90 px-3.5 text-[14px] text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-[#2a4f8e] focus:ring-3 focus:ring-[#2a4f8e]/15"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="Masukkan email akun"
+                autoComplete="email"
+                required
+              />
+            </label>
+
+            {errorMessage ? (
+              <p className="rounded-2xl border border-rose-200 bg-rose-50/90 px-3.5 py-2.5 text-[12px] font-medium text-rose-700">
+                {errorMessage}
+              </p>
+            ) : null}
+
+            {successMessage ? (
+              <p className="rounded-2xl border border-emerald-200 bg-emerald-50/90 px-3.5 py-2.5 text-[12px] font-medium text-emerald-700">
+                {successMessage}
+              </p>
+            ) : null}
+
+            <button
+              type="submit"
+              disabled={isSubmitting}
+              className="mt-1 h-11 w-full rounded-2xl bg-[#0f1a3b] text-[14px] font-bold text-white transition hover:bg-[#1a2b59] disabled:cursor-not-allowed disabled:opacity-70"
+            >
+              {isSubmitting ? "Mengirim..." : "Kirim Link Reset"}
+            </button>
+
+            <button
+              type="button"
+              onClick={() => {
+                setIsResetRequest(false);
+                setErrorMessage(null);
+                setSuccessMessage(null);
+              }}
+              className="h-11 w-full rounded-2xl border border-slate-200 bg-white text-[14px] font-semibold text-slate-700 transition hover:bg-slate-50 active:scale-[0.98]"
+            >
+              Kembali ke Login
+            </button>
+          </form>
           ) : (
             <>
           <button
@@ -395,6 +486,24 @@ export function AuthForm({
               </label>
             ) : null}
 
+            {!isRegister ? (
+              <div className="-mt-1 flex justify-end">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsResetRequest(true);
+                    setErrorMessage(null);
+                    setSuccessMessage(null);
+                    setPassword("");
+                    setConfirmPassword("");
+                  }}
+                  className="text-[12px] font-bold text-[#2a4f8e] hover:underline"
+                >
+                  Lupa kata sandi?
+                </button>
+              </div>
+            ) : null}
+
             {errorMessage ? (
               <p className="rounded-2xl border border-rose-200 bg-rose-50/90 px-3.5 py-2.5 text-[12px] font-medium text-rose-700">
                 {errorMessage}
@@ -421,6 +530,7 @@ export function AuthForm({
                 type="button"
                 onClick={() => {
                   setIsRegister((current) => !current);
+                  setIsResetRequest(false);
                   setErrorMessage(null);
                   setSuccessMessage(null);
                   setVerificationEmailSentTo(null);
@@ -442,6 +552,8 @@ export function AuthForm({
               </div>
             ) : null}
           </form>
+            </>
+          )}
             </>
           )}
         </div>
