@@ -4,6 +4,7 @@ import { FormEvent, useEffect, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import logo from "@/public/logo.svg";
+import { PasswordField } from "@/components/auth/PasswordField";
 import { createClient } from "@/lib/supabase/client";
 
 function formatResetError(err: unknown) {
@@ -106,35 +107,21 @@ export function ResetPasswordForm() {
       </p>
 
       <form className="space-y-3.5" onSubmit={handleSubmit}>
-        <label className="block">
-          <span className="mb-1.5 block text-[13px] font-medium text-slate-700">
-            Kata Sandi Baru
-          </span>
-          <input
-            type="password"
-            className="h-11 w-full rounded-2xl border border-slate-300/80 bg-white/90 px-3.5 text-[14px] text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-[#2a4f8e] focus:ring-3 focus:ring-[#2a4f8e]/15"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            placeholder="Minimal 6 karakter"
-            autoComplete="new-password"
-            required
-          />
-        </label>
+        <PasswordField
+          label="Kata Sandi Baru"
+          value={password}
+          onChange={setPassword}
+          placeholder="Minimal 6 karakter"
+          autoComplete="new-password"
+        />
 
-        <label className="block">
-          <span className="mb-1.5 block text-[13px] font-medium text-slate-700">
-            Konfirmasi Kata Sandi Baru
-          </span>
-          <input
-            type="password"
-            className="h-11 w-full rounded-2xl border border-slate-300/80 bg-white/90 px-3.5 text-[14px] text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-[#2a4f8e] focus:ring-3 focus:ring-[#2a4f8e]/15"
-            value={confirmPassword}
-            onChange={(e) => setConfirmPassword(e.target.value)}
-            placeholder="Masukkan ulang kata sandi"
-            autoComplete="new-password"
-            required
-          />
-        </label>
+        <PasswordField
+          label="Konfirmasi Kata Sandi Baru"
+          value={confirmPassword}
+          onChange={setConfirmPassword}
+          placeholder="Masukkan ulang kata sandi"
+          autoComplete="new-password"
+        />
 
         {errorMessage ? (
           <p className="rounded-2xl border border-rose-200 bg-rose-50/90 px-3.5 py-2.5 text-[12px] font-medium text-rose-700">

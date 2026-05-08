@@ -5,6 +5,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import logo from "@/public/logo.svg";
+import { PasswordField } from "@/components/auth/PasswordField";
 import { createClient } from "@/lib/supabase/client";
 
 type AuthFormProps = {
@@ -454,36 +455,22 @@ export function AuthForm({
               />
             </label>
 
-            <label className="block">
-              <span className="mb-1.5 block text-[13px] font-medium text-slate-700">
-                Kata Sandi
-              </span>
-              <input
-                type="password"
-                className="h-11 w-full rounded-2xl border border-slate-300/80 bg-white/90 px-3.5 text-[14px] text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-[#2a4f8e] focus:ring-3 focus:ring-[#2a4f8e]/15"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder="Masukkan kata sandi"
-                autoComplete={isRegister ? "new-password" : "current-password"}
-                required
-              />
-            </label>
+            <PasswordField
+              label="Kata Sandi"
+              value={password}
+              onChange={setPassword}
+              placeholder="Masukkan kata sandi"
+              autoComplete={isRegister ? "new-password" : "current-password"}
+            />
 
             {isRegister ? (
-              <label className="block">
-                <span className="mb-1.5 block text-[13px] font-medium text-slate-700">
-                  Konfirmasi Kata Sandi
-                </span>
-                <input
-                  type="password"
-                  className="h-11 w-full rounded-2xl border border-slate-300/80 bg-white/90 px-3.5 text-[14px] text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-[#2a4f8e] focus:ring-3 focus:ring-[#2a4f8e]/15"
-                  value={confirmPassword}
-                  onChange={(e) => setConfirmPassword(e.target.value)}
-                  placeholder="Masukkan ulang kata sandi"
-                  autoComplete="new-password"
-                  required
-                />
-              </label>
+              <PasswordField
+                label="Konfirmasi Kata Sandi"
+                value={confirmPassword}
+                onChange={setConfirmPassword}
+                placeholder="Masukkan ulang kata sandi"
+                autoComplete="new-password"
+              />
             ) : null}
 
             {!isRegister ? (
