@@ -9,6 +9,8 @@ type BuggyHistoryRow = {
   lat: number | null;
   lng: number | null;
   speed_kmh: number | null;
+  passengers?: number | null;
+  capacity?: number | null;
   recorded_at: string | null;
 };
 
@@ -45,6 +47,13 @@ function resolveNearestHalteIndex(lat: number, lng: number): number {
   return bestIndex;
 }
 
+function resolveCrowdLevel(passengers: number, capacity: number): Buggy["crowdLevel"] {
+  const ratio = capacity > 0 ? passengers / capacity : 0;
+  if (ratio >= 0.85) return "PENUH";
+  if (ratio >= 0.55) return "HAMPIR_PENUH";
+  return "LONGGAR";
+}
+
 function resolveHistoryKey(row: BuggyHistoryRow): string | null {
   if (typeof row.buggy_numeric_id === "number") {
     return `numeric:${row.buggy_numeric_id}`;
@@ -71,7 +80,7 @@ export async function mergeLatestBuggyTelemetryFromHistory(
 
   const { data, error } = await supabase
     .from(getBuggyHistoryTableName())
-    .select("buggy_id, buggy_numeric_id, lat, lng, speed_kmh, recorded_at")
+    .select("*")
     .order("recorded_at", { ascending: false })
     .limit(LATEST_HISTORY_LOOKBACK_LIMIT);
 
@@ -109,10 +118,22 @@ export async function mergeLatestBuggyTelemetryFromHistory(
 
     mergedCount += 1;
 
+    const capacity =
+      typeof row.capacity === "number" && row.capacity > 0
+        ? row.capacity
+        : buggy.capacity;
+    const passengers =
+      typeof row.passengers === "number"
+        ? Math.max(0, Math.min(row.passengers, capacity))
+        : buggy.passengers;
+
     return {
       ...buggy,
       isActive: Number.isFinite(recordedAtMs) && now - recordedAtMs <= ACTIVE_HISTORY_WINDOW_MS,
       speedKmh: typeof row.speed_kmh === "number" ? Math.max(0, row.speed_kmh) : buggy.speedKmh,
+      passengers,
+      capacity,
+      crowdLevel: resolveCrowdLevel(passengers, capacity),
       tag: "GPS Nyata",
       updatedAt: toTimeLabel(row.recorded_at),
       currentStopIndex: resolveNearestHalteIndex(row.lat, row.lng),

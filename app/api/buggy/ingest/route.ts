@@ -1,23 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
+import { requireIngestToken } from "@/lib/auth/ingest-token";
 import { ingestBuggyPayload } from "@/lib/realtime/buggy-live-store";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-function isAuthorized(request: NextRequest): boolean {
-  const requiredToken = process.env.BUGGY_INGEST_TOKEN;
-  if (!requiredToken) return true;
-  const authHeader = request.headers.get("authorization");
-  return authHeader === `Bearer ${requiredToken}`;
-}
-
 export async function POST(request: NextRequest) {
-  if (!isAuthorized(request)) {
-    return NextResponse.json(
-      { ok: false, message: "Unauthorized ingest request." },
-      { status: 401 },
-    );
-  }
+  const tokenError = requireIngestToken(request);
+  if (tokenError) return tokenError;
 
   let payload: unknown;
   try {

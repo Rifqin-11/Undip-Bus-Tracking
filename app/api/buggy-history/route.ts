@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { requireAdmin } from "@/lib/auth/admin-guard";
 import {
   mapBuggyHistoryRow,
   sortHistoryNewestFirst,
@@ -26,6 +27,9 @@ function normalizeBuggyFilter(value: string): string {
 }
 
 export async function GET(request: NextRequest) {
+  const adminGuard = await requireAdmin();
+  if (!adminGuard.authorized) return adminGuard.response;
+
   const supabase = createAdminClient();
   if (!supabase) {
     return NextResponse.json(

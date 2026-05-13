@@ -1,10 +1,14 @@
 import { NextResponse } from "next/server";
+import { requireAdmin } from "@/lib/auth/admin-guard";
 import { createClient } from "@/lib/supabase/server";
 
 export async function PATCH(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const adminGuard = await requireAdmin();
+  if (!adminGuard.authorized) return adminGuard.response;
+
   try {
     const { id } = await params;
     const body = await request.json();
@@ -37,6 +41,9 @@ export async function DELETE(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const adminGuard = await requireAdmin();
+  if (!adminGuard.authorized) return adminGuard.response;
+
   try {
     const { id } = await params;
     

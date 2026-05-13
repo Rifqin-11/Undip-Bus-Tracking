@@ -1,8 +1,8 @@
 import { NextResponse } from "next/server";
 import {
   createAdminClient,
-  createClient as createServerClient,
 } from "@/lib/supabase/server";
+import { requireAdmin } from "@/lib/auth/admin-guard";
 
 const ACCOUNT_ROLES = ["Admin", "Driver", "Pengguna umum"] as const;
 const SUPABASE_ADMIN_CONFIG_MESSAGE =
@@ -62,6 +62,9 @@ function formatSupabaseAdminError(message?: string) {
 }
 
 export async function GET() {
+  const adminGuard = await requireAdmin();
+  if (!adminGuard.authorized) return adminGuard.response;
+
   const supabase = createAdminClient();
   if (!supabase) {
     return NextResponse.json(
@@ -96,6 +99,9 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
+  const adminGuard = await requireAdmin();
+  if (!adminGuard.authorized) return adminGuard.response;
+
   const supabase = createAdminClient();
   if (!supabase) {
     return NextResponse.json(
@@ -168,6 +174,9 @@ export async function POST(request: Request) {
 }
 
 export async function PATCH(request: Request) {
+  const adminGuard = await requireAdmin();
+  if (!adminGuard.authorized) return adminGuard.response;
+
   const supabase = createAdminClient();
   if (!supabase) {
     return NextResponse.json(
@@ -187,12 +196,7 @@ export async function PATCH(request: Request) {
       );
     }
 
-    const serverClient = await createServerClient();
-    const {
-      data: { user },
-    } = await serverClient.auth.getUser();
-
-    if (user?.id === id && role !== "Admin") {
+    if (adminGuard.user.id === id && role !== "Admin") {
       return NextResponse.json(
         { message: "Peran akun admin yang sedang aktif tidak dapat diubah." },
         { status: 400 },
@@ -265,6 +269,9 @@ export async function PATCH(request: Request) {
 }
 
 export async function DELETE(request: Request) {
+  const adminGuard = await requireAdmin();
+  if (!adminGuard.authorized) return adminGuard.response;
+
   const supabase = createAdminClient();
   if (!supabase) {
     return NextResponse.json(
@@ -284,12 +291,7 @@ export async function DELETE(request: Request) {
       );
     }
 
-    const serverClient = await createServerClient();
-    const {
-      data: { user },
-    } = await serverClient.auth.getUser();
-
-    if (user?.id === id) {
+    if (adminGuard.user.id === id) {
       return NextResponse.json(
         { message: "Akun admin yang sedang aktif tidak dapat dihapus." },
         { status: 400 },

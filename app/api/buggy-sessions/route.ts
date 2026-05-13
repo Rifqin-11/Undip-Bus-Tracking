@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { requireAdmin } from "@/lib/auth/admin-guard";
 import { createAdminClient, getBuggySessionTableName, getBuggyHistoryTableName } from "@/lib/supabase/server";
 import { saveSessionPointsToDb, buildSessionSummary } from "@/lib/realtime/session-store";
 import type { SessionPoint } from "@/lib/realtime/session-store";
@@ -76,6 +77,9 @@ function groupPointsIntoSessions(points: SessionPoint[]): SessionPoint[][] {
 // ── GET /api/buggy-sessions ───────────────────────────────────────────────────
 
 export async function GET(request: NextRequest) {
+  const adminGuard = await requireAdmin();
+  if (!adminGuard.authorized) return adminGuard.response;
+
   const supabase = createAdminClient();
   if (!supabase) {
     return NextResponse.json({ error: "Supabase not configured" }, { status: 500 });

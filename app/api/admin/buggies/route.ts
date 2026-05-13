@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { requireAdmin } from "@/lib/auth/admin-guard";
 import { createAdminClient } from "@/lib/supabase/server";
 import { adminAddBuggyToStore } from "@/lib/realtime/buggy-live-store";
 import { getHalteLocations } from "@/lib/transit/halte-runtime";
@@ -7,6 +8,9 @@ import { CENTER_UNDIP } from "@/lib/transit/buggy-data";
 import { getErrorMessage } from "@/lib/utils/error-message";
 
 export async function POST(request: Request) {
+  const adminGuard = await requireAdmin();
+  if (!adminGuard.authorized) return adminGuard.response;
+
   try {
     // Pastikan halte runtime sudah diisi dari DB sebelum membuat buggy baru
     await bootstrapFromDatabase();

@@ -63,18 +63,22 @@ Jika source backend masih `seed`, data default server tetap ditampilkan sampai a
 - `GET /api/buggy`: daftar buggy (shape sama dengan `Buggy[]`).
 - `GET /api/buggy/stream`: SSE stream snapshot buggy realtime.
 - `POST /api/buggy/ingest`: endpoint ingest dari MQTT bridge.
+- `POST /api/gps-beacon`: endpoint ingest GPS + telemetry operasional untuk bridge MQTT.
 
-Opsional pengamanan ingest:
+Pengamanan ingest wajib untuk `/api/buggy/ingest` dan `/api/gps-beacon`:
 
 ```bash
 BUGGY_INGEST_TOKEN=your-secret-token
 ```
 
-Jika token diisi, kirim header:
+Setiap request ingest harus mengirim header:
 
 ```http
 Authorization: Bearer your-secret-token
 ```
+
+Jika `BUGGY_INGEST_TOKEN` belum diset, endpoint ingest akan menolak request
+dengan status `500` agar service tidak berjalan terbuka tanpa sengaja.
 
 ### 3) Format payload ingest
 
@@ -108,49 +112,124 @@ Mode B - telemetry increment:
 }
 ```
 
-### 4) Bridge contoh
+### 4) GPS tracker MQTT
 
-Lihat file `scripts/mqtt-to-next-bridge.example.mjs` untuk template MQTT subscriber
-yang mem-forward data ke `/api/buggy/ingest`.
+Halaman `/gps-tracker` dapat mensimulasikan satu device atau beberapa buggy sekaligus.
+Browser publish ke broker MQTT via WebSocket, sehingga broker harus menyediakan listener
+`ws://` atau `wss://`.
 
-### 5) Simulator publisher ke MQTT
+Environment browser:
 
-Script simulator berbasis data buggy saat ini tersedia di:
+```bash
+NEXT_PUBLIC_MQTT_BROKER_WS_URL=ws://localhost:9001
+NEXT_PUBLIC_MQTT_TOPIC_PREFIX=buggy
+```
 
-- `scripts/buggy-mqtt-simulator.mjs`
+Jika browser menampilkan `connack timeout`, coba ganti host menjadi IPv4 eksplisit
+dan restart Next.js:
 
-Install dependency lalu jalankan:
+```bash
+NEXT_PUBLIC_MQTT_BROKER_WS_URL=ws://127.0.0.1:9001
+```
+
+Topic publish:
+
+```text
+buggy/{numericId}/data
+```
+
+Payload:
+
+```json
+{
+  "buggyId": 2,
+  "lat": -7.054518,
+  "lng": 110.44413,
+  "speedKmh": 12.5,
+  "heading": 270,
+  "altitude": 200,
+  "accuracy": 5,
+  "etaMinutes": 3,
+  "batteryLevel": 85,
+  "passengers": 4,
+  "capacity": 8,
+  "sessionStart": true,
+  "timestamp": "2026-05-08T00:00:00.000Z",
+  "source": "gps-tracker"
+}
+```
+
+### 5) MQTT bridge
+
+Bridge Node subscribe MQTT lalu forward ke `/api/gps-beacon`, sehingga dashboard tetap
+membaca data dari backend `/api/buggy` dan history/session tetap tersimpan.
+
+Untuk development cepat dari repo utama:
+
+```bash
+MQTT_BROKER_URL=mqtt://localhost:1883 \
+MQTT_TOPIC=buggy/+/data \
+NEXT_GPS_BEACON_URL=http://localhost:3000/api/gps-beacon \
+BUGGY_INGEST_TOKEN=your-secret-token \
+npm run bridge:mqtt
+```
+
+Opsional:
+
+```bash
+MQTT_USERNAME=...
+MQTT_PASSWORD=...
+```
+
+Untuk deploy simulator sebagai worker terpisah, gunakan folder:
+
+```text
+mqtt-simulator-bridge-service
+```
+
+Service ini khusus payload `/gps-tracker` dengan topic default `buggy/+/data`,
+dan sengaja dipisah dari `mqtt-bridge-service` produksi agar data simulator
+tidak mengubah pipeline data asli.
+
+### 6) Quick local pipeline test (GPS Tracker -> MQTT -> Next.js)
+
+Install dependency:
 
 ```bash
 npm install
-MQTT_BROKER_URL=mqtt://localhost:1883 \
-SIM_BUGGY_IDS=1 \
-npm run sim:mqtt
 ```
 
-Default publish tiap 3 detik ke topic:
+Start broker MQTT dengan TCP dan WebSocket listener. File konfigurasi contoh
+sudah tersedia di repo sebagai `mosquitto-websocket.conf`:
 
-- `buggy/1/data`
+```conf
+listener 1883
+allow_anonymous true
 
-Untuk banyak buggy:
+listener 9001
+protocol websockets
+allow_anonymous true
+```
+
+Jalankan Mosquitto dari root repo:
 
 ```bash
-SIM_BUGGY_IDS=all npm run sim:mqtt
+mosquitto -c mosquitto-websocket.conf -v
 ```
 
-### 6) Quick local pipeline test (Simulator -> MQTT -> Next.js)
+Catatan: baris `listener` dan `allow_anonymous` adalah isi file konfigurasi,
+bukan command terminal.
 
-Pastikan feed mode frontend bukan simulation:
+Pastikan port TCP dan WebSocket benar-benar didengar Mosquitto:
 
 ```bash
-NEXT_PUBLIC_BUGGY_FEED_MODE=sse
+lsof -nP -iTCP:1883 -sTCP:LISTEN
+lsof -nP -iTCP:9001 -sTCP:LISTEN
 ```
 
-Start broker MQTT (contoh Mosquitto):
-
-```bash
-/opt/homebrew/opt/mosquitto/sbin/mosquitto -v -p 1883
-```
+Output keduanya harus menunjukkan proses `mosquitto`. Jika port 9001 dipakai
+proses lain, browser bisa tersambung ke WebSocket yang salah lalu berakhir
+`connack timeout`.
 
 Start Next.js:
 
@@ -158,28 +237,26 @@ Start Next.js:
 npm run dev
 ```
 
-Jalankan bridge subscriber (MQTT -> ingest API):
+Start bridge:
 
 ```bash
 MQTT_BROKER_URL=mqtt://localhost:1883 \
 MQTT_TOPIC=buggy/+/data \
-NEXT_INGEST_URL=http://localhost:3000/api/buggy/ingest \
+NEXT_GPS_BEACON_URL=http://localhost:3000/api/gps-beacon \
+BUGGY_INGEST_TOKEN=your-secret-token \
 npm run bridge:mqtt
 ```
 
-Lalu jalankan simulator publisher:
+Buka `/gps-tracker`, pilih mode device atau armada, lalu klik `Mulai Simulator`.
+Verifikasi data berubah:
 
 ```bash
-MQTT_BROKER_URL=mqtt://localhost:1883 \
-SIM_BUGGY_IDS=1 \
-npm run sim:mqtt
+curl -s http://localhost:3000/api/buggy | jq '.[0] | {id, name, passengers, capacity, updatedAt}'
 ```
 
-Verifikasi ingest berhasil:
-
-```bash
-curl -s http://localhost:3000/api/buggy | jq '.[0] | {id, name, updatedAt}'
-```
+Untuk production, jalankan bridge sebagai service long-running terpisah (Fly.io,
+VM, atau worker server), bukan di Vercel serverless. Broker public harus memakai
+`wss://` agar browser bisa publish dari HTTPS.
 
 ### 7) Setup Tabel Buggy History di Supabase
 
@@ -200,6 +277,9 @@ create table if not exists public.buggy_history (
   accuracy double precision,
   heading double precision,
   altitude double precision,
+  battery_level integer,
+  passengers integer,
+  capacity integer,
   source text,
   recorded_at timestamp with time zone default now() not null
 );

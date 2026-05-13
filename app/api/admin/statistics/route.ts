@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { requireAdmin } from "@/lib/auth/admin-guard";
 import { createAdminClient, getBuggySessionTableName } from "@/lib/supabase/server";
 import { PRIVATE_SEMI_STATIC_CACHE_HEADERS } from "@/lib/http/cache";
 import { getErrorMessage } from "@/lib/utils/error-message";
@@ -26,6 +27,9 @@ function calculateTrend(current: number, previous: number) {
 }
 
 export async function GET(request: Request) {
+  const adminGuard = await requireAdmin();
+  if (!adminGuard.authorized) return adminGuard.response;
+
   try {
     const { searchParams } = new URL(request.url);
     const dateParam = searchParams.get("date");

@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { requireAdmin } from "@/lib/auth/admin-guard";
 import { createAdminClient } from "@/lib/supabase/server";
 import { getHalteLocations, setHalteLocations } from "@/lib/transit/halte-runtime";
 import { bootstrapFromDatabase } from "@/lib/supabase/data-loader";
@@ -61,6 +62,9 @@ export async function GET() {
 
 /** POST /api/haltes — tambah halte baru (admin only) */
 export async function POST(request: Request) {
+  const adminGuard = await requireAdmin();
+  if (!adminGuard.authorized) return adminGuard.response;
+
   try {
     const body = await request.json();
     const { id, name, lat, lng, sort_order, schedule, facilities, is_active } = body;

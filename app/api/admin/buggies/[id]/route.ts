@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { requireAdmin } from "@/lib/auth/admin-guard";
 import { createAdminClient } from "@/lib/supabase/server";
 import { adminUpdateBuggyInStore, adminRemoveBuggyFromStore } from "@/lib/realtime/buggy-live-store";
 import { getErrorMessage } from "@/lib/utils/error-message";
@@ -7,6 +8,9 @@ export async function PUT(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const adminGuard = await requireAdmin();
+  if (!adminGuard.authorized) return adminGuard.response;
+
   try {
     const { id } = await params;
     const body = await request.json();
@@ -58,6 +62,9 @@ export async function DELETE(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const adminGuard = await requireAdmin();
+  if (!adminGuard.authorized) return adminGuard.response;
+
   try {
     const { id } = await params;
 

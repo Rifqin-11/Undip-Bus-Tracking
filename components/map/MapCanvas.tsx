@@ -29,14 +29,43 @@ import {
 // ─── Google Maps loader ──────────────────────────────────────────────────────
 
 const SCRIPT_ID = "google-maps-script";
+const CALLBACK_NAME = "__simobiGoogleMapsReady";
 
 function getMapsApi(): MapsApi | null {
   return (window as GoogleMapsWindow).google?.maps ?? null;
 }
 
+function isMapsApiReady(maps: MapsApi | null): maps is MapsApi {
+  return typeof maps?.Map === "function" && typeof maps.Marker === "function";
+}
+
+function waitForMapsApiReady(timeoutMs = 10_000): Promise<MapsApi> {
+  const startedAt = Date.now();
+
+  return new Promise((resolve, reject) => {
+    const check = () => {
+      const maps = getMapsApi();
+
+      if (isMapsApiReady(maps)) {
+        resolve(maps);
+        return;
+      }
+
+      if (Date.now() - startedAt > timeoutMs) {
+        reject(new Error("Google Maps JavaScript API tidak siap setelah load."));
+        return;
+      }
+
+      window.setTimeout(check, 50);
+    };
+
+    check();
+  });
+}
+
 function loadGoogleMapsScript(apiKey: string): Promise<MapsApi> {
   const mapsApi = getMapsApi();
-  if (mapsApi) return Promise.resolve(mapsApi);
+  if (isMapsApiReady(mapsApi)) return Promise.resolve(mapsApi);
 
   return new Promise((resolve, reject) => {
     const existingScript = document.getElementById(
@@ -44,30 +73,25 @@ function loadGoogleMapsScript(apiKey: string): Promise<MapsApi> {
     ) as HTMLScriptElement | null;
 
     if (existingScript) {
-      existingScript.addEventListener("load", () => {
-        const ready = getMapsApi();
-        if (ready) resolve(ready);
-      });
+      waitForMapsApiReady().then(resolve).catch(reject);
       existingScript.addEventListener("error", () =>
         reject(new Error("Failed to load Google Maps script")),
       );
       return;
     }
 
+    (
+      window as unknown as GoogleMapsWindow &
+        Record<typeof CALLBACK_NAME, () => void>
+    )[CALLBACK_NAME] = () => {
+      waitForMapsApiReady().then(resolve).catch(reject);
+    };
+
     const script = document.createElement("script");
     script.id = SCRIPT_ID;
-    script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}`;
+    script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&loading=async&libraries=marker&callback=${CALLBACK_NAME}`;
     script.async = true;
     script.defer = true;
-
-    script.onload = () => {
-      const ready = getMapsApi();
-      if (!ready) {
-        reject(new Error("Google Maps API not available after load"));
-        return;
-      }
-      resolve(ready);
-    };
     script.onerror = () =>
       reject(new Error("Failed to load Google Maps script"));
     document.head.appendChild(script);

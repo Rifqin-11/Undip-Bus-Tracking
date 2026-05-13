@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { requireAdmin } from "@/lib/auth/admin-guard";
 import { deleteGeofenceById, patchGeofenceEnabled } from "@/lib/geofence-store";
 
 export const runtime = "nodejs";
@@ -10,6 +11,9 @@ type Params = {
 };
 
 export async function PATCH(request: Request, { params }: Params) {
+  const adminGuard = await requireAdmin();
+  if (!adminGuard.authorized) return adminGuard.response;
+
   let body: unknown;
   try {
     body = await request.json();
@@ -41,6 +45,9 @@ export async function PATCH(request: Request, { params }: Params) {
 }
 
 export async function DELETE(_: Request, { params }: Params) {
+  const adminGuard = await requireAdmin();
+  if (!adminGuard.authorized) return adminGuard.response;
+
   const { id } = await params;
   const removed = await deleteGeofenceById(id);
 

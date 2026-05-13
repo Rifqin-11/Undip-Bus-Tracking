@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { requireAdmin } from "@/lib/auth/admin-guard";
 import { createGeofence, readGeofences } from "@/lib/geofence-store";
 import { PRIVATE_SEMI_STATIC_CACHE_HEADERS } from "@/lib/http/cache";
 
@@ -12,6 +13,9 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
+  const adminGuard = await requireAdmin();
+  if (!adminGuard.authorized) return adminGuard.response;
+
   let body: unknown;
   try {
     body = await request.json();

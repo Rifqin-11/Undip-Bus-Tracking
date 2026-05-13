@@ -1,7 +1,7 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
-export async function middleware(request: NextRequest) {
+export async function proxy(request: NextRequest) {
   let supabaseResponse = NextResponse.next({
     request,
   });
@@ -22,19 +22,18 @@ export async function middleware(request: NextRequest) {
       },
       setAll(cookiesToSet) {
         cookiesToSet.forEach(({ name, value }) =>
-          request.cookies.set(name, value)
+          request.cookies.set(name, value),
         );
         supabaseResponse = NextResponse.next({
           request,
         });
         cookiesToSet.forEach(({ name, value, options }) =>
-          supabaseResponse.cookies.set(name, value, options)
+          supabaseResponse.cookies.set(name, value, options),
         );
       },
     },
   });
 
-  // Call getUser to verify the session token
   const {
     data: { user },
   } = await supabase.auth.getUser();
@@ -45,8 +44,15 @@ export async function middleware(request: NextRequest) {
   const isDriverPage = pathname.startsWith("/driver");
   const isAdminApi = pathname.startsWith("/api/admin");
   const isGeofenceApi = pathname.startsWith("/api/geofences");
+  const isHistoryApi =
+    pathname.startsWith("/api/buggy-sessions") ||
+    pathname.startsWith("/api/buggy-history");
   const isProtectedRoute =
-    isAdminPage || isDriverPage || isAdminApi || isGeofenceApi;
+    isAdminPage ||
+    isDriverPage ||
+    isAdminApi ||
+    isGeofenceApi ||
+    isHistoryApi;
 
   let role: "Admin" | "Driver" | "Pengguna umum" = "Pengguna umum";
 
@@ -84,7 +90,7 @@ export async function middleware(request: NextRequest) {
       return NextResponse.redirect(new URL("/", request.url));
     }
 
-    if (isAdminApi && role !== "Admin") {
+    if ((isAdminApi || isHistoryApi) && role !== "Admin") {
       return NextResponse.json(
         { message: "Admin access required." },
         { status: 403 },
@@ -120,6 +126,8 @@ export const config = {
     "/driver/:path*",
     "/login",
     "/api/geofences/:path*",
-    "/api/admin/:path*"
+    "/api/admin/:path*",
+    "/api/buggy-sessions/:path*",
+    "/api/buggy-history",
   ],
 };

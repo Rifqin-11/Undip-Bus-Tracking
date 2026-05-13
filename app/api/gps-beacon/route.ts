@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { requireIngestToken } from "@/lib/auth/ingest-token";
 import { ingestBuggyPayload, getBuggyByNumericId, adminDeactivateBuggyInStore } from "@/lib/realtime/buggy-live-store";
 import {
   createAdminClient,
@@ -18,6 +19,14 @@ export const dynamic = "force-dynamic";
 const HISTORY_INSERT_INTERVAL_MS = 10_000;
 const lastHistoryInsertPerBuggy: Record<number, number> = {};
 
+function isSchemaColumnError(message: string) {
+  return (
+    message.includes("schema cache") ||
+    message.includes("Could not find") ||
+    message.includes("column")
+  );
+}
+
 /**
  * POST /api/gps-beacon
  *
@@ -27,6 +36,9 @@ const lastHistoryInsertPerBuggy: Record<number, number> = {};
  * Body: { buggyId, lat, lng, accuracy?, speedKmh?, heading?, altitude? }
  */
 export async function POST(request: NextRequest) {
+  const tokenError = requireIngestToken(request);
+  if (tokenError) return tokenError;
+
   let body: unknown;
   try {
     body = await request.json();
@@ -59,8 +71,11 @@ export async function POST(request: NextRequest) {
     etaMinutes,
     forceResync,
     batteryLevel,
+    passengers,
+    capacity,
     sessionStart,
     sessionEnd,
+    source,
   } = b;
 
   const numericBuggyId = Number(buggyId);
@@ -95,8 +110,10 @@ export async function POST(request: NextRequest) {
         heading: typeof heading === "number" ? heading : undefined,
         altitude: typeof altitude === "number" ? altitude : undefined,
         etaMinutes: typeof etaMinutes === "number" ? etaMinutes : undefined,
+        passengers: typeof passengers === "number" ? passengers : undefined,
+        capacity: typeof capacity === "number" ? capacity : undefined,
         forceResync: forceResync === true,
-        tag: "iphone_gps",
+        tag: typeof source === "string" ? source : "gps_beacon",
         timestamp: new Date().toISOString(),
       },
     ],
@@ -123,8 +140,7 @@ export async function POST(request: NextRequest) {
     if (supabase) {
       const buggyIdNormalized = `buggy-${numericBuggyId}`;
       const tableName = getBuggyHistoryTableName();
-
-      const { error } = await supabase.from(tableName).insert({
+      const historyRow = {
         buggy_id: buggyIdNormalized,
         buggy_numeric_id: numericBuggyId,
         lat: Number(lat),
@@ -139,12 +155,35 @@ export async function POST(request: NextRequest) {
           batteryLevel <= 100
             ? Math.round(batteryLevel)
             : null,
-        source: "iphone_gps",
+        passengers:
+          typeof passengers === "number" && Number.isFinite(passengers)
+            ? Math.max(0, Math.round(passengers))
+            : null,
+        capacity:
+          typeof capacity === "number" && Number.isFinite(capacity)
+            ? Math.max(1, Math.round(capacity))
+            : null,
+        source: typeof source === "string" ? source : "gps_beacon",
         recorded_at: new Date().toISOString(),
-      });
+      };
+
+      const { error } = await supabase.from(tableName).insert(historyRow);
 
       if (error) {
-        console.warn("Supabase history insert failed:", error.message);
+        if (isSchemaColumnError(error.message)) {
+          const fallbackRow: Record<string, unknown> = { ...historyRow };
+          delete fallbackRow.passengers;
+          delete fallbackRow.capacity;
+          const { error: fallbackError } = await supabase
+            .from(tableName)
+            .insert(fallbackRow);
+
+          if (fallbackError) {
+            console.warn("Supabase history insert failed:", fallbackError.message);
+          }
+        } else {
+          console.warn("Supabase history insert failed:", error.message);
+        }
       }
     }
   }
