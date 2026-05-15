@@ -4,8 +4,12 @@ import { FormEvent, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { useTranslation } from "react-i18next";
 import logo from "@/public/logo.svg";
+import { LanguageSwitcher } from "@/components/i18n/LanguageSwitcher";
 import { PasswordField } from "@/components/auth/PasswordField";
+import { useLocale } from "@/lib/i18n/client";
+import { getLocaleFromPath, localizePath } from "@/lib/i18n/routing";
 import { createClient } from "@/lib/supabase/client";
 
 type AuthFormProps = {
@@ -15,16 +19,20 @@ type AuthFormProps = {
   onClose?: () => void;
 };
 
-function normalizeRedirect(next: string) {
-  return next.startsWith("/") ? next : "/admin";
+function normalizeRedirect(next: string, locale: ReturnType<typeof useLocale>) {
+  if (!next.startsWith("/")) return localizePath("/admin", locale);
+  return getLocaleFromPath(next) ? next : localizePath(next, locale);
 }
 
-function formatAuthErrorMessage(err: unknown) {
-  if (!(err instanceof Error)) return "Terjadi kesalahan.";
+function formatAuthErrorMessage(
+  err: unknown,
+  t: ReturnType<typeof useTranslation>["t"],
+) {
+  if (!(err instanceof Error)) return t("genericError");
 
   const message = err.message.toLowerCase();
   if (message.includes("email not confirmed")) {
-    return "Email belum diverifikasi. Silakan cek inbox Anda dan klik link verifikasi terlebih dahulu.";
+    return t("emailNotConfirmed");
   }
 
   return err.message;
@@ -37,6 +45,9 @@ export function AuthForm({
   onClose,
 }: AuthFormProps) {
   const router = useRouter();
+  const locale = useLocale();
+  const { t } = useTranslation("auth");
+  const { t: tCommon } = useTranslation("common");
   const [isRegister, setIsRegister] = useState(false);
   const [isResetRequest, setIsResetRequest] = useState(false);
   const [name, setName] = useState("");
@@ -50,7 +61,7 @@ export function AuthForm({
   >(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const isModal = variant === "modal";
-  const safeRedirectTo = normalizeRedirect(redirectTo);
+  const safeRedirectTo = normalizeRedirect(redirectTo, locale);
   const supabase = createClient();
 
   const handleGoogleLogin = async () => {
@@ -67,7 +78,7 @@ export function AuthForm({
       });
       if (error) throw error;
     } catch (err: unknown) {
-      setErrorMessage(formatAuthErrorMessage(err));
+      setErrorMessage(formatAuthErrorMessage(err, t));
     }
   };
 
@@ -83,10 +94,10 @@ export function AuthForm({
       .eq("id", user.id)
       .single();
 
-    if (account?.role === "Admin") return "/admin";
-    if (account?.role === "Driver") return "/driver";
-    return safeRedirectTo === "/admin" || safeRedirectTo === "/driver"
-      ? "/"
+    if (account?.role === "Admin") return localizePath("/admin", locale);
+    if (account?.role === "Driver") return localizePath("/driver", locale);
+    return safeRedirectTo.endsWith("/admin") || safeRedirectTo.endsWith("/driver")
+      ? localizePath("/", locale)
       : safeRedirectTo;
   };
 
@@ -101,23 +112,21 @@ export function AuthForm({
     try {
       const normalizedEmail = email.trim();
       if (!normalizedEmail) {
-        throw new Error("Email wajib diisi.");
+        throw new Error(t("emailRequired"));
       }
 
       const { error } = await supabase.auth.resetPasswordForEmail(
         normalizedEmail,
         {
-          redirectTo: `${window.location.origin}/api/auth/callback?next=/reset-password`,
+          redirectTo: `${window.location.origin}/api/auth/callback?next=${localizePath("/reset-password", locale)}`,
         },
       );
 
       if (error) throw error;
 
-      setSuccessMessage(
-        "Jika email terdaftar, link reset kata sandi sudah dikirim. Silakan cek inbox Anda.",
-      );
+      setSuccessMessage(t("resetLinkSent"));
     } catch (err: unknown) {
-      setErrorMessage(formatAuthErrorMessage(err));
+      setErrorMessage(formatAuthErrorMessage(err, t));
     } finally {
       setIsSubmitting(false);
     }
@@ -132,10 +141,10 @@ export function AuthForm({
     try {
       if (isRegister) {
         if (!name.trim()) {
-          throw new Error("Nama lengkap wajib diisi.");
+          throw new Error(`${t("fullName")} wajib diisi.`);
         }
         if (password !== confirmPassword) {
-          throw new Error("Kata sandi dan konfirmasi kata sandi tidak cocok.");
+          throw new Error(t("passwordMismatch"));
         }
 
         const normalizedEmail = email.trim();
@@ -173,7 +182,7 @@ export function AuthForm({
       router.replace(path);
       router.refresh();
     } catch (err: unknown) {
-      setErrorMessage(formatAuthErrorMessage(err));
+      setErrorMessage(formatAuthErrorMessage(err, t));
     } finally {
       setIsSubmitting(false);
     }
@@ -185,7 +194,7 @@ export function AuthForm({
         <button
           type="button"
           onClick={onClose}
-          aria-label="Tutup form masuk"
+          aria-label={t("closeSignInForm")}
           className="absolute right-4 top-4 z-20 grid size-9 place-items-center rounded-full border border-slate-200 bg-white/90 text-lg font-bold text-slate-500 shadow-sm transition hover:bg-slate-100 hover:text-slate-900 active:scale-95"
         >
           ×
@@ -205,7 +214,7 @@ export function AuthForm({
               />
               <div>
                 <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-blue-100/90">
-                  Mobilitas Pintar UNDIP
+                  {tCommon("brandTagline")}
                 </p>
                 <h1 className="text-xl font-bold tracking-tight">
                   SIMOBI
@@ -214,25 +223,27 @@ export function AuthForm({
             </div>
 
             <p className="max-w-xs text-sm leading-relaxed text-blue-100/85">
-              Kelola armada buggy listrik secara realtime, pantau rute, dan
-              kontrol area geofence dalam satu dasbor terintegrasi.
+              {t("smartFleetCopy")}
             </p>
           </div>
 
           <div className="space-y-2.5 text-sm text-blue-50/90">
             <p className="rounded-xl border border-white/20 bg-white/10 px-3 py-2">
-              Pelacakan Realtime
+              {t("realtimeTracking")}
             </p>
             <p className="rounded-xl border border-white/20 bg-white/10 px-3 py-2">
-              Peringatan Geofence
+              {t("geofenceAlerts")}
             </p>
             <p className="rounded-xl border border-white/20 bg-white/10 px-3 py-2">
-              Panduan Rute Pintar
+              {t("smartRouteGuide")}
             </p>
           </div>
         </div>
 
         <div className="rounded-3xl border border-white/45 bg-white/70 p-5 backdrop-blur-xl sm:p-7">
+          <div className="mb-4 flex justify-end">
+            <LanguageSwitcher compact />
+          </div>
           <div className="mb-6 flex items-center gap-3 md:hidden">
             <Image
               src={logo.src}
@@ -243,41 +254,41 @@ export function AuthForm({
             />
             <div>
               <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500">
-                Mobilitas Pintar UNDIP
+                {tCommon("brandTagline")}
               </p>
               <h1 className="text-[22px] font-bold tracking-tight text-slate-900">
               {verificationEmailSentTo
-                ? "Verifikasi Email"
+                ? t("verifyEmail")
                 : isResetRequest
-                  ? "Reset Kata Sandi"
+                  ? t("resetPassword")
                 : isRegister
-                  ? "Daftar Akun SIMOBI"
-                  : "Masuk SIMOBI"}
+                  ? t("registerTitle")
+                  : t("signIn")}
               </h1>
             </div>
           </div>
 
           <div className="mb-6 hidden md:block">
             <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500">
-              Masuk
+              {t("signInShort")}
             </p>
             <h2 className="mt-1 text-[28px] font-bold tracking-tight text-slate-900">
               {verificationEmailSentTo
-                ? "Verifikasi Email"
+                ? t("verifyEmail")
                 : isResetRequest
-                  ? "Reset Kata Sandi"
+                  ? t("resetPassword")
                 : isRegister
-                  ? "Buat Akun Baru"
-                  : "Selamat Datang"}
+                  ? t("createAccount")
+                  : t("welcome")}
             </h2>
             <p className="mt-1 text-sm text-slate-600">
               {verificationEmailSentTo
                 ? "Selesaikan aktivasi akun melalui email yang kami kirimkan."
                 : isResetRequest
-                  ? "Masukkan email akun Anda untuk menerima link reset kata sandi."
+                  ? t("resetPasswordDescription")
                 : isRegister
-                ? "Daftar untuk mengakses dasbor."
-                : "Masuk untuk membuka dasbor manajemen SIMOBI."}
+                ? t("registerDescription")
+                : t("signInDescription")}
             </p>
           </div>
 
@@ -297,15 +308,14 @@ export function AuthForm({
                 </svg>
               </div>
               <h3 className="text-lg font-bold text-slate-900">
-                Cek email Anda
+                {t("verifyEmail")}
               </h3>
               <p className="mt-2 text-sm leading-relaxed text-slate-600">
                 Kami sudah mengirim link verifikasi ke{" "}
                 <span className="font-bold text-slate-900">
                   {verificationEmailSentTo}
                 </span>
-                . Klik tombol verifikasi di email tersebut sebelum masuk ke
-                SIMOBI.
+                . Klik tombol verifikasi di email tersebut sebelum masuk ke SIMOBI.
               </p>
               <div className="mt-5 space-y-2">
                 <button
@@ -342,14 +352,14 @@ export function AuthForm({
           <form className="space-y-3.5" onSubmit={handlePasswordResetRequest}>
             <label className="block">
               <span className="mb-1.5 block text-[13px] font-medium text-slate-700">
-                Email
+                {t("email")}
               </span>
               <input
                 type="email"
                 className="h-11 w-full rounded-2xl border border-slate-300/80 bg-white/90 px-3.5 text-[14px] text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-[#2a4f8e] focus:ring-3 focus:ring-[#2a4f8e]/15"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                placeholder="Masukkan email akun"
+                placeholder={t("accountEmailPlaceholder")}
                 autoComplete="email"
                 required
               />
@@ -372,7 +382,7 @@ export function AuthForm({
               disabled={isSubmitting}
               className="mt-1 h-11 w-full rounded-2xl bg-[#0f1a3b] text-[14px] font-bold text-white transition hover:bg-[#1a2b59] disabled:cursor-not-allowed disabled:opacity-70"
             >
-              {isSubmitting ? "Mengirim..." : "Kirim Link Reset"}
+              {isSubmitting ? t("sending") : t("sendResetLink")}
             </button>
 
             <button
@@ -384,7 +394,7 @@ export function AuthForm({
               }}
               className="h-11 w-full rounded-2xl border border-slate-200 bg-white text-[14px] font-semibold text-slate-700 transition hover:bg-slate-50 active:scale-[0.98]"
             >
-              Kembali ke Login
+              {t("switchToSignIn")}
             </button>
           </form>
           ) : (
@@ -412,7 +422,7 @@ export function AuthForm({
                 fill="#EA4335"
               />
             </svg>
-            {isRegister ? "Daftar dengan Google" : "Masuk dengan Google"}
+            {isRegister ? t("registerWithGoogle") : t("signInWithGoogle")}
           </button>
 
           <div className="mb-4 flex items-center gap-3">
@@ -427,14 +437,14 @@ export function AuthForm({
             {isRegister ? (
               <label className="block">
                 <span className="mb-1.5 block text-[13px] font-medium text-slate-700">
-                  Nama Lengkap
+                  {t("fullName")}
                 </span>
                 <input
                   type="text"
                   className="h-11 w-full rounded-2xl border border-slate-300/80 bg-white/90 px-3.5 text-[14px] text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-[#2a4f8e] focus:ring-3 focus:ring-[#2a4f8e]/15"
                   value={name}
                   onChange={(e) => setName(e.target.value)}
-                  placeholder="Masukkan nama lengkap"
+                  placeholder={t("fullNamePlaceholder")}
                   required
                 />
               </label>
@@ -442,33 +452,33 @@ export function AuthForm({
 
             <label className="block">
               <span className="mb-1.5 block text-[13px] font-medium text-slate-700">
-                Email
+                {t("email")}
               </span>
               <input
                 type="email"
                 className="h-11 w-full rounded-2xl border border-slate-300/80 bg-white/90 px-3.5 text-[14px] text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-[#2a4f8e] focus:ring-3 focus:ring-[#2a4f8e]/15"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                placeholder="Masukkan email"
+                placeholder={t("emailPlaceholder")}
                 autoComplete="email"
                 required
               />
             </label>
 
             <PasswordField
-              label="Kata Sandi"
+              label={t("password")}
               value={password}
               onChange={setPassword}
-              placeholder="Masukkan kata sandi"
+              placeholder={t("passwordPlaceholder")}
               autoComplete={isRegister ? "new-password" : "current-password"}
             />
 
             {isRegister ? (
               <PasswordField
-                label="Konfirmasi Kata Sandi"
+                label={t("confirmPassword")}
                 value={confirmPassword}
                 onChange={setConfirmPassword}
-                placeholder="Masukkan ulang kata sandi"
+                placeholder={t("confirmPasswordPlaceholder")}
                 autoComplete="new-password"
               />
             ) : null}
@@ -508,7 +518,7 @@ export function AuthForm({
               disabled={isSubmitting}
               className="mt-1 h-11 w-full rounded-2xl bg-[#0f1a3b] text-[14px] font-bold text-white transition hover:bg-[#1a2b59] disabled:cursor-not-allowed disabled:opacity-70"
             >
-              {isSubmitting ? "Memuat..." : isRegister ? "Daftar" : "Masuk"}
+              {isSubmitting ? tCommon("loading") : isRegister ? t("register") : t("signInShort")}
             </button>
 
             <div className="pt-2 text-center text-[13px] text-slate-600">
@@ -524,17 +534,17 @@ export function AuthForm({
                 }}
                 className="font-bold text-[#2a4f8e] hover:underline"
               >
-                {isRegister ? "Masuk di sini" : "Daftar di sini"}
+                {isRegister ? t("switchToSignIn") : t("switchToRegister")}
               </button>
             </div>
 
             {!isModal ? (
               <div className="pt-1">
                 <Link
-                  href="/"
+                  href={localizePath("/", locale)}
                   className="flex h-11 w-full items-center justify-center rounded-2xl border border-slate-200 bg-slate-50 text-[14px] font-semibold text-slate-600 transition hover:bg-slate-100 hover:text-slate-900 active:scale-95"
                 >
-                  Kembali ke Beranda
+                  {t("switchToSignIn")}
                 </Link>
               </div>
             ) : null}

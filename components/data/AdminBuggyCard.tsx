@@ -1,4 +1,7 @@
+"use client";
+
 import Image from "next/image";
+import { useTranslation } from "react-i18next";
 import type { Buggy } from "@/types/buggy";
 import { ChevronRight } from "lucide-react";
 
@@ -13,6 +16,7 @@ export function AdminBuggyCard({
   activeZones,
   onClick,
 }: AdminBuggyCardProps) {
+  const { t } = useTranslation("admin");
   const isActive = buggy.isActive;
 
   return (
@@ -72,14 +76,14 @@ export function AdminBuggyCard({
             </div>
             {isActive ? (
               <p className="text-[10px] font-medium text-slate-600 truncate">
-                Tiba dlm{" "}
+                {t("arrivingIn")}{" "}
                 <span className="font-bold text-slate-800">
-                  {buggy.etaMinutes} mnt
+                  {buggy.etaMinutes} {t("minutesShort")}
                 </span>
               </p>
             ) : (
               <p className="text-[10px] font-semibold text-slate-400 italic truncate">
-                Sedang tidak beroperasi
+                {t("notOperating")}
               </p>
             )}
 
@@ -98,7 +102,7 @@ export function AdminBuggyCard({
                     d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
                   />
                 </svg>
-                <span>5 mnt</span>
+                <span>5 {t("minutesShort")}</span>
               </div>
             )}
           </div>

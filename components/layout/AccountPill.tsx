@@ -2,6 +2,7 @@
 
 import type { ReactNode } from "react";
 import { useEffect, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { Skeleton } from "@/components/ui/Skeleton";
 
 type UserSummary = {
@@ -59,6 +60,7 @@ export function AccountPill({
   defaultName = "Admin",
   loading = false,
 }: AccountPillProps) {
+  const { t } = useTranslation("common");
   const [open, setOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement | null>(null);
   const hasMenu = !!menuItems && menuItems.length > 0;
@@ -152,7 +154,7 @@ export function AccountPill({
       <div ref={containerRef} className="relative">
         <button
           type="button"
-          aria-label="Profil"
+          aria-label={t("profile")}
           aria-expanded={hasMenu ? open : undefined}
           onClick={handleTriggerClick}
           className="relative flex h-10 w-10 items-center justify-center rounded-full border border-white/20 bg-slate-900/50 text-white backdrop-blur-md transition hover:bg-slate-800/70 active:scale-95"
@@ -173,7 +175,7 @@ export function AccountPill({
     <div ref={containerRef} className="relative">
       <button
         type="button"
-        aria-label="Menu akun"
+        aria-label={t("accountMenu")}
         aria-expanded={hasMenu ? open : undefined}
         onClick={handleTriggerClick}
         className="flex w-full min-w-37.5 items-center gap-3 rounded-full border border-white/60 bg-white px-3 py-2 text-left shadow-[0_10px_30px_rgba(15,23,42,0.12)] backdrop-blur-xl transition hover:bg-white/90 active:scale-[0.98]"

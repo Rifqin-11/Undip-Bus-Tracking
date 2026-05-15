@@ -2,6 +2,7 @@
 
 import { useCallback, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+import { useTranslation } from "react-i18next";
 import { AuthModal } from "@/components/auth/AuthModal";
 import { MapCanvas } from "@/components/map/MapCanvas";
 import { BuggyList } from "@/components/buggy/PanelActive";
@@ -26,6 +27,8 @@ import { useNearestHaltes } from "@/hooks/useNearestHaltes";
 import { useBrowserNotificationToggle } from "@/hooks/useBrowserNotificationToggle";
 import { useDirectionSearch } from "@/hooks/useDirectionSearch";
 import type { PanelView } from "@/types/buggy";
+import { useLocale } from "@/lib/i18n/client";
+import { localizePath } from "@/lib/i18n/routing";
 import { createClient } from "@/lib/supabase/client";
 
 const HALTE_FALLBACK_POSITION = {
@@ -35,6 +38,10 @@ const HALTE_FALLBACK_POSITION = {
 
 export default function DashboardPage() {
   const router = useRouter();
+  const locale = useLocale();
+  const { t } = useTranslation("dashboard");
+  const { t: tAuth } = useTranslation("auth");
+  const { t: tNav } = useTranslation("navigation");
   const realtimeFeed = useBuggyLiveFeed();
   const { settings, updateSetting, resetSettings } = useAdminSettings();
   const { userProfile, loading: userLoading, isAuthenticated } = useUserRole();
@@ -59,7 +66,7 @@ export default function DashboardPage() {
   );
   const [selectedHalteId, setSelectedHalteId] = useState<string | null>(null);
   const [authModalOpen, setAuthModalOpen] = useState(false);
-  const [authRedirectTo, setAuthRedirectTo] = useState("/");
+  const [authRedirectTo, setAuthRedirectTo] = useState(localizePath("/", locale));
 
   const { userPosition, getLatestUserPosition } = useUserPosition();
   const { toasts, addToast, dismissToast } = useToastStack();
@@ -69,16 +76,19 @@ export default function DashboardPage() {
     fallback: liveBuggies[0]?.position ?? HALTE_FALLBACK_POSITION,
   });
 
-  const openAuthModal = useCallback((next = "/") => {
-    setAuthRedirectTo(next);
-    setAuthModalOpen(true);
-  }, []);
+  const openAuthModal = useCallback(
+    (next = "/") => {
+      setAuthRedirectTo(localizePath(next, locale));
+      setAuthModalOpen(true);
+    },
+    [locale],
+  );
 
   const requireDirectionLogin = useCallback(() => {
     if (userLoading) {
       addToast({
         tone: "info",
-        title: "Memeriksa sesi",
+        title: t("loading", { ns: "common" }),
         description: "Tunggu sebentar lalu coba lagi.",
         duration: 3_000,
       });
@@ -91,13 +101,13 @@ export default function DashboardPage() {
 
     addToast({
       tone: "warning",
-      title: "Masuk diperlukan",
-      description: "Masuk terlebih dahulu untuk menggunakan pencarian rute.",
+      title: tAuth("signInRequired"),
+      description: tAuth("signInRouteSearch"),
       duration: 5_000,
     });
     openAuthModal("/");
     return false;
-  }, [addToast, isAuthenticated, openAuthModal, userLoading]);
+  }, [addToast, isAuthenticated, openAuthModal, t, tAuth, userLoading]);
 
   const {
     fromInput,
@@ -134,10 +144,11 @@ export default function DashboardPage() {
     setFromInput("");
     setToInput("");
     resetToDestination();
-    router.push("/");
+    router.push(localizePath("/", locale));
     router.refresh();
   }, [
     resetToDestination,
+    locale,
     router,
     setDirectionResult,
     setFromInput,
@@ -209,8 +220,8 @@ export default function DashboardPage() {
     onAlert: ({ busName, halteName, distanceMeters }) => {
       addToast({
         tone: "bus",
-        title: `${busName} mendekati halte Anda`,
-        description: `${halteName} · ${distanceMeters} m lagi`,
+        title: t("nearbyBusTitle", { busName }),
+        description: `${halteName} · ${t("metersLeft", { ns: "common", distance: distanceMeters })}`,
         duration: 7_000,
       });
 
@@ -220,8 +231,8 @@ export default function DashboardPage() {
         "Notification" in window &&
         Notification.permission === "granted"
       ) {
-        new Notification(`${busName} mendekati halte Anda`, {
-          body: `${halteName} · ${distanceMeters} m lagi`,
+        new Notification(t("nearbyBusTitle", { busName }), {
+          body: `${halteName} · ${t("metersLeft", { ns: "common", distance: distanceMeters })}`,
         });
       }
     },
@@ -260,7 +271,7 @@ export default function DashboardPage() {
             <button
               type="button"
               onClick={() => handleSelectView("notifikasi")}
-              aria-label="Notifikasi"
+              aria-label={tNav("notifications")}
               className="relative flex h-10 w-10 items-center justify-center rounded-full border border-white/20 bg-slate-900/50 text-white backdrop-blur-md transition active:scale-95"
             >
               <BellIcon className="h-5 w-5" />
@@ -271,7 +282,7 @@ export default function DashboardPage() {
               loading={userLoading}
               onClick={() => handleSelectView("settings")}
               fallback={{
-                label: "Masuk",
+                label: tNav("signIn"),
                 icon: <LoginIcon className="h-5 w-5" />,
                 onClick: () => openAuthModal("/admin"),
               }}
@@ -293,8 +304,8 @@ export default function DashboardPage() {
           loading={userLoading}
           onClick={() => handleSelectView("settings")}
           fallback={{
-            label: "Masuk",
-            description: "Masuk di sini",
+            label: tNav("signIn"),
+            description: t("signInHere", { ns: "common" }),
             icon: <LoginIcon className="size-4" />,
             onClick: () => openAuthModal("/admin"),
           }}

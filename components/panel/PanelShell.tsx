@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import { XIcon } from "@/components/ui/Icons";
 import { DESKTOP_LAYOUT } from "@/lib/presenters/layout-metrics";
+import { useTranslation } from "react-i18next";
 
 type PanelShellProps = {
   onClose: () => void;
@@ -8,19 +9,20 @@ type PanelShellProps = {
 };
 
 function PanelHeader({ onClose }: { onClose: () => void }) {
+  const { t: tCommomn } = useTranslation("common");
   return (
     <div className="mb-4 flex items-start justify-between">
       <div>
         <p className="text-[8px] font-semibold uppercase tracking-[0.18em] text-slate-500">
-          Mobilitas Pintar UNDIP
+          {tCommomn("brandTagline")}
         </p>
         <h1 className="text-[22px] font-bold leading-[0.95] text-slate-900">
-          Monitoring Buggy
+          {tCommomn("title")}
         </h1>
       </div>
       <div className="flex items-center gap-2">
         <span className="rounded-full bg-emerald-100 px-2.5 py-1 text-[11px] font-semibold text-emerald-700">
-          Langsung
+          {tCommomn("realtime")}
         </span>
         <button
           type="button"

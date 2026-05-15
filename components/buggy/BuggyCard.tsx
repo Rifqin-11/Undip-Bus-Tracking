@@ -1,6 +1,7 @@
 "use client";
 
 import Image from "next/image";
+import { useTranslation } from "react-i18next";
 import type { Buggy } from "@/types/buggy";
 import { getBuggyStopNameAtOffset } from "@/lib/transit/buggy-route-utils";
 import { FavoriteStar } from "@/components/ui/FavoriteStar";
@@ -30,7 +31,9 @@ export function BuggyCard({
   onToggleFavorite,
   canFavorite = false,
 }: BuggyCardProps) {
-  const currentStop = getBuggyStopNameAtOffset(buggy, 0) || "Sedang di jalan";
+  const { t } = useTranslation("dashboard");
+  const { t: tCommon } = useTranslation("common");
+  const currentStop = getBuggyStopNameAtOffset(buggy, 0) || t("onTheRoad");
 
   // Stagger: tiap card 70ms lebih lambat. Maksimum 8 card untuk menghindari delay panjang.
   const cardDelayMs = Math.min(index, 8) * 70;
@@ -78,8 +81,8 @@ export function BuggyCard({
             size="sm"
             label={
               isFavorite
-                ? `Hapus ${buggy.name} dari favorit`
-                : `Tambah ${buggy.name} ke favorit`
+                ? t("removeNamedFavorite", { name: buggy.name })
+                : t("addNamedFavorite", { name: buggy.name })
             }
           />
         </div>
@@ -92,11 +95,11 @@ export function BuggyCard({
             <span
               className={`h-1.5 w-1.5 rounded-full ${buggy.isActive ? "bg-emerald-500" : "bg-slate-400"}`}
             />
-            {buggy.isActive ? "Aktif" : "Non-aktif"}
+            {buggy.isActive ? tCommon("active") : t("inactive")}
           </span>
           {canFavorite && isFavorite ? (
             <span className="inline-flex shrink-0 items-center gap-1 rounded-full border border-amber-200 bg-amber-50 px-2 py-0.5 text-[8px] font-bold uppercase tracking-wide text-amber-600 shadow-sm">
-              ★ Favorit
+              ★ {t("favorite")}
             </span>
           ) : null}
         </div>
@@ -105,16 +108,17 @@ export function BuggyCard({
           {buggy.isActive ? (
             <h3 className="text-[22px] font-black leading-tight tracking-tight text-[#0f1a3b]">
               <span className="text-[10px] font-semibold text-slate-400 tracking-normal mr-1 block -mb-1">
-                Tiba dlm
+                {t("arrivingIn")}
               </span>
               {buggy.etaMinutes}{" "}
               <span className="text-[12px] font-bold text-slate-400 tracking-normal">
-                mnt
+                {t("minutesShort")}
               </span>
             </h3>
           ) : (
             <h3 className="text-[17px] font-black leading-tight tracking-tight text-slate-400 mt-1">
-              Tidak Aktif<span className="text-[14px]"> 💤</span>
+              {tCommon("inactive")}
+              <span className="text-[14px]"> 💤</span>
             </h3>
           )}
         </div>

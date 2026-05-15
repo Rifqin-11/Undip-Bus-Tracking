@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 import type { Buggy } from "@/types/buggy";
 import type { Geofence, GeofenceEvent } from "@/types/geofence";
 import type { LatLngLiteral } from "@/types/map-canvas";
@@ -72,6 +73,8 @@ export function AdminDataSection({
   activePanel: controlledActivePanel,
   onActivePanelChange,
 }: AdminDataSectionProps) {
+  const { t } = useTranslation("admin");
+  const { t: tCommon } = useTranslation("common");
   const [isAddingBuggy, setIsAddingBuggy] = useState(false);
   const [internalActivePanel, setInternalActivePanel] =
     useState<AdminDataPanel>("statistics");
@@ -84,9 +87,9 @@ export function AdminDataSection({
   };
 
   const tabs: { id: AdminDataPanel; label: string }[] = [
-    { id: "statistics", label: "Statistik" },
-    { id: "buggy", label: "Buggy" },
-    { id: "geofence", label: "Geofence" },
+    { id: "statistics", label: t("statistics") },
+    { id: "buggy", label: t("buggy") },
+    { id: "geofence", label: t("geofence") },
   ];
 
   return (
@@ -138,11 +141,11 @@ export function AdminDataSection({
             >
               <div className="flex items-center justify-between gap-2">
                 <h2 className="text-[17px] font-bold tracking-tight text-slate-900">
-                  Data Operasional
+                  {tCommon("data")}
                 </h2>
                 <div className="flex items-center gap-2">
                   <span className="rounded-full bg-slate-200/80 px-2.5 py-1 text-[10px] font-semibold text-slate-700">
-                    {buggies.length} armada
+                    {tCommon("units", { count: buggies.length })}
                   </span>
                   {!readOnly ? (
                     <button
@@ -159,7 +162,7 @@ export function AdminDataSection({
 
             {buggies.length === 0 ? (
               <p className="py-4 text-center text-[12px] text-slate-400">
-                Belum ada data buggy.
+                {t("noBuggyData")}
               </p>
             ) : (
               <div className="space-y-2">

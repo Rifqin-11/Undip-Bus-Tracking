@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import { useTranslation } from "react-i18next";
 import { Skeleton } from "@/components/ui/Skeleton";
 import type { Announcement } from "@/types/announcement";
 import {
@@ -14,7 +15,8 @@ import {
 import { AdminNotificationFormPanel } from "./AdminNotificationFormPanel";
 import { DeleteConfirmModal } from "@/components/ui/DeleteConfirmModal";
 import { formatDistanceToNow } from "date-fns";
-import { id as idLocale } from "date-fns/locale";
+import { enUS, id as idLocale } from "date-fns/locale";
+import { useLocale } from "@/lib/i18n/client";
 
 type NotificationSectionProps = {
   isAdmin?: boolean;
@@ -23,6 +25,10 @@ type NotificationSectionProps = {
 export function NotificationSection({
   isAdmin = false,
 }: NotificationSectionProps) {
+  const locale = useLocale();
+  const dateLocale = locale === "id" ? idLocale : enUS;
+  const { t } = useTranslation("notifications");
+  const { t: tCommon } = useTranslation("common");
   const [announcements, setAnnouncements] = useState<Announcement[] | null>(
     null,
   );
@@ -96,10 +102,10 @@ export function NotificationSection({
       <div className="mb-3 flex items-start justify-between gap-2">
         <div>
           <h2 className="text-[17px] font-bold text-slate-900 tracking-tight">
-            {isAdmin ? "Manajemen Notifikasi" : "Pusat Informasi"}
+            {isAdmin ? t("management") : t("informationCenter")}
           </h2>
           <p className="text-[11px] text-slate-400">
-            Pengumuman dan pembaruan terkini
+            {t("titleDescription")}
           </p>
         </div>
         {isAdmin && (
@@ -139,7 +145,7 @@ export function NotificationSection({
             <BellRing className="h-6 w-6" />
           </div>
           <p className="text-[13px] font-semibold text-slate-700">
-            Belum ada pengumuman
+            {t("noInfo")}
           </p>
           <p className="mt-1 text-[11px] leading-relaxed text-slate-400">
             Informasi penting dan update rute
@@ -171,7 +177,7 @@ export function NotificationSection({
                   <span className="text-[9px] font-medium text-slate-400">
                     {formatDistanceToNow(new Date(ann.created_at), {
                       addSuffix: true,
-                      locale: idLocale,
+                    locale: dateLocale,
                     })}
                   </span>
                   {isAdmin && (
@@ -197,7 +203,7 @@ export function NotificationSection({
               </p>
               {isAdmin && !ann.is_active && (
                 <span className="mt-2 inline-block rounded-md bg-slate-100 px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider text-slate-500">
-                  Tidak Aktif
+                  {tCommon("inactive")}
                 </span>
               )}
             </div>
@@ -208,7 +214,7 @@ export function NotificationSection({
       {isAdmin && (
         <DeleteConfirmModal
           open={!!deleteTargetId}
-          title="Hapus Pengumuman?"
+          title={t("deleteAnnouncement")}
           description="Pengumuman ini akan dihapus secara permanen dan tidak dapat dikembalikan."
           isLoading={isDeleting}
           onClose={() => setDeleteTargetId(null)}

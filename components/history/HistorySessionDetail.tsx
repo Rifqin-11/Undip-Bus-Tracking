@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 import { ChevronLeftIcon, TrashIcon } from "@/components/ui/Icons";
 import { DeleteConfirmModal } from "@/components/ui/DeleteConfirmModal";
 import { fmtDate, fmtTime, fmtTimestamp, fmtDuration } from "@/lib/utils/format-time";
@@ -21,6 +22,8 @@ export function HistorySessionDetail({
   onDeleteSuccess,
   readOnly = false,
 }: HistorySessionDetailProps) {
+  const { t } = useTranslation("history");
+  const { t: tCommon } = useTranslation("common");
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
 
@@ -40,13 +43,13 @@ export function HistorySessionDetail({
 
       if (!res.ok) {
         const payload = await res.json();
-        throw new Error(payload.error || "Gagal menghapus");
+        throw new Error(payload.error || t("failedDelete"));
       }
 
       setShowDeleteModal(false);
       onDeleteSuccess?.();
     } catch (err) {
-      alert(getErrorMessage(err, "Terjadi kesalahan saat menghapus"));
+      alert(getErrorMessage(err, t("failedDelete")));
     } finally {
       setIsDeleting(false);
     }
@@ -60,41 +63,41 @@ export function HistorySessionDetail({
           type="button"
           onClick={onBack}
           className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-600 shadow-sm transition hover:border-slate-900 hover:bg-slate-900 hover:text-white active:scale-95"
-          aria-label="Kembali ke daftar sesi"
+          aria-label={t("backToSessionList")}
         >
           <ChevronLeftIcon className="h-4 w-4" />
         </button>
         <div className="min-w-0 flex-1">
           <p className="text-[10px] font-semibold uppercase tracking-widest text-slate-400">
-            Detail Sesi
+            {t("sessionDetail")}
           </p>
           <div className="flex items-center gap-2">
             <span className="rounded-lg bg-[#0f1a3b] px-2 py-0.5 text-[11px] font-bold text-white">
               {selectedBuggy.code}
             </span>
             <h2 className="truncate text-[15px] font-bold text-slate-900">
-              {s.isOngoing ? "Sesi Berlangsung" : `Sesi ${s.sessionNumber}`}
+              {s.isOngoing ? t("ongoingSession") : `${t("session")} ${s.sessionNumber}`}
             </h2>
           </div>
         </div>
         {s.isOngoing ? (
           <span className="flex shrink-0 items-center gap-1.5 rounded-full bg-emerald-100 px-2.5 py-0.5 text-[10px] font-semibold text-emerald-700">
             <span className="inline-block h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-500" />
-            Langsung
+            {t("live")}
           </span>
         ) : readOnly ? (
           <span className="rounded-full bg-slate-100 px-2.5 py-0.5 text-[10px] font-semibold text-slate-500">
-            Selesai
+            {t("completed")}
           </span>
         ) : (
           <div className="flex shrink-0 items-center gap-2">
             <span className="rounded-full bg-slate-100 px-2.5 py-0.5 text-[10px] font-semibold text-slate-500">
-              Selesai
+              {t("completed")}
             </span>
             <button
               onClick={() => setShowDeleteModal(true)}
               className="flex h-7 w-7 items-center justify-center rounded-lg border border-rose-100/50 bg-rose-50 text-rose-500 transition hover:bg-rose-100 hover:text-rose-600 active:scale-95"
-              aria-label="Hapus Sesi"
+              aria-label={t("deleteSession")}
             >
               <TrashIcon className="h-3.5 w-3.5" />
             </button>
@@ -105,20 +108,27 @@ export function HistorySessionDetail({
       {/* Waktu mulai & selesai */}
       <div className="rounded-3xl border border-slate-200/80 bg-white/70 p-3">
         <p className="mb-2 text-[10px] font-semibold uppercase tracking-widest text-slate-400">
-          Waktu
+          {t("time")}
         </p>
         <div className="grid grid-cols-2 gap-2">
           <div className="rounded-2xl bg-slate-50 p-2.5 text-center">
             <p className="text-[15px] font-bold tabular-nums text-slate-900">{fmtTimestamp(s.startedAt)}</p>
-            <p className="text-[10px] text-slate-400">{fmtDate(s.startedAt)} · Mulai</p>
+            <p className="text-[10px] text-slate-400">
+              {fmtDate(s.startedAt)} · {t("start")}
+            </p>
           </div>
           <div className="rounded-2xl bg-slate-50 p-2.5 text-center">
             {s.isOngoing ? (
-              <p className="text-[15px] font-bold text-emerald-600">Berlangsung</p>
+              <p className="text-[15px] font-bold text-emerald-600">
+                {t("ongoing")}
+              </p>
             ) : (
               <p className="text-[15px] font-bold tabular-nums text-slate-900">{fmtTimestamp(s.endedAt)}</p>
             )}
-            <p className="text-[10px] text-slate-400">{s.isOngoing ? "" : `${fmtDate(s.endedAt)} · `}Selesai</p>
+            <p className="text-[10px] text-slate-400">
+              {s.isOngoing ? "" : `${fmtDate(s.endedAt)} · `}
+              {t("completed")}
+            </p>
           </div>
         </div>
       </div>
@@ -126,18 +136,18 @@ export function HistorySessionDetail({
       {/* Statistik */}
       <div className="rounded-3xl border border-slate-200/80 bg-white/70">
         {[
-          { label: "Durasi", value: fmtDuration(s.durationMinutes) },
-          { label: "Titik GPS", value: `${s.pointCount} titik` },
-          { label: "Jarak Tempuh", value: s.totalDistanceKm !== null ? `${s.totalDistanceKm.toFixed(2)} km` : "—" },
-          { label: "Kec. Rata-rata", value: s.avgSpeedKmh !== null ? `${s.avgSpeedKmh.toFixed(1)} km/jam` : "—" },
+          { label: t("duration"), value: fmtDuration(s.durationMinutes) },
+          { label: t("gpsPoints"), value: `${s.pointCount} ${t("point")}` },
+          { label: t("distance"), value: s.totalDistanceKm !== null ? `${s.totalDistanceKm.toFixed(2)} km` : "—" },
+          { label: t("averageSpeed"), value: s.avgSpeedKmh !== null ? tCommon("kmh", { value: s.avgSpeedKmh.toFixed(1) }) : "—" },
           {
-            label: "Baterai",
+            label: t("battery"),
             value: s.batteryStart !== null && s.batteryEnd !== null
               ? `${s.batteryStart}% → ${s.batteryEnd}%`
               : "—",
           },
           {
-            label: "Pemakaian Baterai",
+            label: t("batteryUsage"),
             value: s.batteryUsed !== null
               ? `${s.batteryUsed > 0 ? "-" : "+"}${Math.abs(s.batteryUsed)}%`
               : "—",
@@ -159,7 +169,7 @@ export function HistorySessionDetail({
       {s.path.length > 0 && (
         <div className="rounded-3xl border border-slate-200/80 bg-white/70 p-3">
           <p className="mb-2 text-[10px] font-semibold uppercase tracking-widest text-slate-400">
-            Jalur GPS · {s.path.length} titik
+            {t("gpsRoute")} · {s.path.length} {t("point")}
           </p>
           <div className="max-h-65 space-y-1 overflow-y-auto pr-1">
             {s.path.map(([lat, lng, tsMs], idx) => (
@@ -182,10 +192,10 @@ export function HistorySessionDetail({
 
       <DeleteConfirmModal
         open={showDeleteModal}
-        title="Hapus Riwayat Sesi?"
-        description="Data rekaman GPS untuk sesi ini akan dihapus secara permanen dari server. Tindakan ini tidak dapat dibatalkan."
-        confirmLabel="Ya, Hapus Sesi"
-        loadingLabel="Menghapus..."
+        title={t("deleteSessionHistory")}
+        description={t("deleteSessionDescription")}
+        confirmLabel={t("confirmDeleteSession")}
+        loadingLabel={tCommon("deleting")}
         isLoading={isDeleting}
         onClose={() => setShowDeleteModal(false)}
         onConfirm={handleDelete}

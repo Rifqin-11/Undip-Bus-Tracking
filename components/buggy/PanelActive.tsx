@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useMemo } from "react";
 import type { ReactNode } from "react";
+import { useTranslation } from "react-i18next";
 import type { Buggy, HaltePoint, PanelView } from "@/types/buggy";
 import { HALTE_LOCATIONS } from "@/lib/transit/buggy-data";
 import { haversineMeters } from "@/lib/transit/buggy-route-utils";
@@ -74,6 +75,8 @@ export function BuggyList({
   onToggleFavoriteHalte,
   canFavorite = false,
 }: BuggyListProps) {
+  const { t } = useTranslation("dashboard");
+  const { t: tCommon } = useTranslation("common");
   const [buggyViewMode, setBuggyViewMode] = useState<"list" | "detail">("list");
   const [halteViewMode, setHalteViewMode] = useState<"list" | "detail">(
     selectedHalteId ? "detail" : "list",
@@ -211,16 +214,16 @@ export function BuggyList({
       ) : activeView === "buggy" ? (
         <div className="rounded-3xl border border-slate-200/80 bg-white/70 p-3">
           <div className="mb-3 flex items-center justify-between">
-            <h2 className="text-[17px] font-semibold text-slate-900">
-              Pilih Armada
+              <h2 className="text-[17px] font-semibold text-slate-900">
+              {t("chooseFleet")}
             </h2>
             <span className="rounded-full bg-[#0f1a3b] px-2.5 py-1 text-[10px] font-semibold text-white">
-              {`${displayBuggies.length} unit`}
+              {tCommon("units", { count: displayBuggies.length })}
             </span>
           </div>
           {displayBuggies.length === 0 ? (
             <p className="rounded-2xl border border-dashed border-slate-200 bg-slate-50 px-4 py-3 text-center text-[13px] text-slate-500">
-              tidak ada data armada buggy saat ini
+              {t("noFleetData")}
             </p>
           ) : (
             <div className="space-y-3">

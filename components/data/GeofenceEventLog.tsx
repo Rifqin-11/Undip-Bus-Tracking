@@ -1,3 +1,7 @@
+"use client";
+
+import { useTranslation } from "react-i18next";
+import { useLocale } from "@/lib/i18n/client";
 import type { GeofenceEvent } from "@/types/geofence";
 
 type GeofenceEventLogProps = {
@@ -5,10 +9,16 @@ type GeofenceEventLogProps = {
 };
 
 export function GeofenceEventLog({ events }: GeofenceEventLogProps) {
+  const { t } = useTranslation("admin");
+  const locale = useLocale();
+  const localeTag = locale === "id" ? "id-ID" : "en-US";
+
   return (
     <div className="rounded-3xl border border-slate-200/80 bg-white/70 p-3">
       <div className="mb-3 flex items-center justify-between gap-2">
-        <h2 className="text-[17px] font-semibold text-slate-900">Event Geofence</h2>
+        <h2 className="text-[17px] font-semibold text-slate-900">
+          {t("geofenceEvents")}
+        </h2>
         {events.length > 0 && (
           <span className="rounded-full bg-[#0f1a3b] px-2.5 py-1 text-[10px] font-semibold text-white">
             {events.length}
@@ -17,7 +27,7 @@ export function GeofenceEventLog({ events }: GeofenceEventLogProps) {
       </div>
       <div className="max-h-72 space-y-1.5 overflow-y-auto pr-1">
         {events.length === 0 ? (
-          <p className="py-2 text-[12px] text-slate-400">Belum ada event.</p>
+          <p className="py-2 text-[12px] text-slate-400">{t("noEvents")}</p>
         ) : (
           events.map((event) => (
             <div
@@ -33,12 +43,14 @@ export function GeofenceEventLog({ events }: GeofenceEventLogProps) {
                 <p className="text-[12px] font-semibold text-slate-800">
                   {event.buggyName}{" "}
                   <span className={event.type === "ENTER" ? "text-emerald-600" : "text-rose-500"}>
-                    {event.type === "ENTER" ? "masuk" : "keluar"}
+                    {event.type === "ENTER" ? t("entered") : t("exited")}
                   </span>{" "}
                   {event.geofenceName}
                 </p>
                 <p className="mt-0.5 text-[10px] text-slate-400">
-                  {new Date(event.timestamp).toLocaleString("id-ID", { hour12: false })}
+                  {new Date(event.timestamp).toLocaleString(localeTag, {
+                    hour12: false,
+                  })}
                 </p>
               </div>
             </div>

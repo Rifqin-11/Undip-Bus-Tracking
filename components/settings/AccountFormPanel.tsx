@@ -2,6 +2,7 @@
 
 import { ChevronLeft, Save, Loader2 } from "lucide-react";
 import { useMemo, useState, useEffect } from "react";
+import { useTranslation } from "react-i18next";
 import { createClient } from "@/lib/supabase/client";
 import type { Buggy } from "@/types/buggy";
 
@@ -21,7 +22,14 @@ const fallbackBuggyOptions = [
 ];
 
 export function AccountFormPanel({ mode, onClose }: AccountFormPanelProps) {
+  const { t } = useTranslation("settings");
+  const { t: tCommon } = useTranslation("common");
   const isCreate = mode === "create";
+  const roleLabel = (value: string) => {
+    if (value === "Admin") return tCommon("admin");
+    if (value === "Driver") return tCommon("driver");
+    return tCommon("generalUser");
+  };
 
   const [name, setName] = useState("");
   const [role, setRole] = useState("Pengguna umum");
@@ -43,7 +51,7 @@ export function AccountFormPanel({ mode, onClose }: AccountFormPanelProps) {
 
       const { data: account } = await supabase.from('accounts').select('*').eq('id', user.id).single();
 
-      setName(account?.name || user.user_metadata?.full_name || "Admin");
+      setName(account?.name || user.user_metadata?.full_name || tCommon("admin"));
       setEmail(account?.email || user.email || "admin");
       setRole(account?.role || "Pengguna umum");
       setBuggyId(account?.buggy_id || "");
@@ -86,20 +94,20 @@ export function AccountFormPanel({ mode, onClose }: AccountFormPanelProps) {
 
   useEffect(() => {
     if (confirmPassword && password !== confirmPassword) {
-      setErrorMsg("Kata sandi dan konfirmasi kata sandi tidak cocok!");
+      setErrorMsg(t("passwordMismatch"));
     } else {
       setErrorMsg("");
     }
-  }, [password, confirmPassword]);
+  }, [confirmPassword, password, t]);
 
   const handleSave = async () => {
     if (password !== confirmPassword) {
-      setErrorMsg("Kata sandi dan konfirmasi kata sandi tidak cocok!");
+      setErrorMsg(t("passwordMismatch"));
       return;
     }
 
     if (!name || !email || (isCreate && !password)) {
-      setErrorMsg("Nama, email, dan password wajib diisi!");
+      setErrorMsg(t("requiredCreateAccountFields"));
       return;
     }
 
@@ -116,7 +124,7 @@ export function AccountFormPanel({ mode, onClose }: AccountFormPanelProps) {
 
         const data = await res.json();
         if (!res.ok) {
-          throw new Error(data.message || "Gagal membuat akun");
+          throw new Error(data.message || t("failedCreateAccount"));
         }
 
         onClose(); // Sukses
@@ -127,7 +135,7 @@ export function AccountFormPanel({ mode, onClose }: AccountFormPanelProps) {
         } = await supabase.auth.getUser();
 
         if (!user) {
-          throw new Error("Sesi tidak ditemukan. Silakan masuk ulang.");
+          throw new Error(t("sessionMissing", { ns: "errors" }));
         }
 
         const authUpdate: {
@@ -163,7 +171,7 @@ export function AccountFormPanel({ mode, onClose }: AccountFormPanelProps) {
         onClose();
       }
     } catch (err: unknown) {
-      setErrorMsg(err instanceof Error ? err.message : "Terjadi kesalahan");
+      setErrorMsg(err instanceof Error ? err.message : t("genericError"));
     } finally {
       setIsLoading(false);
     }
@@ -182,10 +190,10 @@ export function AccountFormPanel({ mode, onClose }: AccountFormPanelProps) {
           </button>
           <div className="min-w-0 flex-1">
             <p className="text-[10px] font-semibold uppercase tracking-widest text-slate-400">
-              Akun
+              {t("account")}
             </p>
             <h2 className="truncate text-[17px] font-bold tracking-tight text-slate-900">
-              {isCreate ? "Buat Akun" : "Edit Akun"}
+              {isCreate ? t("createAccount") : t("editAccount")}
             </h2>
           </div>
         </div>
@@ -193,19 +201,19 @@ export function AccountFormPanel({ mode, onClose }: AccountFormPanelProps) {
         <div className="space-y-3">
           <label className="block rounded-2xl border border-slate-200 bg-white p-3">
             <span className="mb-1.5 block text-[11px] font-bold text-slate-500">
-              Nama
+              {t("name")}
             </span>
             <input
               value={name}
               onChange={(e) => setName(e.target.value)}
               className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-[14px] font-medium text-slate-800 outline-none transition focus:border-[#0f1a3b] focus:ring-2 focus:ring-[#0f1a3b]/20"
-              placeholder={isCreate ? "Nama akun" : "Memuat..."}
+              placeholder={isCreate ? t("accountName") : tCommon("loading")}
             />
           </label>
           {isCreate ? (
             <label className="block rounded-2xl border border-slate-200 bg-white p-3">
               <span className="mb-1.5 block text-[11px] font-bold text-slate-500">
-                Peran
+                {t("role")}
               </span>
               <select
                 value={role}
@@ -213,20 +221,20 @@ export function AccountFormPanel({ mode, onClose }: AccountFormPanelProps) {
                 className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-[14px] font-medium text-slate-800 outline-none transition focus:border-[#0f1a3b] focus:ring-2 focus:ring-[#0f1a3b]/20 appearance-none"
               >
                 <option value="" disabled>
-                  Pilih Peran
+                  {t("chooseRole")}
                 </option>
-                <option value="Driver">Driver</option>
-                <option value="Admin">Admin</option>
-                <option value="Pengguna umum">Pengguna umum</option>
+                <option value="Driver">{roleLabel("Driver")}</option>
+                <option value="Admin">{roleLabel("Admin")}</option>
+                <option value="Pengguna umum">{roleLabel("Pengguna umum")}</option>
               </select>
             </label>
           ) : (
             <div className="block rounded-2xl border border-slate-200 bg-white p-3">
               <span className="mb-1.5 block text-[11px] font-bold text-slate-500">
-                Peran
+                {t("role")}
               </span>
               <p className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-[14px] font-medium text-slate-700">
-                {role || "Pengguna umum"}
+                {role ? roleLabel(role) : roleLabel("Pengguna umum")}
               </p>
             </div>
           )}
@@ -234,7 +242,7 @@ export function AccountFormPanel({ mode, onClose }: AccountFormPanelProps) {
           {isCreate && role === "Driver" && (
             <label className="block rounded-2xl border border-slate-200 bg-white p-3">
               <span className="mb-1.5 block text-[11px] font-bold text-slate-500">
-                Pilih Buggy (Khusus Driver)
+                {t("chooseBuggyForDriver")}
               </span>
               <select
                 value={buggyId}
@@ -242,7 +250,7 @@ export function AccountFormPanel({ mode, onClose }: AccountFormPanelProps) {
                 className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-[14px] font-medium text-slate-800 outline-none transition focus:border-[#0f1a3b] focus:ring-2 focus:ring-[#0f1a3b]/20 appearance-none"
               >
                 <option value="" disabled>
-                  Pilih Buggy
+                  {t("chooseBuggy")}
                 </option>
                 {visibleBuggyOptions.map((buggy) => (
                   <option key={buggy.id} value={buggy.id}>
@@ -261,31 +269,31 @@ export function AccountFormPanel({ mode, onClose }: AccountFormPanelProps) {
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-[14px] font-medium text-slate-800 outline-none transition focus:border-[#0f1a3b] focus:ring-2 focus:ring-[#0f1a3b]/20"
-              placeholder={isCreate ? "email" : "Memuat..."}
+              placeholder={isCreate ? "email" : tCommon("loading")}
             />
           </label>
           <label className="block rounded-2xl border border-slate-200 bg-white p-3">
             <span className="mb-1.5 block text-[11px] font-bold text-slate-500">
-              Kata Sandi {isCreate ? "" : "(Kosongkan jika tidak ingin diubah)"}
+              {t("password")} {isCreate ? "" : `(${t("passwordOptionalHint")})`}
             </span>
             <input
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-[14px] font-medium text-slate-800 outline-none transition focus:border-[#0f1a3b] focus:ring-2 focus:ring-[#0f1a3b]/20"
-              placeholder="Kata sandi"
+              placeholder={t("passwordPlaceholder")}
             />
           </label>
           <label className="block rounded-2xl border border-slate-200 bg-white p-3">
             <span className="mb-1.5 block text-[11px] font-bold text-slate-500">
-              Konfirmasi Kata Sandi
+              {t("confirmPassword")}
             </span>
             <input
               type="password"
               value={confirmPassword}
               onChange={(e) => setConfirmPassword(e.target.value)}
               className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-[14px] font-medium text-slate-800 outline-none transition focus:border-[#0f1a3b] focus:ring-2 focus:ring-[#0f1a3b]/20"
-              placeholder="Konfirmasi kata sandi"
+              placeholder={t("confirmPasswordPlaceholder")}
             />
           </label>
           {errorMsg && (
@@ -302,7 +310,7 @@ export function AccountFormPanel({ mode, onClose }: AccountFormPanelProps) {
           className="mt-6 inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-[#0f1a3b] px-4 py-3 text-[14px] font-bold text-white shadow-sm transition hover:bg-[#1a2b55] active:scale-[0.98] disabled:opacity-70"
         >
           {isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
-          {isLoading ? "Menyimpan..." : "Simpan Akun"}
+          {isLoading ? tCommon("saving") : t("saveAccount")}
         </button>
       </div>
     </section>

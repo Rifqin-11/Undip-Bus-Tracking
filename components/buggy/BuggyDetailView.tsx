@@ -1,15 +1,17 @@
 "use client";
 
+import { useTranslation } from "react-i18next";
 import type { Buggy } from "@/types/buggy";
 import { ChevronLeftIcon } from "@/components/ui/Icons";
+import { useLocale } from "@/lib/i18n/client";
 import {
   estimateMinutesBetweenStops,
   getBuggyCurrentRouteIndex,
   getBuggyStopsInRouteOrder,
 } from "@/lib/transit/buggy-route-utils";
 
-function formatClock(date: Date): string {
-  const formatter = new Intl.DateTimeFormat("id-ID", {
+function formatClock(date: Date, locale: string): string {
+  const formatter = new Intl.DateTimeFormat(locale === "id" ? "id-ID" : "en-US", {
     hour: "2-digit",
     minute: "2-digit",
     hour12: false,
@@ -24,6 +26,8 @@ type BuggyDetailViewProps = {
 };
 
 export function BuggyDetailView({ buggy, onBack }: BuggyDetailViewProps) {
+  const locale = useLocale();
+  const { t } = useTranslation("dashboard");
   const now = new Date();
   const stops = getBuggyStopsInRouteOrder(buggy);
 
@@ -56,7 +60,10 @@ export function BuggyDetailView({ buggy, onBack }: BuggyDetailViewProps) {
       stopName,
       minuteOffset,
       isCurrent: routeOrderIndex === currentIndex,
-      timeLabel: formatClock(new Date(now.getTime() + minuteOffset * 60_000)),
+      timeLabel: formatClock(
+        new Date(now.getTime() + minuteOffset * 60_000),
+        locale,
+      ),
     };
   });
 
@@ -69,10 +76,10 @@ export function BuggyDetailView({ buggy, onBack }: BuggyDetailViewProps) {
 
   const crowdLabel =
     buggy.crowdLevel === "PENUH"
-      ? "Penuh"
+      ? t("full")
       : buggy.crowdLevel === "HAMPIR_PENUH"
-        ? "Hampir Penuh"
-        : "Longgar";
+        ? t("almostFull")
+        : t("spacious");
 
   return (
     <section>
@@ -80,7 +87,7 @@ export function BuggyDetailView({ buggy, onBack }: BuggyDetailViewProps) {
       <div className="mt-4 mb-3 flex min-w-0 items-start gap-3 rounded-2xl bg-white p-3">
         <button
           type="button"
-          aria-label="Kembali"
+          aria-label={t("back")}
           onClick={onBack}
           className="grid h-9 w-9 shrink-0 place-items-center rounded-xl border border-slate-300 bg-white text-slate-700 shadow-sm transition hover:border-slate-900 hover:bg-slate-900 hover:text-white"
         >
@@ -96,7 +103,7 @@ export function BuggyDetailView({ buggy, onBack }: BuggyDetailViewProps) {
             </h2>
           </div>
           <p className="truncate text-[13px] text-slate-600">
-            Dari {stops[currentIndex]}
+            {t("fromStop", { stop: stops[currentIndex] })}
           </p>
         </div>
         <span
@@ -114,7 +121,7 @@ export function BuggyDetailView({ buggy, onBack }: BuggyDetailViewProps) {
             <p className="text-[17px] font-black text-slate-800 leading-none">
               {buggy.capacity}{" "}
               <span className="text-[10px] font-bold text-slate-400">
-                kursi
+                {t("seats")}
               </span>
             </p>
             <div className="mt-2 text-[10px] font-semibold text-slate-500 uppercase tracking-widest flex items-center gap-1">
@@ -136,7 +143,7 @@ export function BuggyDetailView({ buggy, onBack }: BuggyDetailViewProps) {
     l-29.586,160.944C163.8,182.193,151.992,192.029,138.213,192.029z"
                 />
               </svg>
-              Total
+              {t("total")}
             </div>
           </div>
 
@@ -145,7 +152,7 @@ export function BuggyDetailView({ buggy, onBack }: BuggyDetailViewProps) {
             <p className="text-[17px] font-black text-slate-800 leading-none">
               {buggy.passengers}{" "}
               <span className="text-[10px] font-bold text-slate-400">
-                kursi
+                {t("seats")}
               </span>
             </p>
             <div className="mt-2 text-[10px] font-semibold text-slate-500 uppercase tracking-widest flex items-center gap-1">
@@ -162,7 +169,7 @@ export function BuggyDetailView({ buggy, onBack }: BuggyDetailViewProps) {
                   d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"
                 />
               </svg>
-              Terisi
+              {t("occupied")}
             </div>
           </div>
 
@@ -171,7 +178,7 @@ export function BuggyDetailView({ buggy, onBack }: BuggyDetailViewProps) {
             <p className="text-[17px] font-black text-emerald-600 leading-none">
               {Math.max(0, buggy.capacity - buggy.passengers)}{" "}
               <span className="text-[10px] font-bold text-slate-400">
-                kursi
+                {t("seats")}
               </span>
             </p>
             <div className="mt-2 text-[10px] font-semibold text-emerald-600 uppercase tracking-widest flex items-center gap-1">
@@ -188,7 +195,7 @@ export function BuggyDetailView({ buggy, onBack }: BuggyDetailViewProps) {
                   d="M5 13l4 4L19 7"
                 />
               </svg>
-              Kosong
+              {t("empty")}
             </div>
           </div>
         </div>
@@ -219,8 +226,10 @@ export function BuggyDetailView({ buggy, onBack }: BuggyDetailViewProps) {
                       </p>
                       <p className={`text-[12px] font-medium leading-tight ${stop.isCurrent ? "text-blue-600" : "text-slate-500"}`}>
                         {stop.isCurrent
-                          ? "Posisi armada saat ini"
-                          : `Estimasi tiba · ${stop.minuteOffset} mnt lagi`}
+                          ? t("currentFleetPosition")
+                          : t("estimatedArrivalIn", {
+                              minutes: stop.minuteOffset,
+                            })}
                       </p>
                     </div>
                     <p className={`shrink-0 whitespace-nowrap text-[16px] font-black ${stop.isCurrent ? "text-blue-700" : "text-slate-700"}`}>

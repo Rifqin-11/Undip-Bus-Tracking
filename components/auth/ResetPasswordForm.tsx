@@ -3,12 +3,15 @@
 import { FormEvent, useEffect, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
+import { useTranslation } from "react-i18next";
 import logo from "@/public/logo.svg";
 import { PasswordField } from "@/components/auth/PasswordField";
+import { useLocale } from "@/lib/i18n/client";
+import { localizePath } from "@/lib/i18n/routing";
 import { createClient } from "@/lib/supabase/client";
 
-function formatResetError(err: unknown) {
-  if (!(err instanceof Error)) return "Terjadi kesalahan.";
+function formatResetError(err: unknown, genericError: string) {
+  if (!(err instanceof Error)) return genericError;
 
   const message = err.message.toLowerCase();
   if (message.includes("session") || message.includes("auth")) {
@@ -20,6 +23,8 @@ function formatResetError(err: unknown) {
 
 export function ResetPasswordForm() {
   const supabase = createClient();
+  const locale = useLocale();
+  const { t } = useTranslation("auth");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -58,11 +63,11 @@ export function ResetPasswordForm() {
 
     try {
       if (password.length < 6) {
-        throw new Error("Kata sandi minimal 6 karakter.");
+        throw new Error(t("passwordTooShort"));
       }
 
       if (password !== confirmPassword) {
-        throw new Error("Kata sandi dan konfirmasi kata sandi tidak cocok.");
+        throw new Error(t("passwordMismatch"));
       }
 
       const { error } = await supabase.auth.updateUser({ password });
@@ -71,11 +76,9 @@ export function ResetPasswordForm() {
       await supabase.auth.signOut();
       setPassword("");
       setConfirmPassword("");
-      setSuccessMessage(
-        "Kata sandi berhasil diperbarui. Silakan login dengan kata sandi baru.",
-      );
+      setSuccessMessage(t("passwordUpdated"));
     } catch (err: unknown) {
-      setErrorMessage(formatResetError(err));
+      setErrorMessage(formatResetError(err, t("genericError")));
     } finally {
       setIsSubmitting(false);
     }
@@ -96,19 +99,18 @@ export function ResetPasswordForm() {
             SIMOBI
           </p>
           <h1 className="text-[24px] font-bold tracking-tight text-slate-900">
-            Buat Kata Sandi Baru
+            {t("saveNewPassword")}
           </h1>
         </div>
       </div>
 
       <p className="mb-5 text-sm leading-relaxed text-slate-600">
-        Masukkan kata sandi baru untuk akun Anda. Halaman ini hanya bisa
-        digunakan setelah membuka link reset dari email Supabase.
+        {t("resetPasswordDescription")}
       </p>
 
       <form className="space-y-3.5" onSubmit={handleSubmit}>
         <PasswordField
-          label="Kata Sandi Baru"
+          label={t("newPassword")}
           value={password}
           onChange={setPassword}
           placeholder="Minimal 6 karakter"
@@ -116,10 +118,10 @@ export function ResetPasswordForm() {
         />
 
         <PasswordField
-          label="Konfirmasi Kata Sandi Baru"
+          label={t("confirmNewPassword")}
           value={confirmPassword}
           onChange={setConfirmPassword}
-          placeholder="Masukkan ulang kata sandi"
+          placeholder={t("confirmPasswordPlaceholder")}
           autoComplete="new-password"
         />
 
@@ -140,15 +142,15 @@ export function ResetPasswordForm() {
           disabled={isSubmitting || !!successMessage}
           className="h-11 w-full rounded-2xl bg-[#0f1a3b] text-[14px] font-bold text-white transition hover:bg-[#1a2b59] disabled:cursor-not-allowed disabled:opacity-70"
         >
-          {isSubmitting ? "Menyimpan..." : "Simpan Kata Sandi Baru"}
+          {isSubmitting ? t("saving", { ns: "common" }) : t("saveNewPassword")}
         </button>
       </form>
 
       <Link
-        href="/login"
+        href={localizePath("/login", locale)}
         className="mt-3 flex h-11 w-full items-center justify-center rounded-2xl border border-slate-200 bg-white text-[14px] font-semibold text-slate-700 transition hover:bg-slate-50 active:scale-95"
       >
-        Kembali ke Login
+        {t("switchToSignIn")}
       </Link>
     </section>
   );

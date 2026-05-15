@@ -2,6 +2,7 @@
 
 import { usePathname, useRouter } from "next/navigation";
 import Image from "next/image";
+import { useTranslation } from "react-i18next";
 import { Settings } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { useUserRole } from "@/hooks/useUserRole";
@@ -15,6 +16,8 @@ import {
   HistoryIcon,
 } from "@/components/ui/Icons";
 import { DESKTOP_LAYOUT } from "@/lib/presenters/layout-metrics";
+import { useLocale } from "@/lib/i18n/client";
+import { localizePath, stripLocaleFromPath } from "@/lib/i18n/routing";
 import type { PanelView } from "@/types/buggy";
 import logo from "@/public/logo.svg";
 
@@ -38,8 +41,12 @@ export function FloatingSidebar({
 }: FloatingSidebarProps) {
   const pathname = usePathname();
   const router = useRouter();
-  const isOnAdminPage = pathname.startsWith("/admin");
-  const isOnOperatorPage = isOnAdminPage || pathname.startsWith("/driver");
+  const locale = useLocale();
+  const { t } = useTranslation("navigation");
+  const unlocalizedPathname = stripLocaleFromPath(pathname);
+  const isOnAdminPage = unlocalizedPathname.startsWith("/admin");
+  const isOnOperatorPage =
+    isOnAdminPage || unlocalizedPathname.startsWith("/driver");
   const shouldShowDataButton = isOnOperatorPage && showDataButton;
   const shouldShowSettingsButton = showSettingsButton;
   const { isAuthenticated } = useUserRole();
@@ -52,7 +59,7 @@ export function FloatingSidebar({
       } catch (err) {
         console.error("Gagal keluar:", err);
       }
-      router.push("/");
+      router.push(localizePath("/", locale));
       router.refresh();
       return;
     }
@@ -62,7 +69,7 @@ export function FloatingSidebar({
       return;
     }
 
-    router.push("/login");
+    router.push(localizePath("/login", locale));
   };
 
   return (
@@ -89,7 +96,7 @@ export function FloatingSidebar({
         {shouldShowDataButton ? (
           <button
             className={`${actionButtonClass} ${activeView === "data" || activeView === "data-detail" ? "bg-[#0f1a3b] text-white" : "text-slate-600 hover:bg-slate-100"}`}
-            aria-label="Data"
+            aria-label={t("data")}
             type="button"
             onClick={() => onSelectView("data")}
           >
@@ -99,7 +106,7 @@ export function FloatingSidebar({
         {shouldShowDataButton ? (
           <button
             className={`${actionButtonClass} ${activeView === "history" ? "bg-[#0f1a3b] text-white" : "text-slate-600 hover:bg-slate-100"}`}
-            aria-label="Riwayat"
+            aria-label={t("history")}
             type="button"
             onClick={() => onSelectView("history")}
           >
@@ -108,7 +115,7 @@ export function FloatingSidebar({
         ) : null}
         <button
           className={`${actionButtonClass} ${activeView === "buggy" ? "bg-[#0f1a3b] text-white" : "text-slate-600 hover:bg-slate-100"}`}
-          aria-label="Buggy"
+          aria-label={t("buggy")}
           type="button"
           onClick={() => onSelectView("buggy")}
         >
@@ -116,7 +123,7 @@ export function FloatingSidebar({
         </button>
         <button
           className={`${actionButtonClass} ${activeView === "halte" ? "bg-[#0f1a3b] text-white" : "text-slate-600 hover:bg-slate-100"}`}
-          aria-label="Halte"
+          aria-label={t("halte")}
           type="button"
           onClick={() => onSelectView("halte")}
         >
@@ -124,7 +131,7 @@ export function FloatingSidebar({
         </button>
         <button
           className={`${actionButtonClass} ${activeView === "notifikasi" ? "bg-[#0f1a3b] text-white" : "text-slate-600 hover:bg-slate-100"}`}
-          aria-label="Notifikasi"
+          aria-label={t("notifications")}
           type="button"
           onClick={() => onSelectView("notifikasi")}
         >
@@ -144,7 +151,7 @@ export function FloatingSidebar({
         {shouldShowSettingsButton ? (
           <button
             className={`${actionButtonClass} ${activeView === "settings" ? "bg-[#0f1a3b] text-white" : "text-slate-600 hover:bg-slate-100"}`}
-            aria-label="Pengaturan"
+            aria-label={t("settings")}
             type="button"
             onClick={() => onSelectView("settings")}
           >
@@ -153,7 +160,7 @@ export function FloatingSidebar({
         ) : null}
         <button
           className="grid h-11 w-11 place-items-center rounded-2xl border border-[#0f1a3b] bg-[#0f1a3b] text-white transition hover:bg-white hover:text-[#0f1a3b] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-300"
-          aria-label={isAuthenticated || isOnOperatorPage ? "Keluar" : "Masuk"}
+          aria-label={isAuthenticated || isOnOperatorPage ? t("signOut") : t("signIn")}
           type="button"
           onClick={handleAdminButtonClick}
         >

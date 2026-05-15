@@ -1,6 +1,9 @@
 import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
-import "./globals.css";
+import { I18nProvider } from "@/lib/i18n/client";
+import { locales, normalizeLocale } from "@/lib/i18n/config";
+import { getServerT } from "@/lib/i18n/server";
+import "../globals.css";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -12,21 +15,36 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
-export const metadata: Metadata = {
-  title: "SIMOBI - Sistem Pemantauan Buggy Listrik Realtime",
-  description:
-    "Sistem pemantauan buggy listrik realtime untuk Mobilitas Pintar Universitas Diponegoro.",
-  appleWebApp: {
-    capable: true,
-    statusBarStyle: "default",
-    title: "SIMOBI",
-  },
-  icons: {
-    icon: "/logo.svg",
-    shortcut: "/logo.svg",
-    apple: "/logo.svg",
-  },
-};
+type LocaleParams = Promise<{ locale: string }>;
+
+export function generateStaticParams() {
+  return locales.map((locale) => ({ locale }));
+}
+
+export async function generateMetadata({
+  params,
+}: {
+  params: LocaleParams;
+}): Promise<Metadata> {
+  const { locale: rawLocale } = await params;
+  const locale = normalizeLocale(rawLocale);
+  const t = await getServerT(locale, "common");
+
+  return {
+    title: t("metadataTitle"),
+    description: t("metadataDescription"),
+    appleWebApp: {
+      capable: true,
+      statusBarStyle: "default",
+      title: "SIMOBI",
+    },
+    icons: {
+      icon: "/logo.svg",
+      shortcut: "/logo.svg",
+      apple: "/logo.svg",
+    },
+  };
+}
 
 export const viewport: Viewport = {
   width: "device-width",
@@ -38,13 +56,18 @@ export const viewport: Viewport = {
   colorScheme: "light",
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
+  params,
 }: Readonly<{
   children: React.ReactNode;
+  params: LocaleParams;
 }>) {
+  const { locale: rawLocale } = await params;
+  const locale = normalizeLocale(rawLocale);
+
   return (
-    <html lang="id">
+    <html lang={locale}>
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
@@ -78,7 +101,7 @@ export default function RootLayout({
             </filter>
           </defs>
         </svg>
-        {children}
+        <I18nProvider locale={locale}>{children}</I18nProvider>
       </body>
     </html>
   );

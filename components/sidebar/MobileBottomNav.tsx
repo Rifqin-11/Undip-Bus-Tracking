@@ -2,6 +2,7 @@
 
 import React from "react";
 import { usePathname } from "next/navigation";
+import { useTranslation } from "react-i18next";
 import { Settings } from "lucide-react";
 import {
   BuggyIcon,
@@ -9,6 +10,7 @@ import {
   DataIcon,
   HistoryIcon,
 } from "@/components/ui/Icons";
+import { stripLocaleFromPath } from "@/lib/i18n/routing";
 import type { PanelView } from "@/types/buggy";
 
 type MobileBottomNavProps = {
@@ -33,8 +35,8 @@ const navItems: {
   label: string;
   Icon: React.FC<React.SVGProps<SVGSVGElement>>;
 }[] = [
-  { view: "buggy", label: "Buggy", Icon: BuggyIcon },
-  { view: "halte", label: "Halte", Icon: HalteIcon },
+  { view: "buggy", label: "buggy", Icon: BuggyIcon },
+  { view: "halte", label: "halte", Icon: HalteIcon },
 ];
 
 export function MobileBottomNav({
@@ -45,8 +47,11 @@ export function MobileBottomNav({
   showSettingsButton = true,
 }: MobileBottomNavProps) {
   const pathname = usePathname();
+  const { t } = useTranslation("navigation");
+  const unlocalizedPathname = stripLocaleFromPath(pathname);
   const isOnOperatorPage =
-    pathname.startsWith("/admin") || pathname.startsWith("/driver");
+    unlocalizedPathname.startsWith("/admin") ||
+    unlocalizedPathname.startsWith("/driver");
   const shouldShowDataButton = isOnOperatorPage && showDataButton;
   const shouldShowSettingsButton = showSettingsButton;
   const dragStartYRef = React.useRef<number | null>(null);
@@ -81,7 +86,7 @@ export function MobileBottomNav({
     >
       <button
         type="button"
-        aria-label="Tarik ke atas untuk membuka panel"
+        aria-label={t("openPanelHandle")}
         className="absolute inset-x-0 top-0 flex h-6 items-start justify-center rounded-t-full pt-2 touch-none"
         onPointerDown={handlePointerDown}
         onPointerMove={handlePointerMove}
@@ -95,7 +100,7 @@ export function MobileBottomNav({
         <button
           type="button"
           className={`${navButtonBase} ${activeView === "data" || activeView === "data-detail" ? activeButtonClass : inactiveButtonClass}`}
-          aria-label="Data"
+          aria-label={t("data")}
           onClick={() => onSelectView("data")}
         >
           <DataIcon className="h-6 w-6" />
@@ -106,7 +111,7 @@ export function MobileBottomNav({
         <button
           type="button"
           className={`${navButtonBase} ${activeView === "history" ? activeButtonClass : inactiveButtonClass}`}
-          aria-label="Riwayat"
+          aria-label={t("history")}
           onClick={() => onSelectView("history")}
         >
           <HistoryIcon className="h-6 w-6" />
@@ -118,7 +123,7 @@ export function MobileBottomNav({
           key={view}
           type="button"
           className={`${navButtonBase} ${activeView === view ? activeButtonClass : inactiveButtonClass}`}
-          aria-label={label}
+          aria-label={t(label)}
           onClick={() => onSelectView(view)}
         >
           <Icon className="h-6 w-6" />
@@ -129,7 +134,7 @@ export function MobileBottomNav({
         <button
           type="button"
           className={`${navButtonBase} ${activeView === "settings" ? activeButtonClass : inactiveButtonClass}`}
-          aria-label="Pengaturan"
+          aria-label={t("settings")}
           onClick={() => onSelectView("settings")}
         >
           <Settings className="h-6 w-6" />

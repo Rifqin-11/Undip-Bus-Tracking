@@ -1,11 +1,16 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { createClient } from "@/lib/supabase/client";
+import { LanguageSwitcher } from "@/components/i18n/LanguageSwitcher";
+import { useLocale } from "@/lib/i18n/client";
+import { localizePath } from "@/lib/i18n/routing";
 import {
   Bell,
   Info,
   KeyRound,
+  Languages,
   LogIn,
   LogOut,
   Map as MapIcon,
@@ -91,6 +96,10 @@ export function AppSettingsPanel({
   accountForm: controlledAccountForm,
   onAccountFormChange,
 }: AppSettingsPanelProps) {
+  const { t } = useTranslation("settings");
+  const { t: tCommon } = useTranslation("common");
+  const { t: tNav } = useTranslation("navigation");
+  const locale = useLocale();
   const [notificationPermission, setNotificationPermission] =
     useState<NotificationPermissionState>(() =>
       typeof window !== "undefined" && "Notification" in window
@@ -139,10 +148,10 @@ export function AppSettingsPanel({
   const rawAccountForm = controlledAccountForm ?? localAccountForm;
   const activeAccountForm = userProfile ? rawAccountForm : null;
   const notificationDescription = isDriver
-    ? "Notifikasi geofence armada"
+    ? t("driverNotification")
     : isAdmin
-      ? "Notifikasi operasional dasbor"
-      : "Notifikasi buggy mendekati halte";
+      ? t("adminNotification")
+      : t("publicNotification");
 
   const setActiveAccountForm = (nextMode: AccountFormMode | null) => {
     if (onAccountFormChange) {
@@ -174,17 +183,17 @@ export function AppSettingsPanel({
 
     const supabase = createClient();
     await supabase.auth.signOut();
-    window.location.href = "/";
+    window.location.href = localizePath("/", locale);
   };
 
   const permissionLabel =
     notificationPermission === "unsupported"
-      ? "Tidak didukung"
+      ? tCommon("notSupported")
       : notificationPermission === "granted"
-        ? "Diizinkan"
+        ? tCommon("allowed")
         : notificationPermission === "denied"
-          ? "Diblokir"
-          : "Belum diminta";
+          ? tCommon("blocked")
+          : tCommon("notRequested");
 
   if (activeAccountForm && (activeAccountForm === "edit" || isAdmin)) {
     return (
@@ -205,13 +214,13 @@ export function AppSettingsPanel({
     <section className="space-y-3">
       <div className="rounded-3xl border border-slate-200/80 bg-white/70 p-3">
         <div className="mb-3">
-          <h2 className="text-[17px] font-bold text-slate-900">Pengaturan</h2>
+          <h2 className="text-[17px] font-bold text-slate-900">{t("title")}</h2>
           <p className="text-[11px] text-slate-400">
             {isDashboardMode
               ? isDriver
-                ? "Profil driver dan akses data armada"
-                : "Akun dan preferensi dasbor admin"
-              : "Profil dan preferensi aplikasi"}
+                ? t("driverDescription")
+                : t("adminDescription")
+              : t("publicDescription")}
           </p>
         </div>
 
@@ -235,14 +244,14 @@ export function AppSettingsPanel({
                   <div className="flex flex-wrap items-center gap-2">
                     <h3 className="text-[15px] font-black tracking-tight text-slate-900">
                       {userProfile?.name ??
-                        (isDashboardMode ? "Admin" : "Tamu")}
+                        (isDashboardMode ? tCommon("admin") : tCommon("guest"))}
                     </h3>
                   </div>
                   <p className="mt-0.5 text-[12px] font-semibold text-slate-400">
                     {userProfile?.role ??
                       (isDashboardMode
-                        ? "SIMOBI Operator"
-                        : "Masuk untuk akses fitur yang lebih lengkap")}
+                        ? t("operatorDashboard")
+                        : t("signInBetterAccess"))}
                   </p>
                 </>
               )}
@@ -265,7 +274,7 @@ export function AppSettingsPanel({
                 className="flex-1 inline-flex items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white px-3 py-2.5 text-[12px] font-bold text-slate-700 transition hover:border-[#0f1a3b] hover:text-[#0f1a3b] active:scale-[0.98]"
               >
                 <UserCog className="h-4 w-4" />
-                Edit Akun
+                {t("editAccount")}
               </button>
               {isAdmin ? (
                 <button
@@ -274,7 +283,7 @@ export function AppSettingsPanel({
                   className="flex-1 inline-flex items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-[12px] font-bold text-slate-700 transition hover:border-[#0f1a3b] hover:text-[#0f1a3b] active:scale-[0.98]"
                 >
                   <Users className="h-4 w-4" />
-                  Kelola Akun
+                  {t("manageAccounts")}
                 </button>
               ) : null}
               <button
@@ -285,7 +294,7 @@ export function AppSettingsPanel({
                 }`}
               >
                 <LogOut className="h-4 w-4" />
-                Keluar
+                {tNav("signOut")}
               </button>
             </div>
           ) : (
@@ -295,7 +304,7 @@ export function AppSettingsPanel({
               className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-[#0f1a3b] px-3 py-2.5 text-[12px] font-bold text-white transition hover:bg-slate-900 active:scale-[0.98]"
             >
               <LogIn className="h-4 w-4" />
-              Masuk
+              {tNav("signIn")}
             </button>
           )}
         </div>
@@ -308,30 +317,31 @@ export function AppSettingsPanel({
           </span>
           <div className="min-w-0">
             <h3 className="text-[15px] font-bold tracking-tight text-slate-900">
-              Informasi Bus Kampus
+              {t("campusBusInfo")}
             </h3>
             <p className="text-[11px] font-semibold text-slate-400">
-              Solusi nyaman dan ramah lingkungan
+              {t("campusBusTagline")}
             </p>
           </div>
         </div>
         <div className="space-y-2 text-[12px] leading-relaxed text-slate-500">
           <p className="rounded-[18px] border border-slate-200 bg-white px-3 py-2.5">
-            SIMOBI membantu civitas UNDIP memantau bus kampus, halte, dan rute
-            aktif secara realtime.
+            {t("campusBusDescription")}
           </p>
           <div className="grid grid-cols-2 gap-2">
             <div className="rounded-[18px] border border-slate-200 bg-white px-3 py-2.5">
               <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">
-                Jadwal
+                {t("schedule")}
               </p>
               <p className="mt-1 font-bold text-slate-800">07.00 - 17.00</p>
             </div>
             <div className="rounded-[18px] border border-slate-200 bg-white px-3 py-2.5">
               <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">
-                Rute
+                {t("route")}
               </p>
-              <p className="mt-1 font-bold text-slate-800">Lingkar Kampus</p>
+              <p className="mt-1 font-bold text-slate-800">
+                {t("campusLoop")}
+              </p>
             </div>
           </div>
         </div>
@@ -340,11 +350,29 @@ export function AppSettingsPanel({
       <div className="space-y-2.5 rounded-3xl border border-slate-200/80 bg-white/70 p-3">
         <div className="px-1 pb-1">
           <h3 className="text-[15px] font-bold tracking-tight text-slate-900">
-            Pengaturan Aplikasi
+            {t("appPreferences")}
           </h3>
           <p className="text-[11px] font-semibold text-slate-400">
-            Preferensi tersimpan di perangkat ini
+            {t("appPreferencesDescription")}
           </p>
+        </div>
+
+        <div className={settingCardClass}>
+          <div className="flex min-w-0 items-center gap-3">
+            <span className="grid size-10 shrink-0 place-items-center rounded-2xl bg-indigo-50 text-indigo-600">
+              <Languages className="h-5 w-5" />
+            </span>
+            <div className="min-w-0">
+              <p className="text-[13px] font-black text-slate-900">
+                {tCommon("language")}
+              </p>
+              <p className="text-[11px] font-semibold text-slate-400">
+                {t("languageDescription")} ·{" "}
+                {locale === "id" ? tCommon("indonesian") : tCommon("english")}
+              </p>
+            </div>
+          </div>
+          <LanguageSwitcher variant="switch" />
         </div>
 
         {userLoading ? (
@@ -366,7 +394,7 @@ export function AppSettingsPanel({
               </span>
               <div className="min-w-0">
                 <p className="text-[13px] font-black text-slate-900">
-                  Notifikasi Browser
+                  {t("browserNotification")}
                 </p>
                 <p className="text-[11px] font-semibold text-slate-400">
                   {notificationDescription} · {permissionLabel}
@@ -376,7 +404,7 @@ export function AppSettingsPanel({
             <ToggleSwitch
               checked={settings.browserNotificationEnabled}
               onClick={() => void handleToggleNotification()}
-              label="Notifikasi Browser"
+              label={t("browserNotification")}
             />
           </div>
         ) : null}
@@ -388,10 +416,10 @@ export function AppSettingsPanel({
             </span>
             <div className="min-w-0">
               <p className="text-[13px] font-black text-slate-900">
-                Panel Terbuka
+                {t("openPanel")}
               </p>
               <p className="text-[11px] font-semibold text-slate-400">
-                {isDashboardMode ? "Dasbor operator" : "Dasbor utama"}
+                {isDashboardMode ? t("operatorDashboard") : t("mainDashboard")}
               </p>
             </div>
           </div>
@@ -403,7 +431,7 @@ export function AppSettingsPanel({
                 !settings.openPanelOnDashboard,
               )
             }
-            label="Panel terbuka otomatis"
+            label={t("openPanelAutomatically")}
           />
         </div>
 
@@ -415,16 +443,16 @@ export function AppSettingsPanel({
             </span>
             <div className="min-w-0">
               <p className="text-[13px] font-black text-slate-900">
-                Gaya Peta
+                {t("mapStyle")}
               </p>
               <p className="text-[11px] font-semibold text-slate-400">
-                Pilih tampilan dasar peta
+                {t("mapStyleDescription")}
               </p>
             </div>
           </div>
           <div
             role="radiogroup"
-            aria-label="Gaya peta"
+            aria-label={t("mapStyle")}
             className="grid grid-cols-3 gap-1 rounded-2xl bg-slate-100 p-1"
           >
             {MAP_STYLE_OPTIONS.map((opt) => {
@@ -442,7 +470,7 @@ export function AppSettingsPanel({
                       : "text-slate-500 hover:text-slate-700"
                   }`}
                 >
-                  {opt.label}
+                  {t(`mapStyle${opt.value[0].toUpperCase()}${opt.value.slice(1)}`)}
                 </button>
               );
             })}
@@ -458,17 +486,18 @@ export function AppSettingsPanel({
               </span>
               <div className="min-w-0 flex-1">
                 <p className="text-[13px] font-black text-slate-900">
-                  Radius Peringatan Bus
+                  {t("approachingBusRadius")}
                 </p>
                 <p className="text-[11px] font-semibold text-slate-400">
-                  Bus dianggap mendekat halte saat &lt;{" "}
-                  {settings.nearbyAlertRadiusMeters} m
+                  {t("approachingBusRadiusDescription", {
+                    distance: settings.nearbyAlertRadiusMeters,
+                  })}
                 </p>
               </div>
             </div>
             <div
               role="radiogroup"
-              aria-label="Radius alert bus mendekat"
+              aria-label={t("approachingBusRadiusAria")}
               className="flex flex-wrap gap-1.5"
             >
               {NEARBY_ALERT_RADIUS_OPTIONS.map((opt) => {
@@ -504,10 +533,10 @@ export function AppSettingsPanel({
               </span>
               <div className="min-w-0">
                 <p className="text-[13px] font-black text-slate-900">
-                  Mode Ringkas
+                  {t("compactMode")}
                 </p>
                 <p className="text-[11px] font-semibold text-slate-400">
-                  Panel data admin
+                  {t("compactModeDescription")}
                 </p>
               </div>
             </div>
@@ -519,7 +548,7 @@ export function AppSettingsPanel({
                   !settings.compactAdminPanels,
                 )
               }
-              label="Mode compact panel data"
+              label={t("compactAdminPanelMode")}
             />
           </div>
         ) : null}
@@ -536,14 +565,14 @@ export function AppSettingsPanel({
             }`}
             aria-label={
               pendingReset
-                ? "Konfirmasi reset preferensi"
-                : "Reset preferensi aplikasi"
+                ? t("confirmResetPreferences")
+                : t("resetAppPreferences")
             }
           >
             <RotateCcw className="h-4 w-4" />
             {pendingReset
-              ? "Tap lagi untuk konfirmasi reset"
-              : "Reset preferensi ke default"}
+              ? t("tapAgainConfirmReset")
+              : t("resetToDefault")}
           </button>
         ) : null}
 
@@ -554,12 +583,12 @@ export function AppSettingsPanel({
             <KeyRound className="h-4 w-4 shrink-0 text-slate-500" />
           )}
           {isAdmin
-              ? "Sesi admin mengikuti autentikasi yang sudah aktif."
+            ? t("adminSessionActive")
             : isDriver
-              ? "Driver hanya dapat melihat armada yang ditugaskan."
+              ? t("driverAssignedFleetOnly")
               : userProfile
-                ? "Akun pengguna aktif untuk fitur publik."
-                : "Masuk diperlukan untuk membuka fitur tambahan."}
+                ? t("signedInFeature")
+                : t("signInMoreFeatures")}
         </div>
       </div>
     </section>

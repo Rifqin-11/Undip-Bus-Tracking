@@ -1,7 +1,53 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
+import {
+  defaultLocale,
+  localeCookieName,
+  normalizeLocale,
+  type Locale,
+} from "@/lib/i18n/config";
+import {
+  getLocaleFromPath,
+  localizePath,
+  pathShouldSkipLocale,
+  stripLocaleFromPath,
+} from "@/lib/i18n/routing";
+
+function getPreferredLocale(request: NextRequest): Locale {
+  const cookieLocale = request.cookies.get(localeCookieName)?.value;
+  if (cookieLocale) return normalizeLocale(cookieLocale);
+
+  const acceptLanguage = request.headers.get("accept-language");
+  const browserLocale = acceptLanguage
+    ?.split(",")
+    .map((part) => part.split(";")[0]?.trim())
+    .find(Boolean);
+
+  return browserLocale ? normalizeLocale(browserLocale) : defaultLocale;
+}
+
+function redirectToLocalized(request: NextRequest, pathname: string) {
+  const locale = getPreferredLocale(request);
+  const url = request.nextUrl.clone();
+  url.pathname = localizePath(pathname, locale);
+  const response = NextResponse.redirect(url);
+  response.cookies.set(localeCookieName, locale, {
+    path: "/",
+    maxAge: 60 * 60 * 24 * 365,
+    sameSite: "lax",
+  });
+  return response;
+}
 
 export async function proxy(request: NextRequest) {
+  const originalPathname = request.nextUrl.pathname;
+  if (!pathShouldSkipLocale(originalPathname)) {
+    const pathLocale = getLocaleFromPath(originalPathname);
+    if (!pathLocale) {
+      return redirectToLocalized(request, originalPathname);
+    }
+  }
+
   let supabaseResponse = NextResponse.next({
     request,
   });
@@ -38,7 +84,9 @@ export async function proxy(request: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser();
 
-  const { pathname } = request.nextUrl;
+  const { pathname: rawPathname } = request.nextUrl;
+  const activeLocale = getLocaleFromPath(rawPathname) ?? getPreferredLocale(request);
+  const pathname = stripLocaleFromPath(rawPathname);
   const authenticated = !!user;
   const isAdminPage = pathname.startsWith("/admin");
   const isDriverPage = pathname.startsWith("/driver");
@@ -81,13 +129,15 @@ export async function proxy(request: NextRequest) {
         );
       }
 
-      const loginUrl = new URL("/login", request.url);
-      loginUrl.searchParams.set("next", pathname);
+      const loginUrl = new URL(localizePath("/login", activeLocale), request.url);
+      loginUrl.searchParams.set("next", localizePath(pathname, activeLocale));
       return NextResponse.redirect(loginUrl);
     }
 
     if ((isAdminPage || isDriverPage) && role === "Pengguna umum") {
-      return NextResponse.redirect(new URL("/", request.url));
+      return NextResponse.redirect(
+        new URL(localizePath("/", activeLocale), request.url),
+      );
     }
 
     if ((isAdminApi || isHistoryApi) && role !== "Admin") {
@@ -107,21 +157,33 @@ export async function proxy(request: NextRequest) {
 
   if (pathname === "/login" && authenticated) {
     if (role === "Admin") {
-      return NextResponse.redirect(new URL("/admin", request.url));
+      return NextResponse.redirect(
+        new URL(localizePath("/admin", activeLocale), request.url),
+      );
     }
 
     if (role === "Driver") {
-      return NextResponse.redirect(new URL("/driver", request.url));
+      return NextResponse.redirect(
+        new URL(localizePath("/driver", activeLocale), request.url),
+      );
     }
 
-    return NextResponse.redirect(new URL("/", request.url));
+    return NextResponse.redirect(
+      new URL(localizePath("/", activeLocale), request.url),
+    );
   }
 
+  supabaseResponse.cookies.set(localeCookieName, activeLocale, {
+    path: "/",
+    maxAge: 60 * 60 * 24 * 365,
+    sameSite: "lax",
+  });
   return supabaseResponse;
 }
 
 export const config = {
   matcher: [
+    "/((?!_next/static|_next/image|favicon.ico|logo.svg|.*\\..*).*)",
     "/admin/:path*",
     "/driver/:path*",
     "/login",

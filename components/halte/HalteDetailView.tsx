@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import type { HaltePoint, Buggy } from "@/types/buggy";
 import {
   BusStopIcon,
@@ -88,6 +89,8 @@ export function HalteDetailView({
   isFavorite = false,
   onToggleFavorite,
 }: HalteDetailViewProps) {
+  const { t } = useTranslation("dashboard");
+  const { t: tCommon } = useTranslation("common");
   const schedule =
     halte.schedule && halte.schedule.length > 0
       ? halte.schedule
@@ -96,9 +99,9 @@ export function HalteDetailView({
     halte.facilities && halte.facilities.length > 0
       ? halte.facilities
       : [
-          "Gedung kuliah terdekat",
-          "Area parkir tersedia",
-          "Akses ramah disabilitas",
+          t("defaultFacilityBuilding"),
+          t("defaultFacilityParking"),
+          t("defaultFacilityAccessible"),
         ];
   const mapsUrl = `https://www.google.com/maps/dir/?api=1&destination=${halte.lat},${halte.lng}`;
 
@@ -164,7 +167,7 @@ export function HalteDetailView({
       await navigator.clipboard.writeText(
         `${shareData.text}\n${shareData.url}`,
       );
-      alert("Link halte telah disalin ke clipboard!");
+      alert(t("copiedToClipboard"));
     }
   };
 
@@ -196,7 +199,7 @@ export function HalteDetailView({
     <div className="mb-3 flex items-center justify-center gap-3 rounded-[20px] border border-white/60 bg-white/40 backdrop-blur-md p-3 shadow-sm transition-all">
         <button
           type="button"
-          aria-label="Kembali"
+          aria-label={t("back")}
           onClick={onBack}
           className="grid h-9 w-9 shrink-0 place-items-center rounded-xl border border-slate-300/60 bg-white/60 text-slate-700 shadow-sm transition hover:border-slate-900 hover:bg-slate-900 hover:text-white active:scale-95"
         >
@@ -205,7 +208,7 @@ export function HalteDetailView({
 
         <div className="min-w-0 flex-1 flex flex-col justify-center">
           <p className="text-[10px] font-semibold uppercase tracking-widest text-slate-500 mb-0.5">
-            Detail Halte
+            {t("stopDetail")}
           </p>
           <div className="flex items-center gap-2">
             <h3 className="truncate text-lg leading-tight font-bold text-slate-900 tracking-tight">
@@ -215,7 +218,9 @@ export function HalteDetailView({
               <span
                 className={`shrink-0 rounded-full px-2 py-0.5 text-[9px] font-bold shadow-sm ring-1 ${etaMinutes === 0 ? "bg-emerald-100 text-emerald-700 ring-emerald-200" : "bg-[#0f1a3b]/10 text-[#0f1a3b] ring-[#0f1a3b]/20"}`}
               >
-                {etaMinutes === 0 ? "Buggy Tiba" : `ETA ${etaMinutes}mnt`}
+                {etaMinutes === 0
+                  ? t("buggyArrived")
+                  : t("eta", { minutes: etaMinutes })}
               </span>
             )}
           </div>
@@ -228,8 +233,8 @@ export function HalteDetailView({
               size="md"
               label={
                 isFavorite
-                  ? `Hapus ${halte.name} dari favorit`
-                  : `Tambah ${halte.name} ke favorit`
+                  ? t("removeNamedFavorite", { name: halte.name })
+                  : t("addNamedFavorite", { name: halte.name })
               }
             />
           </div>
@@ -263,7 +268,7 @@ export function HalteDetailView({
           {svError && (
             <div className="flex h-44 w-full flex-col items-center justify-center gap-2 bg-white/40 text-slate-400">
               <EyeIcon className="h-8 w-8" />
-              <p className="text-[12px] font-medium">Gambar tidak tersedia</p>
+              <p className="text-[12px] font-medium">{t("imageUnavailable")}</p>
             </div>
           )}
 
@@ -274,7 +279,7 @@ export function HalteDetailView({
             <p className="text-[11px] font-medium text-white/80">
               {imageType === "streetview"
                 ? "Street View · Google Maps"
-                : "Citra Satelit · Google Maps"}
+                : t("satelliteImage")}
             </p>
           </figcaption>
         </figure>
@@ -287,7 +292,7 @@ export function HalteDetailView({
             className="flex items-center justify-center gap-1.5 rounded-[16px] border border-white/60 bg-white/60 backdrop-blur-md p-2.5 text-[12px] font-bold text-slate-800 shadow-sm transition hover:bg-white hover:shadow-md active:scale-95"
           >
             <NavigateIcon className="h-4 w-4" />
-            <span className="truncate">Arahkan</span>
+            <span className="truncate">{t("direct")}</span>
           </a>
 
           <button
@@ -296,7 +301,7 @@ export function HalteDetailView({
             className="flex min-w-0 items-center justify-center gap-1 rounded-[16px] border border-white/60 bg-white/60 backdrop-blur-md p-2 text-[11px] font-bold text-slate-800 shadow-sm transition hover:bg-white hover:shadow-md active:scale-95 min-[360px]:gap-1.5 min-[360px]:p-2.5 min-[360px]:text-[12px]"
           >
             <ShareIcon className="h-4 w-4" />
-            <span className="truncate">Bagikan</span>
+            <span className="truncate">{t("share")}</span>
           </button>
 
           <a
@@ -317,7 +322,9 @@ export function HalteDetailView({
             </p>
             <div className="mt-1 flex items-center gap-1.5">
               <div className="h-2.5 w-2.5 rounded-full bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.6)]" />
-              <p className="text-[13px] font-bold text-slate-800">Aktif</p>
+              <p className="text-[13px] font-bold text-slate-800">
+                {tCommon("active")}
+              </p>
             </div>
           </div>
 
@@ -326,7 +333,7 @@ export function HalteDetailView({
               RUTE
             </p>
             <p className="mt-1 text-[13px] font-bold text-slate-800">
-              Loop Utama
+              {t("routeMainLoop")}
             </p>
           </div>
         </div>
@@ -335,10 +342,10 @@ export function HalteDetailView({
       <div className="mt-3 rounded-[20px] border border-white/60 bg-white/70 backdrop-blur-md p-3.5 shadow-sm">
         <div className="mb-3 flex items-center justify-between">
           <p className="text-[14px] font-bold text-slate-800 tracking-tight">
-            Jadwal Hari Ini
+            {t("todaySchedule")}
           </p>
           <span className="rounded-lg bg-emerald-100 px-2 py-0.5 text-[10px] font-bold tracking-wide text-emerald-700">
-            AKTIF
+            {tCommon("active").toUpperCase()}
           </span>
         </div>
 
@@ -356,13 +363,13 @@ export function HalteDetailView({
         </div>
 
         <p className="mt-3 text-center text-[10px] font-medium leading-relaxed text-slate-500">
-          *Estimasi keberangkatan dapat berubah tergantung kondisi jalan.
+          {t("scheduleDisclaimer")}
         </p>
       </div>
 
       <div className="mt-3 rounded-[20px] border border-white/60 bg-white/70 backdrop-blur-md p-3.5 shadow-sm">
         <p className="mb-2.5 text-[13px] font-bold text-slate-800 tracking-tight">
-          Fasilitas Terdekat
+          {t("nearestFacilities")}
         </p>
         <div className="space-y-2">
           {facilities.map((f, idx) => (

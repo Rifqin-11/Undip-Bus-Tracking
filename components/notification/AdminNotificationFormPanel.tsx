@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 import type { Announcement } from "@/types/announcement";
 import { ChevronLeft, Save } from "lucide-react";
 
@@ -17,6 +18,8 @@ export function AdminNotificationFormPanel({
   onBack,
   onSaved,
 }: AdminNotificationFormPanelProps) {
+  const { t } = useTranslation("notifications");
+  const { t: tCommon } = useTranslation("common");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [formData, setFormData] = useState({
     title: announcement?.title ?? "",
@@ -66,10 +69,10 @@ export function AdminNotificationFormPanel({
         </button>
         <div className="min-w-0 flex-1">
           <p className="text-[10px] font-semibold uppercase tracking-widest text-slate-400">
-            {announcement ? "Edit Pengumuman" : "Buat Pengumuman Baru"}
+            {announcement ? t("editAnnouncement") : t("createAnnouncement")}
           </p>
           <h2 className="truncate text-[17px] font-bold text-slate-900 tracking-tight">
-            {announcement ? "Edit" : "Baru"}
+            {announcement ? tCommon("edit") : t("newAnnouncement")}
           </h2>
         </div>
       </div>
@@ -77,7 +80,7 @@ export function AdminNotificationFormPanel({
       <form id="announcement-form" onSubmit={handleSubmit} className="space-y-3">
         <div>
           <label className="mb-1.5 block text-[10px] font-bold uppercase tracking-widest text-slate-500">
-            Judul
+            {t("title")}
           </label>
           <input
             type="text"
@@ -85,13 +88,13 @@ export function AdminNotificationFormPanel({
             value={formData.title}
             onChange={(e) => setFormData({ ...formData, title: e.target.value })}
             className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-[14px] font-medium text-slate-800 outline-none transition focus:border-blue-400 focus:ring-2 focus:ring-blue-100"
-            placeholder="Contoh: Perubahan Rute"
+            placeholder={t("announcementExample")}
           />
         </div>
 
         <div>
           <label className="mb-1.5 block text-[10px] font-bold uppercase tracking-widest text-slate-500">
-            Tipe Notifikasi
+            {t("notificationType")}
           </label>
           <select
             value={formData.type}
@@ -103,15 +106,15 @@ export function AdminNotificationFormPanel({
             }
             className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-[14px] font-medium text-slate-800 outline-none transition focus:border-blue-400 focus:ring-2 focus:ring-blue-100"
           >
-            <option value="info">Info (Biru)</option>
-            <option value="warning">Peringatan (Kuning)</option>
-            <option value="alert">Darurat (Merah)</option>
+            <option value="info">{t("info")} (Biru)</option>
+            <option value="warning">{t("warning")} (Kuning)</option>
+            <option value="alert">{t("alert")} (Merah)</option>
           </select>
         </div>
 
         <div>
           <label className="mb-1.5 block text-[10px] font-bold uppercase tracking-widest text-slate-500">
-            Isi Pengumuman
+            {t("content")}
           </label>
           <textarea
             required
@@ -119,7 +122,7 @@ export function AdminNotificationFormPanel({
             value={formData.content}
             onChange={(e) => setFormData({ ...formData, content: e.target.value })}
             className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-[14px] font-medium text-slate-800 outline-none transition focus:border-blue-400 focus:ring-2 focus:ring-blue-100"
-            placeholder="Tuliskan isi pengumuman..."
+            placeholder={t("writeMessage")}
           />
         </div>
 
@@ -146,7 +149,7 @@ export function AdminNotificationFormPanel({
             className="flex w-full items-center justify-center gap-2 rounded-xl bg-slate-900 py-3 text-[13px] font-bold text-white transition hover:bg-slate-800 disabled:opacity-50"
           >
             <Save className="h-4 w-4" />
-            {isSubmitting ? "Menyimpan..." : "Simpan Pengumuman"}
+            {isSubmitting ? tCommon("saving") : t("saveAnnouncement")}
           </button>
         </div>
       </form>

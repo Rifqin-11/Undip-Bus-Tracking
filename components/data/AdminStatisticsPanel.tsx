@@ -1,7 +1,9 @@
 "use client";
 
 import { useState, useEffect, useMemo, type ReactNode } from "react";
+import { useTranslation } from "react-i18next";
 import { SkeletonStat, Skeleton } from "@/components/ui/Skeleton";
+import { useLocale } from "@/lib/i18n/client";
 import {
   Activity,
   AlertTriangle,
@@ -29,8 +31,8 @@ type AdminStatisticsPanelProps = {
 type StatTone = "navy" | "emerald" | "amber" | "rose" | "slate";
 type ChartDatum = { label: string; value: number; helper?: string };
 
-function formatDelta(current: number, previous: number): string {
-  if (previous <= 0) return current > 0 ? "Baru" : "0%";
+function formatDelta(current: number, previous: number, newLabel: string): string {
+  if (previous <= 0) return current > 0 ? newLabel : "0%";
   const delta = ((current - previous) / previous) * 100;
   const prefix = delta >= 0 ? "+" : "";
   return `${prefix}${delta.toFixed(0)}%`;
@@ -77,15 +79,15 @@ function StatTile({
   );
 }
 
-function formatMinutes(value: number) {
-  if (value < 60) return `${Math.round(value)} mnt`;
+function formatMinutes(value: number, minuteLabel: string, hourLabel: string) {
+  if (value < 60) return `${Math.round(value)} ${minuteLabel}`;
   const hours = Math.floor(value / 60);
   const minutes = Math.round(value % 60);
-  return `${hours}j ${minutes}m`;
+  return `${hours}${hourLabel} ${minutes}m`;
 }
 
-function getNearestHalteName(lat: number, lng: number) {
-  if (HALTE_LOCATIONS.length === 0) return "Area tidak diketahui";
+function getNearestHalteName(lat: number, lng: number, unknownArea: string) {
+  if (HALTE_LOCATIONS.length === 0) return unknownArea;
 
   let nearest = HALTE_LOCATIONS[0];
   let nearestDistance = haversineMeters({ lat, lng }, nearest);
@@ -170,9 +172,13 @@ function MiniAreaChart({
 function RankingBars({
   data,
   maxItems = 5,
+  emptyLabel,
+  localeTag,
 }: {
   data: ChartDatum[];
   maxItems?: number;
+  emptyLabel: string;
+  localeTag: string;
 }) {
   const visible = data.slice(0, maxItems);
   const maxValue = Math.max(1, ...visible.map((item) => item.value));
@@ -180,7 +186,7 @@ function RankingBars({
   if (visible.length === 0) {
     return (
       <p className="rounded-2xl border border-dashed border-slate-200 bg-slate-50 px-3 py-5 text-center text-[12px] font-semibold text-slate-400">
-        Belum ada data.
+        {emptyLabel}
       </p>
     );
   }
@@ -194,7 +200,7 @@ function RankingBars({
               {item.label}
             </p>
             <p className="shrink-0 text-[10px] font-black text-[#0f1a3b]">
-              {item.helper ?? item.value.toLocaleString("id-ID")}
+              {item.helper ?? item.value.toLocaleString(localeTag)}
             </p>
           </div>
           <div className="h-2 overflow-hidden rounded-full bg-slate-100">
@@ -212,6 +218,9 @@ function RankingBars({
 }
 
 export function AdminStatisticsPanel({ buggies }: AdminStatisticsPanelProps) {
+  const { t } = useTranslation("admin");
+  const locale = useLocale();
+  const localeTag = locale === "id" ? "id-ID" : "en-US";
   const now = new Date();
 
   const [sessions, setSessions] = useState<BuggySession[]>([]);
@@ -437,7 +446,7 @@ export function AdminStatisticsPanel({ buggies }: AdminStatisticsPanelProps) {
       const sampledPoints = session.path.filter((_, index) => index % 4 === 0);
       for (const [lat, lng] of sampledPoints) {
         if (!Number.isFinite(lat) || !Number.isFinite(lng)) continue;
-        const areaName = getNearestHalteName(lat, lng);
+        const areaName = getNearestHalteName(lat, lng, t("unknownArea"));
         areaCounts.set(areaName, (areaCounts.get(areaName) ?? 0) + 1);
       }
     }
@@ -446,10 +455,10 @@ export function AdminStatisticsPanel({ buggies }: AdminStatisticsPanelProps) {
       .map(([label, value]) => ({
         label,
         value,
-        helper: `${value.toLocaleString("id-ID")} titik`,
+        helper: `${value.toLocaleString(localeTag)} ${t("points")}`,
       }))
       .sort((a, b) => b.value - a.value);
-  }, [filteredSessions]);
+  }, [filteredSessions, localeTag, t]);
 
   const dominantStopRanking = useMemo(() => {
     const stopCounts = new Map<string, number>();
@@ -461,7 +470,7 @@ export function AdminStatisticsPanel({ buggies }: AdminStatisticsPanelProps) {
       const endpointCandidates = [points[0], points[points.length - 1]];
       for (const [lat, lng] of endpointCandidates) {
         if (!Number.isFinite(lat) || !Number.isFinite(lng)) continue;
-        const stopName = getNearestHalteName(lat, lng);
+        const stopName = getNearestHalteName(lat, lng, t("unknownArea"));
         stopCounts.set(stopName, (stopCounts.get(stopName) ?? 0) + 1);
       }
     }
@@ -470,10 +479,10 @@ export function AdminStatisticsPanel({ buggies }: AdminStatisticsPanelProps) {
       .map(([label, value]) => ({
         label,
         value,
-        helper: `${value.toLocaleString("id-ID")} pemberhentian`,
+        helper: `${value.toLocaleString(localeTag)} ${t("stops")}`,
       }))
       .sort((a, b) => b.value - a.value);
-  }, [filteredSessions]);
+  }, [filteredSessions, localeTag, t]);
 
   const mostVisitedArea = areaTrafficRanking[0];
   const dominantStop = dominantStopRanking[0];
@@ -484,14 +493,14 @@ export function AdminStatisticsPanel({ buggies }: AdminStatisticsPanelProps) {
     for (let i = 0; i < 6; i++) {
       const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
       const val = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
-      const label = d.toLocaleDateString("id-ID", {
+      const label = d.toLocaleDateString(localeTag, {
         month: "long",
         year: "numeric",
       });
       opts.push({ value: val, label });
     }
     return opts;
-  }, [now]);
+  }, [localeTag, now]);
 
   return (
     <section className="space-y-3">
@@ -500,10 +509,10 @@ export function AdminStatisticsPanel({ buggies }: AdminStatisticsPanelProps) {
         <div className="mb-4 flex items-start justify-between gap-3">
           <div className="min-w-0 flex-1">
             <h2 className="truncate text-[18px] font-bold tracking-tight text-[#0f1a3b]">
-              Statistik Operasional
+              {t("operationalStatistics")}
             </h2>
             <p className="text-[11px] font-medium text-slate-500">
-              Ringkasan untuk admin kampus dan pengelola buggy
+              {t("operationalStatisticsSummary")}
             </p>
           </div>
           <div className="relative flex items-center gap-1.5 rounded-full border border-slate-200 bg-white px-3 py-1.5 text-[11px] font-bold text-[#0f1a3b] shadow-sm">
@@ -536,14 +545,14 @@ export function AdminStatisticsPanel({ buggies }: AdminStatisticsPanelProps) {
                 <Users className="h-5 w-5" />
               </div>
               <p className="text-[10px] font-bold uppercase tracking-widest text-slate-500 leading-tight">
-                Total
+                {t("total")}
                 <br />
-                Penumpang
+                {t("passengers")}
               </p>
             </div>
             <div className="flex items-end gap-2">
               <span className="text-[36px] font-black leading-none text-[#0f1a3b] tracking-tighter">
-                {totalPassengers.toLocaleString("id-ID")}
+                {totalPassengers.toLocaleString(localeTag)}
               </span>
               <span className="mb-1.5 rounded-full bg-slate-100 px-1.5 py-0.5 text-[9px] font-bold text-slate-600">
                 live
@@ -555,16 +564,14 @@ export function AdminStatisticsPanel({ buggies }: AdminStatisticsPanelProps) {
 
           <div className="relative z-10 flex w-1/2 flex-col pl-3">
             <p className="mb-1 text-[10px] font-bold uppercase tracking-widest text-slate-400 leading-tight">
-              Rata-rata
-              <br />
-              Harian
+              {t("dailyAverage")}
             </p>
             <div className="flex items-end gap-1.5">
               <span className="text-[28px] font-black leading-none text-[#0f1a3b] tracking-tighter">
                 {averagePassengersPerDay.toFixed(0)}
               </span>
               <span className="mb-1 text-[11px] font-bold text-slate-400">
-                org / hari
+                {t("peoplePerDay")}
               </span>
             </div>
             <div className="mt-2 h-1.5 w-full max-w-[80px] rounded-full bg-[#0f1a3b]" />
@@ -577,17 +584,16 @@ export function AdminStatisticsPanel({ buggies }: AdminStatisticsPanelProps) {
               <div className="mb-1 flex items-center gap-1.5">
                 <Users className="h-4 w-4 text-[#0f1a3b]" />
                 <p className="text-[9px] font-bold uppercase tracking-widest text-slate-500">
-                  Waktu Puncak Penumpang
+                  {t("passengerPeakTime")}
                 </p>
               </div>
               <p className="text-[11px] font-medium leading-snug text-slate-400">
-                Estimasi beban penumpang per jam dari trip bulanan dan okupansi
-                langsung.
+                {t("passengerPeakDescription")}
               </p>
             </div>
             <span className="shrink-0 rounded-full bg-slate-100 px-2 py-1 text-[9px] font-black text-[#0f1a3b]">
               {peakPassengerHour.value > 0
-                ? `${peakPassengerHour.label} · ${peakPassengerHour.value} org`
+                ? `${peakPassengerHour.label} · ${peakPassengerHour.value} ${t("peopleShort")}`
                 : "-"}
             </span>
           </div>
@@ -601,7 +607,7 @@ export function AdminStatisticsPanel({ buggies }: AdminStatisticsPanelProps) {
               <div className="mb-2 flex items-center gap-1.5">
                 <Waypoints className="h-4 w-4 text-slate-400" />
                 <p className="text-[9px] font-bold uppercase tracking-widest text-slate-500">
-                  Total Perjalanan
+                  {t("totalTrips")}
                 </p>
               </div>
               <div className="flex items-center justify-between">
@@ -609,11 +615,11 @@ export function AdminStatisticsPanel({ buggies }: AdminStatisticsPanelProps) {
                   {isLoadingSessions ? (
                     <SkeletonStat width="w-14" height="h-5" />
                   ) : (
-                    totalPerjalanan.toLocaleString("id-ID")
+                    totalPerjalanan.toLocaleString(localeTag)
                   )}
                 </span>
                 <span className="rounded-full bg-slate-100 px-1.5 py-0.5 text-[9px] font-bold text-slate-600">
-                  {formatDelta(totalPerjalanan, previousTotalPerjalanan)}
+                  {formatDelta(totalPerjalanan, previousTotalPerjalanan, t("new"))}
                 </span>
               </div>
             </div>
@@ -621,7 +627,7 @@ export function AdminStatisticsPanel({ buggies }: AdminStatisticsPanelProps) {
               <div className="mb-2 flex items-center gap-1.5">
                 <Zap className="h-4 w-4 text-slate-400" />
                 <p className="text-[9px] font-bold uppercase tracking-widest text-slate-500">
-                  Total Jarak
+                  {t("totalDistance")}
                 </p>
               </div>
               <div className="flex items-center justify-between">
@@ -638,7 +644,7 @@ export function AdminStatisticsPanel({ buggies }: AdminStatisticsPanelProps) {
                   </span>
                 </span>
                 <span className="rounded-full bg-slate-100 px-1.5 py-0.5 text-[9px] font-bold text-slate-600">
-                  {formatDelta(totalJarakKm, previousTotalJarakKm)}
+                  {formatDelta(totalJarakKm, previousTotalJarakKm, t("new"))}
                 </span>
               </div>
             </div>
@@ -649,7 +655,7 @@ export function AdminStatisticsPanel({ buggies }: AdminStatisticsPanelProps) {
               <div className="mb-2 flex items-center gap-1.5">
                 <Timer className="h-4 w-4 text-slate-400" />
                 <p className="text-[9px] font-bold uppercase tracking-widest text-slate-500">
-                  Rata-rata Kec.
+                  {t("averageSpeedShort")}
                 </p>
               </div>
               <span className="flex items-baseline gap-1">
@@ -661,7 +667,7 @@ export function AdminStatisticsPanel({ buggies }: AdminStatisticsPanelProps) {
                   )}
                 </span>
                 <span className="text-[10px] font-bold text-slate-400">
-                  km/jam
+                  {t("speedUnit")}
                 </span>
               </span>
             </div>
@@ -669,14 +675,14 @@ export function AdminStatisticsPanel({ buggies }: AdminStatisticsPanelProps) {
               <div className="mb-2 flex items-center gap-1.5">
                 <Clock className="h-4 w-4 text-slate-400" />
                 <p className="text-[9px] font-bold uppercase tracking-widest text-slate-500">
-                  Total Waktu
+                  {t("totalTime")}
                 </p>
               </div>
               <span className="text-[20px] font-black text-[#0f1a3b]">
                 {isLoadingSessions ? (
                   <SkeletonStat width="w-16" height="h-5" />
                 ) : (
-                  `${totalWaktuHours}j ${totalWaktuMins}m`
+                  `${totalWaktuHours}${t("hoursShort")} ${totalWaktuMins}m`
                 )}
               </span>
             </div>
@@ -689,21 +695,30 @@ export function AdminStatisticsPanel({ buggies }: AdminStatisticsPanelProps) {
               <div className="mb-1 flex items-center gap-1.5">
                 <AlertTriangle className="h-4 w-4 text-amber-500" />
                 <p className="text-[9px] font-bold uppercase tracking-widest text-slate-500">
-                  Keterlambatan Perjalanan
+                  {t("tripDelay")}
                 </p>
               </div>
               <p className="text-[11px] font-medium leading-snug text-slate-400">
-                Akumulasi durasi di atas target normal{" "}
-                {delayTrend.targetDuration > 0
-                  ? formatMinutes(delayTrend.targetDuration)
-                  : "-"}
-                .
+                {t("tripDelayDescription", {
+                  duration:
+                    delayTrend.targetDuration > 0
+                      ? formatMinutes(
+                          delayTrend.targetDuration,
+                          t("minutesShort"),
+                          t("hoursShort"),
+                        )
+                      : "-",
+                })}
               </p>
             </div>
             <span className="shrink-0 rounded-full bg-amber-50 px-2 py-1 text-[9px] font-black text-amber-600">
               {peakDelay.value > 0
-                ? `${peakDelay.label} · ${formatMinutes(peakDelay.value)}`
-                : "Normal"}
+                ? `${peakDelay.label} · ${formatMinutes(
+                    peakDelay.value,
+                    t("minutesShort"),
+                    t("hoursShort"),
+                  )}`
+                : t("normal")}
             </span>
           </div>
           <MiniAreaChart data={delayTrend.data} color="#f59e0b" />
@@ -713,17 +728,20 @@ export function AdminStatisticsPanel({ buggies }: AdminStatisticsPanelProps) {
           <div className="grid grid-cols-2 border-b border-slate-100">
             <StatTile
               icon={<Bus className="h-4 w-4" />}
-              label="Armada aktif"
+              label={t("activeFleet")}
               value={`${activeBuggies.length}/${buggies.length}`}
-              helper={`${activeRate.toFixed(0)}% armada mengirim GPS`}
+              helper={t("activeFleetHelper", { rate: activeRate.toFixed(0) })}
               className="border-r border-slate-100"
               tone={activeBuggies.length > 0 ? "emerald" : "rose"}
             />
             <StatTile
               icon={<Activity className="h-4 w-4" />}
-              label="Utilisasi kursi"
+              label={t("seatUtilization")}
               value={`${occupancyRate.toFixed(0)}%`}
-              helper={`${totalPassengers}/${totalCapacity} kursi terisi`}
+              helper={t("seatsFilledShort", {
+                passengers: totalPassengers,
+                capacity: totalCapacity,
+              })}
               className="border-r border-slate-100"
               tone={
                 occupancyRate >= 85
@@ -737,21 +755,26 @@ export function AdminStatisticsPanel({ buggies }: AdminStatisticsPanelProps) {
           <div className="grid grid-cols-2">
             <StatTile
               icon={<Gauge className="h-4 w-4" />}
-              label="Kec. live rata-rata"
+              label={t("averageLiveSpeed")}
               value={`${averageLiveSpeed.toFixed(1)}`}
-              helper={`Tertinggi ${fastestBuggy?.code ?? "-"} ${fastestBuggy ? `${fastestBuggy.speedKmh.toFixed(1)} km/jam` : ""}`}
+              helper={t("highestSpeed", {
+                code: fastestBuggy?.code ?? "-",
+                speed: fastestBuggy
+                  ? `${fastestBuggy.speedKmh.toFixed(1)} ${t("speedUnit")}`
+                  : "",
+              })}
               className="border-r border-slate-100"
               tone="navy"
             />
             <StatTile
               icon={<Battery className="h-4 w-4" />}
-              label="Drain baterai/trip"
+              label={t("batteryDrainPerTrip")}
               value={
                 averageBatteryUsed === null
                   ? "-"
                   : `${averageBatteryUsed.toFixed(1)}%`
               }
-              helper="Rata-rata pemakaian baterai per sesi"
+              helper={t("batteryDrainHelper")}
               tone="slate"
             />
           </div>
@@ -771,33 +794,44 @@ export function AdminStatisticsPanel({ buggies }: AdminStatisticsPanelProps) {
           <div className="mt-3 rounded-[16px] bg-slate-50/80 p-3.5">
             <div className="mb-3 flex items-center justify-between gap-2">
               <p className="text-[9px] font-bold uppercase tracking-widest text-slate-500">
-                Aktivitas Perjalanan Harian
+                {t("dailyTripActivity")}
               </p>
               <span className="rounded-full bg-white px-2 py-1 text-[9px] font-bold text-slate-500">
-                Tersibuk: {busiestDay.count > 0 ? `tgl ${busiestDay.day}` : "-"}
+                {t("busiestDay", {
+                  day:
+                    busiestDay.count > 0
+                      ? t("dayLabel", { day: busiestDay.day })
+                      : "-",
+                })}
               </span>
             </div>
             <div className="flex h-14 w-full items-end gap-[2px] sm:gap-1">
-              {dailyTrends.map((t) => (
+              {dailyTrends.map((trend) => (
                 <div
-                  key={t.day}
-                  title={`Tanggal ${t.day}: ${t.count} perjalanan`}
+                  key={trend.day}
+                  title={t("dateTripCount", {
+                    day: trend.day,
+                    count: trend.count,
+                  })}
                   className="group relative flex w-full flex-col justify-end h-full"
                 >
                   <div
                     className={`w-full rounded-t-sm transition-all ${
-                      t.count > 0
+                      trend.count > 0
                         ? "bg-[#0f1a3b]/30 group-hover:bg-[#0f1a3b]/60 cursor-pointer"
                         : "bg-transparent"
                     }`}
                     style={{
-                      height: `${(t.count / maxDailyCount) * 100}%`,
-                      minHeight: t.count > 0 ? "4px" : "0",
+                      height: `${(trend.count / maxDailyCount) * 100}%`,
+                      minHeight: trend.count > 0 ? "4px" : "0",
                     }}
                   />
                   {/* Tooltip on hover */}
                   <div className="pointer-events-none absolute -top-8 left-1/2 -translate-x-1/2 rounded bg-slate-800 px-2 py-1 text-[10px] font-bold text-white opacity-0 shadow-sm transition-opacity group-hover:opacity-100 whitespace-nowrap z-10">
-                    Tgl {t.day}: {t.count}
+                    {t("shortDateTripCount", {
+                      day: trend.day,
+                      count: trend.count,
+                    })}
                   </div>
                 </div>
               ))}
@@ -817,18 +851,22 @@ export function AdminStatisticsPanel({ buggies }: AdminStatisticsPanelProps) {
                   <div className="mb-1 flex items-center gap-1.5">
                     <Route className="h-4 w-4 text-[#0f1a3b]" />
                     <p className="text-[9px] font-bold uppercase tracking-widest text-slate-500">
-                      Area Sering Dilalui
+                      {t("frequentArea")}
                     </p>
                   </div>
                   <p className="text-[11px] font-medium leading-snug text-slate-400">
-                    Berdasarkan titik GPS yang paling dekat ke area halte.
+                    {t("frequentAreaDescription")}
                   </p>
                 </div>
               </div>
-              <RankingBars data={areaTrafficRanking} />
+              <RankingBars
+                data={areaTrafficRanking}
+                emptyLabel={t("noData")}
+                localeTag={localeTag}
+              />
               {mostVisitedArea ? (
                 <p className="mt-3 rounded-2xl bg-slate-50 px-3 py-2 text-[10px] font-semibold text-slate-500">
-                  Area dominan:{" "}
+                  {t("dominantArea")}{" "}
                   <span className="font-black text-[#0f1a3b]">
                     {mostVisitedArea.label}
                   </span>
@@ -842,18 +880,22 @@ export function AdminStatisticsPanel({ buggies }: AdminStatisticsPanelProps) {
                   <div className="mb-1 flex items-center gap-1.5">
                     <MapPin className="h-4 w-4 text-emerald-500" />
                     <p className="text-[9px] font-bold uppercase tracking-widest text-slate-500">
-                      Titik Pemberhentian Dominan
+                      {t("dominantStopTitle")}
                     </p>
                   </div>
                   <p className="text-[11px] font-medium leading-snug text-slate-400">
-                    Dihitung dari titik awal dan akhir sesi perjalanan.
+                    {t("dominantStopDescription")}
                   </p>
                 </div>
               </div>
-              <RankingBars data={dominantStopRanking} />
+              <RankingBars
+                data={dominantStopRanking}
+                emptyLabel={t("noData")}
+                localeTag={localeTag}
+              />
               {dominantStop ? (
                 <p className="mt-3 rounded-2xl bg-emerald-50 px-3 py-2 text-[10px] font-semibold text-emerald-700">
-                  Pemberhentian tersering:{" "}
+                  {t("dominantStop")}{" "}
                   <span className="font-black">{dominantStop.label}</span>
                 </p>
               ) : null}
@@ -864,7 +906,7 @@ export function AdminStatisticsPanel({ buggies }: AdminStatisticsPanelProps) {
         <div className="mt-3 grid grid-cols-3 gap-2 rounded-[20px] border border-slate-100 bg-slate-50/80 p-3">
           <div>
             <p className="text-[9px] font-bold uppercase tracking-widest text-slate-400">
-              Jarak / trip
+              {t("distancePerTrip")}
             </p>
             <div className="mt-1 text-[18px] font-black text-[#0f1a3b]">
               {isLoadingSessions ? (
@@ -876,19 +918,19 @@ export function AdminStatisticsPanel({ buggies }: AdminStatisticsPanelProps) {
           </div>
           <div>
             <p className="text-[9px] font-bold uppercase tracking-widest text-slate-400">
-              Durasi / trip
+              {t("durationPerTrip")}
             </p>
             <div className="mt-1 text-[18px] font-black text-[#0f1a3b]">
               {isLoadingSessions ? (
                 <SkeletonStat width="w-16" height="h-4" />
               ) : (
-                `${averageDurationPerTrip.toFixed(0)} mnt`
+                `${averageDurationPerTrip.toFixed(0)} ${t("minutesShort")}`
               )}
             </div>
           </div>
           <div>
             <p className="text-[9px] font-bold uppercase tracking-widest text-slate-400">
-              Perjalanan / armada
+              {t("tripsPerFleet")}
             </p>
             <div className="mt-1 text-[18px] font-black text-[#0f1a3b]">
               {isLoadingSessions ? (
@@ -902,8 +944,7 @@ export function AdminStatisticsPanel({ buggies }: AdminStatisticsPanelProps) {
 
         {/* Footer info */}
         <p className="mt-4 text-center text-[10px] leading-relaxed text-slate-400">
-          *Statistik bulanan dihitung dari sesi perjalanan, sedangkan status
-          armada memakai data GPS langsung terbaru.
+          {t("monthlyStatsFootnote")}
         </p>
       </div>
     </section>

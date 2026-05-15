@@ -1,7 +1,10 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { CENTER_UNDIP } from "@/lib/transit/buggy-data";
+import { useLocale } from "@/lib/i18n/client";
+import type { Locale } from "@/lib/i18n/config";
 import type {
   CircleHandle,
   GoogleMapsWindow,
@@ -63,7 +66,7 @@ function waitForMapsApiReady(timeoutMs = 10_000): Promise<MapsApi> {
   });
 }
 
-function loadGoogleMapsScript(apiKey: string): Promise<MapsApi> {
+function loadGoogleMapsScript(apiKey: string, locale: Locale): Promise<MapsApi> {
   const mapsApi = getMapsApi();
   if (isMapsApiReady(mapsApi)) return Promise.resolve(mapsApi);
 
@@ -89,7 +92,7 @@ function loadGoogleMapsScript(apiKey: string): Promise<MapsApi> {
 
     const script = document.createElement("script");
     script.id = SCRIPT_ID;
-    script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&loading=async&libraries=marker&callback=${CALLBACK_NAME}`;
+    script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&loading=async&libraries=marker&language=${locale}&callback=${CALLBACK_NAME}`;
     script.async = true;
     script.defer = true;
     script.onerror = () =>
@@ -151,6 +154,9 @@ export function MapCanvas({
   onBuggyMarkerClick,
   onHalteMarkerClick,
 }: MapCanvasProps) {
+  const locale = useLocale();
+  const { t } = useTranslation("dashboard");
+  const { t: tErrors } = useTranslation("errors");
   const mapRef = useRef<HTMLDivElement | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [mapReady, setMapReady] = useState(false);
@@ -198,7 +204,7 @@ export function MapCanvas({
     const halteMarkers = halteMarkersRef.current;
     const geofenceCircles = geofenceCirclesRef.current;
 
-    loadGoogleMapsScript(apiKey)
+    loadGoogleMapsScript(apiKey, locale)
       .then((maps) => {
         if (!isMounted || !mapRef.current) return;
 
@@ -253,7 +259,7 @@ export function MapCanvas({
       })
       .catch((error: unknown) => {
         setErrorMessage(
-          error instanceof Error ? error.message : "Gagal memuat Google Maps.",
+          error instanceof Error ? error.message : tErrors("googleMapsLoad"),
         );
       });
 
@@ -293,7 +299,7 @@ export function MapCanvas({
     // mapStyle sengaja tidak masuk deps: perubahannya di-handle di effect terpisah
     // (lihat di bawah) agar tidak re-init seluruh instance Google Maps.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [apiKey, onInfoWindowClose]);
+  }, [apiKey, locale, onInfoWindowClose, tErrors]);
 
   // ── Update map style on prop change ────────────────────────────────────────
 
@@ -412,7 +418,7 @@ export function MapCanvas({
 
     if (userLocationMarkerRef.current) {
       userLocationMarkerRef.current.setPosition(userPosition);
-      userLocationMarkerRef.current.setTitle("Lokasi Anda");
+      userLocationMarkerRef.current.setTitle(t("userLocation"));
       userLocationPulseRef.current?.setCenter(userPosition);
       return;
     }
@@ -433,7 +439,7 @@ export function MapCanvas({
     userLocationMarkerRef.current = new maps.Marker({
       map,
       position: userPosition,
-      title: "Lokasi Anda",
+      title: t("userLocation"),
       icon: {
         path: maps.SymbolPath.CIRCLE,
         fillColor: "#2563eb",
@@ -445,7 +451,7 @@ export function MapCanvas({
       zIndex: 35,
     });
 
-  }, [mapReady, userPosition]);
+  }, [mapReady, t, userPosition]);
 
   // ── Render geofence circles ───────────────────────────────────────────────
 
@@ -490,7 +496,7 @@ export function MapCanvas({
       ? new maps.Marker({
           map,
           position: originMarkerPosition,
-          title: "Titik awal",
+          title: t("originLabel"),
           icon: {
             path: maps.SymbolPath.CIRCLE,
             fillColor: "#fefefe",
@@ -508,12 +514,12 @@ export function MapCanvas({
       ? new maps.Marker({
           map,
           position: destinationMarkerPosition,
-          title: "Tujuan",
+          title: t("destination"),
           icon: DESTINATION_PIN_ICON,
           zIndex: 25,
         })
       : null;
-  }, [destinationMarkerPosition, mapReady, originMarkerPosition]);
+  }, [destinationMarkerPosition, mapReady, originMarkerPosition, t]);
 
   // ── Draft circle for geofence creation ───────────────────────────────────
 

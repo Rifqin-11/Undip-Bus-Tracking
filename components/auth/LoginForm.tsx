@@ -3,15 +3,18 @@
 import { useMemo } from "react";
 import { useSearchParams } from "next/navigation";
 import { AuthForm } from "@/components/auth/AuthForm";
+import { useLocale } from "@/lib/i18n/client";
+import { localizePath } from "@/lib/i18n/routing";
 
 export default function LoginForm() {
   const searchParams = useSearchParams();
+  const locale = useLocale();
 
   const redirectTo = useMemo(() => {
     const next = searchParams.get("next");
-    if (!next || !next.startsWith("/")) return "/admin";
+    if (!next || !next.startsWith("/")) return localizePath("/admin", locale);
     return next;
-  }, [searchParams]);
+  }, [locale, searchParams]);
 
   return (
     <main className="relative flex min-h-screen items-center justify-center overflow-hidden bg-[#e8eef8] px-4 py-10">

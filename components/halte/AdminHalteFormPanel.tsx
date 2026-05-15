@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useTranslation } from "react-i18next";
 import type { HaltePoint } from "@/types/buggy";
 import { ChevronLeft, Trash2, Plus, X } from "lucide-react";
 import { getErrorMessage } from "@/lib/utils/error-message";
@@ -17,6 +18,9 @@ export function AdminHalteFormPanel({
   onBack,
   onSaved,
 }: AdminHalteFormPanelProps) {
+  const { t } = useTranslation("admin");
+  const { t: tDashboard } = useTranslation("dashboard");
+  const { t: tCommon } = useTranslation("common");
   const isEdit = halte !== null;
 
   const [name, setName] = useState("");
@@ -179,10 +183,10 @@ export function AdminHalteFormPanel({
           </button>
           <div className="min-w-0 flex-1">
             <p className="text-[10px] font-semibold uppercase tracking-widest text-slate-400">
-              {isEdit ? "Edit Halte" : "Tambah Halte Baru"}
+              {isEdit ? t("editHalte") : t("addNewHalte")}
             </p>
             <h2 className="truncate text-[17px] font-bold text-slate-900 tracking-tight">
-              {isEdit ? halte.name : "Halte Baru"}
+              {isEdit ? halte.name : t("newHalte")}
             </h2>
           </div>
         </div>
@@ -196,7 +200,7 @@ export function AdminHalteFormPanel({
         {/* Form */}
         <div className="space-y-3">
           {/* Nama */}
-          <FormField label="Nama Halte" required>
+          <FormField label={t("halteName")} required>
             <input
               type="text"
               value={name}
@@ -231,7 +235,7 @@ export function AdminHalteFormPanel({
           </div>
 
           {/* Sort order */}
-          <FormField label="Urutan Rute (sort_order)">
+          <FormField label={t("routeOrder")}>
             <input
               type="number"
               value={sortOrder}
@@ -248,9 +252,9 @@ export function AdminHalteFormPanel({
           {/* ── Status Aktif Toggle ──────────────────────────────────────── */}
           <div className="flex items-center justify-between rounded-xl border border-slate-200 bg-white px-3 py-3">
             <div>
-              <p className="text-[13px] font-semibold text-slate-700">Status Halte</p>
+              <p className="text-[13px] font-semibold text-slate-700">Status</p>
               <p className="text-[11px] text-slate-400">
-                {isActive ? "Halte aktif dan terlihat di peta" : "Halte nonaktif, tidak tampil di peta"}
+                {isActive ? t("halteActive") : t("halteInactive")}
               </p>
             </div>
             <button
@@ -267,7 +271,7 @@ export function AdminHalteFormPanel({
           </div>
 
           {/* ── Jadwal Keberangkatan ─────────────────────────────────────── */}
-          <FormField label="Jadwal Keberangkatan">
+          <FormField label={tDashboard("todaySchedule")}>
             <div className="flex gap-2">
               <input
                 type="time"
@@ -304,19 +308,21 @@ export function AdminHalteFormPanel({
               </div>
             )}
             {schedule.length === 0 && (
-              <p className="mt-1 text-[11px] text-slate-400">Belum ada jadwal</p>
+              <p className="mt-1 text-[11px] text-slate-400">
+                {tDashboard("noSchedule")}
+              </p>
             )}
           </FormField>
 
           {/* ── Fasilitas Terdekat ────────────────────────────────────────── */}
-          <FormField label="Fasilitas Terdekat">
+          <FormField label={tDashboard("nearestFacilities")}>
             <div className="flex gap-2">
               <input
                 type="text"
                 value={newFacility}
                 onChange={(e) => setNewFacility(e.target.value)}
                 onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), addFacility())}
-                placeholder="Mis. Gedung kuliah, Parkiran"
+                placeholder={tDashboard("defaultFacilityBuilding")}
                 className="flex-1 rounded-xl border border-slate-200 bg-white px-3 py-2 text-[14px] font-medium text-slate-800 outline-none transition focus:border-blue-400 focus:ring-2 focus:ring-blue-100"
               />
               <button
@@ -351,7 +357,9 @@ export function AdminHalteFormPanel({
               </div>
             )}
             {facilities.length === 0 && (
-              <p className="mt-1 text-[11px] text-slate-400">Belum ada fasilitas</p>
+              <p className="mt-1 text-[11px] text-slate-400">
+                {tDashboard("noFacilities")}
+              </p>
             )}
           </FormField>
         </div>
@@ -365,10 +373,10 @@ export function AdminHalteFormPanel({
             className="w-full rounded-2xl bg-[#0f1a3b] px-4 py-3 text-[14px] font-bold text-white shadow-sm transition hover:bg-[#1a2b55] active:scale-[0.98] disabled:opacity-50"
           >
             {saving
-              ? "Menyimpan..."
+              ? tCommon("saving")
               : isEdit
-                ? "Simpan Perubahan"
-                : "Tambah Halte"}
+                ? t("saveChanges")
+                : t("addHalte")}
           </button>
 
           {isEdit && !showDeleteConfirm && (
@@ -378,7 +386,7 @@ export function AdminHalteFormPanel({
               className="flex items-center justify-center gap-1.5 w-full rounded-2xl border border-rose-200 bg-rose-50 px-4 py-2.5 text-[13px] font-bold text-rose-600 transition hover:bg-rose-100 active:scale-[0.98]"
             >
               <Trash2 className="h-3.5 w-3.5" />
-              Hapus Halte
+              {tCommon("delete")}
             </button>
           )}
 
@@ -393,7 +401,7 @@ export function AdminHalteFormPanel({
                   onClick={() => setShowDeleteConfirm(false)}
                   className="flex-1 rounded-xl border border-slate-200 bg-white px-3 py-2 text-[12px] font-bold text-slate-600 transition hover:bg-slate-50"
                 >
-                  Batal
+                  {tCommon("cancel")}
                 </button>
                 <button
                   type="button"
@@ -401,7 +409,7 @@ export function AdminHalteFormPanel({
                   disabled={deleting}
                   className="flex-1 rounded-xl bg-rose-600 px-3 py-2 text-[12px] font-bold text-white transition hover:bg-rose-700 disabled:opacity-50"
                 >
-                  {deleting ? "Menghapus..." : "Ya, Hapus"}
+                  {deleting ? tCommon("deleting") : tCommon("yesDelete")}
                 </button>
               </div>
             </div>

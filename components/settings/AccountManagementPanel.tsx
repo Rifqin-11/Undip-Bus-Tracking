@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { useTranslation } from "react-i18next";
 import {
   ChevronLeft,
   Loader2,
@@ -61,6 +62,8 @@ const fallbackBuggyOptions = [
 export function AccountManagementPanel({
   onClose,
 }: AccountManagementPanelProps) {
+  const { t } = useTranslation("settings");
+  const { t: tCommon } = useTranslation("common");
   const { userProfile } = useUserRole();
   const [accounts, setAccounts] = useState<ManagedAccount[]>([]);
   const [creatingAccount, setCreatingAccount] = useState(false);
@@ -82,6 +85,15 @@ export function AccountManagementPanel({
   const [deleteTarget, setDeleteTarget] = useState<ManagedAccount | null>(null);
   const [errorMsg, setErrorMsg] = useState("");
 
+  const roleLabel = useCallback(
+    (value: string) => {
+      if (value === "Admin") return tCommon("admin");
+      if (value === "Driver") return tCommon("driver");
+      return tCommon("generalUser");
+    },
+    [tCommon],
+  );
+
   const loadAccounts = useCallback(async () => {
     setLoading(true);
     setErrorMsg("");
@@ -93,17 +105,17 @@ export function AccountManagementPanel({
       const payload = (await response.json()) as AccountsResponse;
 
       if (!response.ok) {
-        throw new Error(payload.message || "Gagal memuat akun.");
+        throw new Error(payload.message || t("failedLoadAccounts"));
       }
 
       setAccounts(Array.isArray(payload.accounts) ? payload.accounts : []);
     } catch (err: unknown) {
-      setErrorMsg(err instanceof Error ? err.message : "Gagal memuat akun.");
+      setErrorMsg(err instanceof Error ? err.message : t("failedLoadAccounts"));
       setAccounts([]);
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [t]);
 
   useEffect(() => {
     void loadAccounts();
@@ -205,11 +217,11 @@ export function AccountManagementPanel({
   const handleSave = async () => {
     if (!editingAccount) return;
     if (password !== confirmPassword) {
-      setErrorMsg("Kata sandi dan konfirmasi kata sandi tidak cocok!");
+      setErrorMsg(t("passwordMismatch"));
       return;
     }
     if (!name.trim()) {
-      setErrorMsg("Nama wajib diisi.");
+      setErrorMsg(t("nameRequired"));
       return;
     }
 
@@ -232,7 +244,7 @@ export function AccountManagementPanel({
       const payload = (await response.json()) as UpdateResponse;
 
       if (!response.ok || !payload.account) {
-        throw new Error(payload.message || "Gagal menyimpan akun.");
+        throw new Error(payload.message || t("failedSaveAccount"));
       }
 
       setAccounts((prev) =>
@@ -242,7 +254,7 @@ export function AccountManagementPanel({
       );
       closeEditor();
     } catch (err: unknown) {
-      setErrorMsg(err instanceof Error ? err.message : "Gagal menyimpan akun.");
+      setErrorMsg(err instanceof Error ? err.message : t("failedSaveAccount"));
     } finally {
       setSaving(false);
     }
@@ -263,7 +275,7 @@ export function AccountManagementPanel({
       const payload = (await response.json()) as DeleteResponse;
 
       if (!response.ok) {
-        throw new Error(payload.message || "Gagal menghapus akun.");
+        throw new Error(payload.message || t("failedDeleteAccount"));
       }
 
       setAccounts((prev) =>
@@ -276,7 +288,7 @@ export function AccountManagementPanel({
 
       setDeleteTarget(null);
     } catch (err: unknown) {
-      setErrorMsg(err instanceof Error ? err.message : "Gagal menghapus akun.");
+      setErrorMsg(err instanceof Error ? err.message : t("failedDeleteAccount"));
     } finally {
       setDeleting(false);
     }
@@ -293,10 +305,12 @@ export function AccountManagementPanel({
       <section className="space-y-3">
         <DeleteConfirmModal
           open={deleteTarget?.id === editingAccount.id}
-          title="Hapus Akun"
-          description={`Anda yakin ingin menghapus akun ${editingAccount.name}? Aksi ini akan menghapus akses masuk akun tersebut.`}
-          confirmLabel="Ya, Hapus Akun"
-          loadingLabel="Menghapus akun..."
+          title={t("deleteAccountTitle")}
+          description={t("deleteAccountDescription", {
+            name: editingAccount.name,
+          })}
+          confirmLabel={t("confirmDeleteAccount")}
+          loadingLabel={t("deletingAccount")}
           isLoading={deleting}
           onClose={() => setDeleteTarget(null)}
           onConfirm={() => void handleDeleteAccount()}
@@ -313,10 +327,10 @@ export function AccountManagementPanel({
             </button>
             <div className="min-w-0 flex-1">
               <p className="text-[10px] font-semibold uppercase tracking-widest text-slate-400">
-              Akun
+                {t("account")}
               </p>
               <h2 className="truncate text-[17px] font-bold tracking-tight text-slate-900">
-                Edit Akun
+                {t("editAccount")}
               </h2>
             </div>
           </div>
@@ -324,34 +338,34 @@ export function AccountManagementPanel({
           <div className="space-y-3">
             <label className="block rounded-2xl border border-slate-200 bg-white p-3">
               <span className="mb-1.5 block text-[11px] font-bold text-slate-500">
-                Nama
+                {t("name")}
               </span>
               <input
                 value={name}
                 onChange={(event) => setName(event.target.value)}
                 className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-[14px] font-medium text-slate-800 outline-none transition focus:border-[#0f1a3b] focus:ring-2 focus:ring-[#0f1a3b]/20"
-                placeholder="Nama akun"
+                placeholder={t("accountName")}
               />
             </label>
 
             <label className="block rounded-2xl border border-slate-200 bg-white p-3">
               <span className="mb-1.5 block text-[11px] font-bold text-slate-500">
-                Email Baru
+                {t("newEmail")}
               </span>
               <input
                 value={email}
                 onChange={(event) => setEmail(event.target.value)}
                 className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-[14px] font-medium text-slate-800 outline-none transition focus:border-[#0f1a3b] focus:ring-2 focus:ring-[#0f1a3b]/20"
-                placeholder="Opsional, isi jika ingin mengubah email"
+                placeholder={t("optionalEmailPlaceholder")}
               />
               <p className="mt-1.5 text-[11px] font-semibold text-slate-400">
-                Kosongkan jika email tidak ingin diubah.
+                {t("leaveEmailBlankHint")}
               </p>
             </label>
 
             <label className="block rounded-2xl border border-slate-200 bg-white p-3">
               <span className="mb-1.5 block text-[11px] font-bold text-slate-500">
-                Peran
+                {t("role")}
               </span>
               <select
                 value={role}
@@ -361,13 +375,13 @@ export function AccountManagementPanel({
               >
                 {ACCOUNT_ROLES.map((roleOption) => (
                   <option key={roleOption} value={roleOption}>
-                    {roleOption}
+                    {roleLabel(roleOption)}
                   </option>
                 ))}
               </select>
               {isEditingSelf ? (
                 <p className="mt-1.5 text-[11px] font-semibold text-slate-400">
-                  Peran akun yang sedang aktif tidak dapat diubah.
+                  {t("activeRoleLocked")}
                 </p>
               ) : null}
             </label>
@@ -375,14 +389,14 @@ export function AccountManagementPanel({
             {role === "Driver" ? (
               <label className="block rounded-2xl border border-slate-200 bg-white p-3">
                 <span className="mb-1.5 block text-[11px] font-bold text-slate-500">
-                  Pilih Buggy
+                  {t("chooseBuggy")}
                 </span>
                 <select
                   value={buggyId}
                   onChange={(event) => setBuggyId(event.target.value)}
                   className="w-full appearance-none rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-[14px] font-medium text-slate-800 outline-none transition focus:border-[#0f1a3b] focus:ring-2 focus:ring-[#0f1a3b]/20"
                 >
-                  <option value="">Belum ditugaskan</option>
+                  <option value="">{t("unassigned")}</option>
                   {visibleBuggyOptions.map((buggy) => (
                     <option key={buggy.id} value={buggy.id}>
                       {buggy.label}
@@ -394,27 +408,27 @@ export function AccountManagementPanel({
 
             <label className="block rounded-2xl border border-slate-200 bg-white p-3">
               <span className="mb-1.5 block text-[11px] font-bold text-slate-500">
-                Kata Sandi Baru
+                {t("newPassword")}
               </span>
               <input
                 type="password"
                 value={password}
                 onChange={(event) => setPassword(event.target.value)}
                 className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-[14px] font-medium text-slate-800 outline-none transition focus:border-[#0f1a3b] focus:ring-2 focus:ring-[#0f1a3b]/20"
-                placeholder="Kosongkan jika tidak diubah"
+                placeholder={t("leaveBlankPasswordPlaceholder")}
               />
             </label>
 
             <label className="block rounded-2xl border border-slate-200 bg-white p-3">
               <span className="mb-1.5 block text-[11px] font-bold text-slate-500">
-                Konfirmasi Kata Sandi Baru
+                {t("confirmNewPassword")}
               </span>
               <input
                 type="password"
                 value={confirmPassword}
                 onChange={(event) => setConfirmPassword(event.target.value)}
                 className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-[14px] font-medium text-slate-800 outline-none transition focus:border-[#0f1a3b] focus:ring-2 focus:ring-[#0f1a3b]/20"
-                placeholder="Konfirmasi password"
+                placeholder={t("confirmPasswordPlaceholder")}
               />
             </label>
 
@@ -436,7 +450,7 @@ export function AccountManagementPanel({
             ) : (
               <Save className="h-4 w-4" />
             )}
-            {saving ? "Menyimpan..." : "Simpan Perubahan"}
+            {saving ? tCommon("saving") : t("saveChanges")}
           </button>
 
           {!isEditingSelf ? (
@@ -447,7 +461,7 @@ export function AccountManagementPanel({
               className="mt-2 inline-flex w-full items-center justify-center gap-2 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-[14px] font-bold text-rose-600 transition hover:border-rose-300 hover:bg-rose-100 active:scale-[0.98] disabled:opacity-70"
             >
               <Trash2 className="h-4 w-4" />
-              Hapus Akun
+              {t("deleteAccountTitle")}
             </button>
           ) : null}
         </div>
@@ -468,17 +482,17 @@ export function AccountManagementPanel({
           </button>
           <div className="min-w-0 flex-1">
             <p className="text-[10px] font-semibold uppercase tracking-widest text-slate-400">
-              Admin
+              {tCommon("admin")}
             </p>
             <h2 className="truncate text-[17px] font-bold tracking-tight text-slate-900">
-              Kelola Akun
+              {t("manageAccounts")}
             </h2>
           </div>
           <button
             type="button"
             onClick={() => void loadAccounts()}
             className="grid h-9 w-9 shrink-0 place-items-center rounded-full border border-slate-200 bg-white text-slate-600 transition hover:border-[#0f1a3b] hover:text-[#0f1a3b] active:scale-95"
-            aria-label="Muat ulang akun"
+            aria-label={t("reloadAccounts")}
           >
             <RefreshCw className="h-4 w-4" />
           </button>
@@ -490,7 +504,7 @@ export function AccountManagementPanel({
           className="mb-3 inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-[#0f1a3b] px-3 py-2.5 text-[12px] font-bold text-white transition hover:bg-slate-900 active:scale-[0.98]"
         >
           <Plus className="h-4 w-4" />
-          Buat Akun
+          {t("createAccount")}
         </button>
 
         <label className="mb-3 flex items-center gap-2 rounded-2xl border border-slate-200 bg-white px-3 py-2.5">
@@ -499,7 +513,7 @@ export function AccountManagementPanel({
             value={query}
             onChange={(event) => setQuery(event.target.value)}
             className="min-w-0 flex-1 bg-transparent text-[13px] font-medium text-slate-800 outline-none placeholder:text-slate-400"
-            placeholder="Cari nama, peran, atau buggy"
+            placeholder={t("searchAccountPlaceholder")}
           />
         </label>
 
@@ -530,7 +544,7 @@ export function AccountManagementPanel({
           </div>
         ) : filteredAccounts.length === 0 ? (
           <p className="rounded-2xl border border-dashed border-slate-200 bg-slate-50 px-4 py-6 text-center text-[13px] text-slate-500">
-            Akun tidak ditemukan.
+            {t("accountNotFound")}
           </p>
         ) : (
           <div className="space-y-2">
@@ -549,12 +563,12 @@ export function AccountManagementPanel({
                     {account.name}
                   </span>
                   <span className="block truncate text-[11px] font-semibold text-slate-400">
-                    {account.email || "Email tidak ditampilkan"}
+                    {account.email || t("emailHidden")}
                   </span>
                 </span>
                 <span className="flex shrink-0 flex-col items-end gap-1">
                   <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-bold text-slate-600">
-                    {account.role}
+                    {roleLabel(account.role)}
                   </span>
                   {account.buggy_id ? (
                     <span className="text-[10px] font-semibold text-slate-400">

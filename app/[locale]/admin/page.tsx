@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { MapCanvas } from "@/components/map/MapCanvas";
 import { BuggyList } from "@/components/buggy/PanelActive";
 import { FloatingSidebar } from "@/components/sidebar/FloatingSidebar";
@@ -48,6 +49,8 @@ import {
 } from "@/lib/buggy/assignment";
 import type { LatLngLiteral } from "@/types/map-canvas";
 import type { Geofence, GeofenceEvent } from "@/types/geofence";
+import { useLocale } from "@/lib/i18n/client";
+import { localizePath } from "@/lib/i18n/routing";
 import { LogoutIcon, BellIcon } from "@/components/ui/Icons";
 import { PenIcon } from "lucide-react";
 
@@ -81,6 +84,10 @@ function makeId() {
 }
 
 export default function DashboardPage() {
+  const locale = useLocale();
+  const { t } = useTranslation("admin");
+  const { t: tCommon } = useTranslation("common");
+  const { t: tNav } = useTranslation("navigation");
   const realtimeFeed = useBuggyLiveFeed();
   const { settings, updateSetting, resetSettings } = useAdminSettings();
   const {
@@ -301,7 +308,7 @@ export default function DashboardPage() {
       // noop
     }
     setSettingsAccountForm(null);
-    window.location.href = "/";
+    window.location.href = localizePath("/", locale);
   };
 
   const handleOpenSettings = (accountForm: AccountFormMode | null = null) => {
@@ -330,14 +337,14 @@ export default function DashboardPage() {
       console.error("Load geofence error:", error);
       addToast({
         tone: "warning",
-        title: "Gagal memuat geofence",
+        title: t("failedLoadGeofence"),
         description: "Coba refresh halaman.",
       });
       setGeofences([]);
     } finally {
       setGeofenceLoading(false);
     }
-  }, [addToast]);
+  }, [addToast, t]);
 
   useEffect(() => {
     void loadGeofences();
@@ -540,13 +547,14 @@ export default function DashboardPage() {
       console.error("Save geofence error:", error);
       addToast({
         tone: "warning",
-        title: "Gagal menyimpan zona",
+        title: t("failedSaveZone"),
         description:
           error instanceof Error ? error.message : "Terjadi kesalahan.",
       });
     }
   }, [
     addToast,
+    t,
     canManageDashboard,
     draftGeofenceCenter,
     draftGeofenceName,
@@ -583,13 +591,13 @@ export default function DashboardPage() {
         console.error("Toggle geofence error:", error);
         addToast({
           tone: "warning",
-          title: "Gagal mengubah geofence",
+          title: t("failedChangeGeofence"),
           description:
             error instanceof Error ? error.message : "Terjadi kesalahan.",
         });
       }
     },
-    [addToast, canManageDashboard],
+    [addToast, canManageDashboard, t],
   );
 
   const handleDeleteGeofence = useCallback(
@@ -615,7 +623,7 @@ export default function DashboardPage() {
         });
         addToast({
           tone: "success",
-          title: "Geofence dihapus",
+          title: t("geofenceDeleted"),
           description: target?.name,
         });
         return true;
@@ -623,14 +631,14 @@ export default function DashboardPage() {
         console.error("Delete geofence error:", error);
         addToast({
           tone: "warning",
-          title: "Gagal menghapus geofence",
+          title: t("failedDeleteGeofence"),
           description:
             error instanceof Error ? error.message : "Terjadi kesalahan.",
         });
         return false;
       }
     },
-    [addToast, canManageDashboard, geofences],
+    [addToast, canManageDashboard, geofences, t],
   );
 
   const emitGeofenceEvent = useCallback(
@@ -643,7 +651,7 @@ export default function DashboardPage() {
       addToast({
         tone: event.type === "ENTER" ? "success" : "warning",
         title: `${event.buggyName} ${actionLabel}`,
-        description: `${event.geofenceName} • ${new Date(event.timestamp).toLocaleTimeString("id-ID")}`,
+        description: `${event.geofenceName} • ${new Date(event.timestamp).toLocaleTimeString(locale === "id" ? "id-ID" : "en-US")}`,
       });
 
       if (
@@ -657,7 +665,7 @@ export default function DashboardPage() {
         });
       }
     },
-    [addToast, browserNotificationEnabled],
+    [addToast, browserNotificationEnabled, locale],
   );
 
   const geofenceStatuses = useMemo(() => {
@@ -738,14 +746,14 @@ export default function DashboardPage() {
   const accountMenuItems = useMemo<AccountMenuItem[]>(
     () => [
       {
-        label: "Edit Akun",
+        label: t("editAccount"),
         icon: <PenIcon className="h-4 w-4 text-slate-500" />,
         onClick: (): void => {
           handleOpenSettings("edit");
         },
       },
       {
-        label: "Keluar",
+        label: tNav("signOut"),
         icon: <LogoutIcon className="h-4 w-4" />,
         onClick: (): void => {
           void handleLogout();
@@ -753,7 +761,7 @@ export default function DashboardPage() {
         tone: "danger",
       },
     ],
-    [],
+    [handleLogout, t, tNav],
   );
 
   const mapBuggies = activeView === "halte" ? [] : visibleBuggies;
@@ -798,7 +806,7 @@ export default function DashboardPage() {
             <button
               type="button"
               onClick={() => handleSelectView("notifikasi")}
-              aria-label="Notifikasi"
+              aria-label={tNav("notifications")}
               className="relative flex h-10 w-10 items-center justify-center rounded-full border border-white/20 bg-slate-900/50 text-white backdrop-blur-md transition active:scale-95"
             >
               <BellIcon className="h-5 w-5" />
@@ -834,13 +842,13 @@ export default function DashboardPage() {
           loading={userLoading}
           user={
             userProfile ?? {
-              name: isDriverUser ? "Driver" : "Admin",
+              name: isDriverUser ? tCommon("driver") : tCommon("admin"),
               role: "SIMOBI Operator",
               avatar: isDriverUser ? "D" : "A",
             }
           }
           menuItems={accountMenuItems}
-          defaultName={isDriverUser ? "Driver" : "Admin"}
+          defaultName={isDriverUser ? tCommon("driver") : tCommon("admin")}
         />
       </div>
 

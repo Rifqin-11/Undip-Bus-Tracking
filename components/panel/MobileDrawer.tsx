@@ -16,6 +16,7 @@ import {
   type PanInfo,
 } from "motion/react";
 import { XIcon } from "@/components/ui/Icons";
+import {useTranslation} from "react-i18next";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Constants
@@ -57,6 +58,7 @@ const DIST = 20; // px    (was 50)
 // ─────────────────────────────────────────────────────────────────────────────
 
 export function MobileDrawer({ open, onClose, children }: MobileDrawerProps) {
+  const { t: tCommomn } = useTranslation("common");
   const [snap, setSnap] = useState<SnapPoint>("half");
 
   /**
@@ -305,16 +307,16 @@ export function MobileDrawer({ open, onClose, children }: MobileDrawerProps) {
           <div className="relative flex items-center justify-between px-5 pb-3">
             <motion.div style={{ opacity: headerTextOpacity }}>
               <p className="text-[8px] font-semibold uppercase tracking-[0.18em] text-slate-500">
-                Mobilitas Pintar UNDIP
+                {tCommomn("brandTagline")}
               </p>
               <h2 className="text-[20px] font-bold leading-tight text-slate-900">
-                Monitoring Buggy
+                {tCommomn("title")}
               </h2>
             </motion.div>
             <div className="flex items-center gap-2">
               <motion.div style={{ opacity: headerTextOpacity }}>
                 <span className="rounded-full bg-emerald-100 px-2.5 py-1 text-[11px] font-semibold text-emerald-700">
-                  Langsung
+                  {tCommomn("realtime")}
                 </span>
               </motion.div>
               <button

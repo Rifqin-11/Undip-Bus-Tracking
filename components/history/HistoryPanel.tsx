@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 import type { Buggy } from "@/types/buggy";
 import type { BuggySession } from "@/types/buggy-session";
 import { SpinnerIcon } from "@/components/ui/Icons";
@@ -51,6 +52,7 @@ export function HistoryPanel({
   onShowPath,
   readOnly = false,
 }: HistoryPanelProps) {
+  const { t } = useTranslation("history");
   const [sessions, setSessions] = useState<BuggySession[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -79,20 +81,20 @@ export function HistoryPanel({
         throw new Error(
           typeof payload.error === "string"
             ? payload.error
-            : "Gagal memuat history sesi.",
+            : t("failedLoad"),
         );
       setSessions(Array.isArray(payload.sessions) ? payload.sessions : []);
       setError(null);
     } catch (err) {
       setError(
-        err instanceof Error ? err.message : "Gagal memuat history sesi.",
+        err instanceof Error ? err.message : t("failedLoad"),
       );
       if (!silent) setSessions([]);
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
-  }, []);
+  }, [t]);
 
   useEffect(() => {
     void load();
@@ -186,7 +188,7 @@ export function HistoryPanel({
       <div className="rounded-3xl border border-slate-200/80 bg-white/70 p-3">
         <div className="mb-3 flex items-center gap-2 px-1 text-[11px] font-semibold text-slate-400">
           <SpinnerIcon className="h-3 w-3 animate-spin text-slate-400" />
-          Memuat history sesi…
+          {t("loadingSessions")}
         </div>
         <div className="space-y-2">
           {Array.from({ length: 4 }).map((_, idx) => (
@@ -206,7 +208,7 @@ export function HistoryPanel({
           onClick={() => void load()}
           className="mt-2 block text-[12px] font-semibold underline"
         >
-          Coba lagi
+          {t("tryAgain")}
         </button>
       </div>
     );

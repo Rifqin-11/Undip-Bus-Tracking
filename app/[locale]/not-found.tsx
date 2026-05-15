@@ -1,24 +1,32 @@
+"use client";
+
 import Image from "next/image";
 import Link from "next/link";
 import { ArrowLeft, Home, MapPin, ShieldAlert } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import logo from "@/public/logo.svg";
-
-const quickLinks = [
-  {
-    href: "/",
-    label: "Buka Peta",
-    description: "Kembali ke monitoring buggy realtime.",
-    icon: MapPin,
-  },
-  {
-    href: "/admin",
-    label: "Dashboard Admin",
-    description: "Masuk ke pengelolaan data operasional.",
-    icon: ShieldAlert,
-  },
-];
+import { useLocale } from "@/lib/i18n/client";
+import { localizePath } from "@/lib/i18n/routing";
 
 export default function NotFound() {
+  const locale = useLocale();
+  const { t } = useTranslation("navigation");
+  const { t: tCommon } = useTranslation("common");
+  const quickLinks = [
+    {
+      href: localizePath("/", locale),
+      label: t("openMap"),
+      description: t("mapDescription"),
+      icon: MapPin,
+    },
+    {
+      href: localizePath("/admin", locale),
+      label: t("adminDashboard"),
+      description: t("dashboardAdminDescription"),
+      icon: ShieldAlert,
+    },
+  ];
+
   return (
     <main className="relative min-h-svh overflow-hidden bg-linear-to-b from-slate-200 to-slate-100 px-4 py-5 text-slate-900 sm:px-6">
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(255,255,255,0.72),transparent_34%),radial-gradient(circle_at_bottom_right,rgba(148,163,184,0.24),transparent_32%)]" />
@@ -41,7 +49,7 @@ export default function NotFound() {
                 </span>
                 <div>
                   <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-white/55">
-                    Mobilitas Pintar UNDIP
+                    {tCommon("brandTagline")}
                   </p>
                   <p className="text-lg font-bold leading-tight">SIMOBI</p>
                 </div>
@@ -53,23 +61,22 @@ export default function NotFound() {
 
             <div className="py-10">
               <p className="mb-3 text-sm font-semibold text-emerald-200">
-                Halaman tidak ditemukan
+                {t("pageNotFound")}
               </p>
               <h1 className="max-w-xl text-4xl font-bold leading-[1.02] tracking-tight sm:text-5xl">
-                Rute ini belum tersedia di sistem.
+                {t("routeUnavailable")}
               </h1>
               <p className="mt-4 max-w-lg text-sm leading-6 text-slate-200 sm:text-base">
-                Link yang dibuka mungkin salah, sudah dipindahkan, atau tidak
-                termasuk bagian dari dashboard monitoring buggy.
+                {t("missingRouteDescription")}
               </p>
             </div>
 
             <Link
-              href="/"
+              href={localizePath("/", locale)}
               className="inline-flex h-11 w-fit items-center gap-2 rounded-2xl bg-white px-4 text-sm font-semibold text-[#0f1a3b] transition hover:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70"
             >
               <ArrowLeft className="h-4 w-4" />
-              Kembali ke Peta
+              {t("backToMap")}
             </Link>
           </div>
 
@@ -78,10 +85,10 @@ export default function NotFound() {
               <div className="mb-4 flex items-center justify-between gap-3">
                 <div>
                   <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-500">
-                    Navigasi Cepat
+                    {t("quickNavigation")}
                   </p>
                   <h2 className="text-xl font-bold leading-tight text-slate-950">
-                    Pilih tujuan
+                    {t("chooseDestination")}
                   </h2>
                 </div>
                 <span className="grid h-10 w-10 place-items-center rounded-2xl bg-slate-100 text-slate-600">
@@ -118,19 +125,19 @@ export default function NotFound() {
 
             <div className="rounded-[24px] border border-white/70 bg-slate-50/80 p-4">
               <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-500">
-                Status Sistem
+                {t("systemStatus")}
               </p>
               <div className="mt-3 grid grid-cols-2 gap-2">
                 <div className="rounded-[18px] border border-slate-200 bg-white p-3">
-                  <p className="text-xs text-slate-500">Peta</p>
+                  <p className="text-xs text-slate-500">{t("map")}</p>
                   <p className="mt-1 text-sm font-bold text-emerald-700">
-                    Aktif
+                    {tCommon("active")}
                   </p>
                 </div>
                 <div className="rounded-[18px] border border-slate-200 bg-white p-3">
                   <p className="text-xs text-slate-500">Monitoring</p>
                   <p className="mt-1 text-sm font-bold text-emerald-700">
-                    Realtime
+                    {tCommon("realtime")}
                   </p>
                 </div>
               </div>

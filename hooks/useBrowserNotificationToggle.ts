@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useRef } from "react";
+import { useTranslation } from "react-i18next";
 import type { ToastItem } from "@/components/ui/ToastStack";
 
 type AddToastFn = (toast: Omit<ToastItem, "id">) => void;
@@ -20,13 +21,14 @@ export function useBrowserNotificationToggle({
   setEnabled,
   addToast,
 }: UseBrowserNotificationToggleOptions) {
+  const { t } = useTranslation("notifications");
   const requestedRef = useRef(false);
 
   const toggle = useCallback(async () => {
     if (typeof window === "undefined" || !("Notification" in window)) {
       addToast({
         tone: "warning",
-        title: "Notifikasi browser tidak didukung",
+        title: t("browserUnsupportedTitle"),
         description: "Gunakan browser modern untuk fitur ini.",
         duration: 5_000,
       });
@@ -37,7 +39,7 @@ export function useBrowserNotificationToggle({
       setEnabled(false);
       addToast({
         tone: "info",
-        title: "Notifikasi browser dimatikan",
+        title: t("browserDisabledTitle"),
         duration: 3_000,
       });
       return;
@@ -47,7 +49,7 @@ export function useBrowserNotificationToggle({
       setEnabled(true);
       addToast({
         tone: "success",
-        title: "Notifikasi browser aktif",
+        title: t("browserActiveTitle"),
         duration: 3_000,
       });
       return;
@@ -78,7 +80,7 @@ export function useBrowserNotificationToggle({
       setEnabled(true);
       addToast({
         tone: "success",
-        title: "Notifikasi browser aktif",
+        title: t("browserActiveTitle"),
         duration: 3_000,
       });
       return;
@@ -86,11 +88,11 @@ export function useBrowserNotificationToggle({
 
     addToast({
       tone: "warning",
-      title: "Notifikasi browser tetap nonaktif",
+      title: t("browserStillInactiveTitle"),
       description: "Izin tidak diberikan.",
       duration: 5_000,
     });
-  }, [addToast, enabled, setEnabled]);
+  }, [addToast, enabled, setEnabled, t]);
 
   return { toggle };
 }

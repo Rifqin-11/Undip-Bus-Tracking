@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Image from "next/image";
+import { useTranslation } from "react-i18next";
 import type { Buggy } from "@/types/buggy";
 import { getBuggyStopNameAtOffset } from "@/lib/transit/buggy-route-utils";
 import {
@@ -37,6 +38,7 @@ export function BuggyOperationalDetail({
   geofenceManagerNode,
   readOnly = false,
 }: BuggyOperationalDetailProps) {
+  const { t } = useTranslation("admin");
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [isDeleteOpen, setIsDeleteOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -47,7 +49,7 @@ export function BuggyOperationalDetail({
       const res = await fetch(`/api/admin/buggies/${buggy.id}`, {
         method: "DELETE",
       });
-      if (!res.ok) throw new Error("Gagal menghapus buggy");
+      if (!res.ok) throw new Error(t("failedDeleteFleet"));
       (onDeleteSuccess ?? onBack)();
     } catch (err) {
       alert(getErrorMessage(err));
@@ -76,27 +78,27 @@ export function BuggyOperationalDetail({
   }
 
   const rows: { label: string; value: string }[] = [
-    { label: "Kode Armada", value: buggy.code },
-    { label: "Nama", value: buggy.name },
-    { label: "Pengemudi", value: assignedDriverName || "-" },
-    { label: "Rute", value: buggy.routeLabel || "-" },
+    { label: t("fleetCode"), value: buggy.code },
+    { label: t("name"), value: buggy.name },
+    { label: t("driver"), value: assignedDriverName || "-" },
+    { label: t("route"), value: buggy.routeLabel || "-" },
     {
-      label: "Koordinat",
+      label: t("coordinates"),
       value: `${buggy.position.lat.toFixed(5)}, ${buggy.position.lng.toFixed(5)}`,
     },
-    { label: "Kecepatan", value: `${buggy.speedKmh} km/jam` },
-    { label: "ETA", value: `${buggy.etaMinutes} menit` },
-    { label: "Halte Saat Ini", value: currentStop || "-" },
-    { label: "Halte Berikutnya", value: nextStop || "-" },
+    { label: t("speed"), value: `${buggy.speedKmh} ${t("speedUnit")}` },
+    { label: t("eta"), value: `${buggy.etaMinutes} ${t("minutes")}` },
+    { label: t("currentStop"), value: currentStop || "-" },
+    { label: t("nextStop"), value: nextStop || "-" },
     {
-      label: "Okupansi",
-      value: `${buggy.passengers}/${buggy.capacity} penumpang`,
+      label: t("occupancy"),
+      value: `${buggy.passengers}/${buggy.capacity} ${t("passengers")}`,
     },
     {
-      label: "Status Geofence",
-      value: activeZones.length > 0 ? activeZones.join(", ") : "Di luar zona",
+      label: t("geofenceStatus"),
+      value: activeZones.length > 0 ? activeZones.join(", ") : t("outsideZone"),
     },
-    { label: "Pembaruan Terakhir", value: buggy.updatedAt },
+    { label: t("lastUpdated"), value: buggy.updatedAt },
   ];
 
   return (
@@ -107,14 +109,14 @@ export function BuggyOperationalDetail({
           type="button"
           onClick={onBack}
           className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-600 shadow-sm transition hover:border-slate-900 hover:bg-slate-900 hover:text-white active:scale-95"
-          aria-label="Kembali ke daftar buggy"
+          aria-label={t("backToBuggyList")}
         >
           <ChevronLeft className="size-5" />
         </button>
 
         <div className="min-w-0 flex-1">
           <p className="text-[10px] font-semibold uppercase tracking-widest text-slate-400">
-            Detail Operasional
+            {t("operationalDetail")}
           </p>
           <div className="flex items-center gap-2">
             <span className="rounded-lg bg-[#0f1a3b] px-2 py-0.5 text-[11px] font-bold text-white">
@@ -143,8 +145,11 @@ export function BuggyOperationalDetail({
 
       <DeleteConfirmModal
         open={isDeleteOpen}
-        title="Hapus Armada Buggy"
-        description={`Anda yakin ingin menghapus ${buggy.code} - ${buggy.name}? Aksi ini bersifat permanen.`}
+        title={t("deleteFleetTitle")}
+        description={t("deleteFleetDescription", {
+          code: buggy.code,
+          name: buggy.name,
+        })}
         isLoading={isDeleting}
         onClose={() => setIsDeleteOpen(false)}
         onConfirm={handleDelete}
@@ -175,14 +180,14 @@ export function BuggyOperationalDetail({
                     : "bg-slate-400"
                 }`}
               />
-              {buggy.isActive ? "Beroperasi" : "Standby"}
+              {buggy.isActive ? t("operating") : t("standby")}
             </span>
           </div>
 
           {/* Locate button — top right */}
           <button
             type="button"
-            aria-label="Lihat lokasi armada"
+            aria-label={t("viewFleetLocation")}
             className="absolute top-0 right-0 z-10 flex h-8 w-8 items-center justify-center rounded-full border border-slate-200 bg-white/80 text-slate-600 shadow-sm backdrop-blur-md transition hover:bg-[#0f1a3b] hover:text-white active:scale-95"
           >
             <MapPin className="size-3.5" />
@@ -204,7 +209,7 @@ export function BuggyOperationalDetail({
             <div className="flex items-center gap-1.5">
               <BatteryMedium className="size-4 text-emerald-600" />
               <span className="text-[12px] font-semibold text-slate-700">
-                Baterai
+                {t("battery")}
               </span>
             </div>
             <span className="text-[13px] font-bold text-slate-900 tabular-nums">
@@ -218,7 +223,7 @@ export function BuggyOperationalDetail({
             />
           </div>
           <p className="mt-1.5 text-[10px] text-slate-400">
-            Estimasi sisa jarak{" "}
+            {t("estimatedRemainingDistance")}{" "}
             <span className="font-semibold text-slate-600">120 km</span>
           </p>
         </div>
@@ -229,7 +234,7 @@ export function BuggyOperationalDetail({
             <div className="mb-1 flex items-center gap-1 text-slate-400">
               <Route className="size-3" />
               <p className="text-[10px] font-semibold uppercase tracking-wider">
-                Jarak
+                {t("distance")}
               </p>
             </div>
             <p className="text-[14px] font-bold text-slate-800 tabular-nums">
@@ -243,7 +248,7 @@ export function BuggyOperationalDetail({
             <div className="mb-1 flex items-center gap-1 text-slate-400">
               <Gauge className="size-3" />
               <p className="text-[10px] font-semibold uppercase tracking-wider">
-                Konsumsi
+                {t("consumption")}
               </p>
             </div>
             <p className="text-[14px] font-bold text-slate-800 tabular-nums">
@@ -257,7 +262,7 @@ export function BuggyOperationalDetail({
             <div className="mb-1 flex items-center gap-1 text-slate-400">
               <Zap className="size-3" />
               <p className="text-[10px] font-semibold uppercase tracking-wider">
-                Kapasitas
+                {t("capacity")}
               </p>
             </div>
             <p className="text-[14px] font-bold text-slate-800 tabular-nums">
@@ -273,7 +278,9 @@ export function BuggyOperationalDetail({
       {/* ── Occupancy ──────────────────────────────────────────────────── */}
       <div className="rounded-3xl border border-slate-200/80 bg-white/70 p-3">
         <div className="mb-2 flex items-center justify-between text-[12px]">
-          <span className="font-medium text-slate-500">Tingkat Keterisian</span>
+          <span className="font-medium text-slate-500">
+            {t("occupancyLevel")}
+          </span>
           <span className="font-semibold text-slate-800">{occupancyPct}%</span>
         </div>
         <div className="h-2.5 overflow-hidden rounded-full bg-slate-100">
@@ -289,7 +296,10 @@ export function BuggyOperationalDetail({
           />
         </div>
         <p className="mt-1.5 text-right text-[11px] text-slate-400">
-          {buggy.passengers} dari {buggy.capacity} kursi terisi
+          {t("seatsFilled", {
+            passengers: buggy.passengers,
+            capacity: buggy.capacity,
+          })}
         </p>
       </div>
 
@@ -315,7 +325,7 @@ export function BuggyOperationalDetail({
       {activeZones.length > 0 ? (
         <div className="rounded-3xl border border-blue-200/80 bg-blue-50/70 p-3">
           <p className="mb-2 text-[10px] font-semibold uppercase tracking-widest text-blue-500">
-            Terdeteksi Memasuki Zona:
+            {t("detectedInsideZone")}
           </p>
           <div className="flex flex-wrap gap-1.5">
             {activeZones.map((zone) => (
@@ -331,7 +341,7 @@ export function BuggyOperationalDetail({
       ) : (
         <div className="rounded-3xl border border-slate-200/80 bg-slate-50/70 p-3">
           <p className="text-[12px] font-medium text-slate-500 text-center">
-            Armada berada di luar jangkauan seluruh zona.
+            {t("outsideAllZones")}
           </p>
         </div>
       )}

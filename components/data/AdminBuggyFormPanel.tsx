@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useTranslation } from "react-i18next";
 import type { Buggy } from "@/types/buggy";
 import { ChevronLeft, Trash2 } from "lucide-react";
 import { getErrorMessage } from "@/lib/utils/error-message";
@@ -19,6 +20,8 @@ export function AdminBuggyFormPanel({
   onSaved,
   onDeleted,
 }: AdminBuggyFormPanelProps) {
+  const { t } = useTranslation("admin");
+  const { t: tCommon } = useTranslation("common");
   const isEdit = buggy !== null;
 
   const [code, setCode] = useState("");
@@ -56,15 +59,15 @@ export function AdminBuggyFormPanel({
     const parsedCapacity = Number(capacity);
 
     if (!trimmedCode) {
-      setError("Kode armada wajib diisi");
+      setError(t("fleetCodeRequired"));
       return;
     }
     if (!trimmedName) {
-      setError("Nama armada wajib diisi");
+      setError(t("fleetNameRequired"));
       return;
     }
     if (Number.isNaN(parsedCapacity) || parsedCapacity < 1) {
-      setError("Kapasitas harus berupa angka valid dan minimal 1");
+      setError(t("capacityInvalid"));
       return;
     }
 
@@ -84,7 +87,7 @@ export function AdminBuggyFormPanel({
         });
         if (!res.ok) {
           const data = await res.json().catch(() => ({}));
-          throw new Error((data as { error?: string }).error || "Gagal memperbarui armada");
+          throw new Error((data as { error?: string }).error || t("failedUpdateFleet"));
         }
       } else {
         // POST /api/admin/buggies
@@ -99,7 +102,7 @@ export function AdminBuggyFormPanel({
         });
         if (!res.ok) {
           const data = await res.json().catch(() => ({}));
-          throw new Error((data as { error?: string }).error || "Gagal menambah armada");
+          throw new Error((data as { error?: string }).error || t("failedAddFleet"));
         }
       }
       onSaved();
@@ -117,12 +120,12 @@ export function AdminBuggyFormPanel({
       const res = await fetch(`/api/admin/buggies/${buggy.id}`, { method: "DELETE" });
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
-        throw new Error((data as { error?: string }).error || "Gagal menghapus armada");
+        throw new Error((data as { error?: string }).error || t("failedDeleteFleet"));
       }
       onDeleted?.();
       onSaved();
     } catch (err) {
-      setError(getErrorMessage(err, "Gagal menghapus armada"));
+      setError(getErrorMessage(err, t("failedDeleteFleet")));
     } finally {
       setDeleting(false);
       setShowDeleteConfirm(false);
@@ -143,10 +146,10 @@ export function AdminBuggyFormPanel({
           </button>
           <div className="min-w-0 flex-1">
             <p className="text-[10px] font-semibold uppercase tracking-widest text-slate-400">
-              {isEdit ? "Edit Armada" : "Tambah Armada Baru"}
+              {isEdit ? t("editFleet") : t("addNewFleet")}
             </p>
             <h2 className="truncate text-[17px] font-bold text-slate-900 tracking-tight">
-              {isEdit ? buggy.name : "Armada Baru"}
+              {isEdit ? buggy.name : t("newFleet")}
             </h2>
           </div>
         </div>
@@ -161,7 +164,7 @@ export function AdminBuggyFormPanel({
         {/* Form fields */}
         <div className="space-y-3">
           <div className="grid grid-cols-2 gap-2.5">
-            <FormField label="Kode Buggy / Plat" required>
+            <FormField label={t("codePlate")} required>
               <input
                 type="text"
                 value={code}
@@ -170,7 +173,7 @@ export function AdminBuggyFormPanel({
                 className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-[14px] font-medium text-slate-800 outline-none transition focus:border-[#0f1a3b] focus:ring-2 focus:ring-[#0f1a3b]/20"
               />
             </FormField>
-            <FormField label="Kapasitas" required>
+            <FormField label={t("capacity")} required>
               <input
                 type="number"
                 min={1}
@@ -181,7 +184,7 @@ export function AdminBuggyFormPanel({
             </FormField>
           </div>
 
-          <FormField label="Nama Armada" required>
+          <FormField label={t("fleetName")} required>
             <input
               type="text"
               value={name}
@@ -194,9 +197,11 @@ export function AdminBuggyFormPanel({
           {isEdit && (
             <div className="flex items-center justify-between rounded-xl border border-slate-200 bg-white px-3 py-3">
               <div>
-                <p className="text-[13px] font-semibold text-slate-700">Status Armada</p>
+                <p className="text-[13px] font-semibold text-slate-700">
+                  {t("fleetStatus")}
+                </p>
                 <p className="text-[11px] text-slate-400">
-                  {isActive ? "Armada aktif dan dapat beroperasi" : "Armada nonaktif"}
+                  {isActive ? t("fleetActive") : t("fleetInactive")}
                 </p>
               </div>
               <button
@@ -223,10 +228,10 @@ export function AdminBuggyFormPanel({
             className="w-full rounded-2xl bg-[#0f1a3b] px-4 py-3 text-[14px] font-bold text-white shadow-sm transition hover:bg-[#1a2b55] active:scale-[0.98] disabled:opacity-50"
           >
             {saving
-              ? "Menyimpan..."
+              ? tCommon("saving")
               : isEdit
-                ? "Simpan Perubahan"
-                : "Tambah Armada"}
+                ? t("saveChanges")
+                : t("addFleet")}
           </button>
 
           {isEdit && !showDeleteConfirm && (
@@ -236,14 +241,14 @@ export function AdminBuggyFormPanel({
               className="flex items-center justify-center gap-1.5 w-full rounded-2xl border border-rose-200 bg-rose-50 px-4 py-2.5 text-[13px] font-bold text-rose-600 transition hover:bg-rose-100 active:scale-[0.98]"
             >
               <Trash2 className="h-3.5 w-3.5" />
-              Hapus Armada
+              {tCommon("delete")}
             </button>
           )}
 
           {isEdit && showDeleteConfirm && (
             <div className="rounded-2xl border border-rose-300 bg-rose-50 p-3 space-y-2">
               <p className="text-[12px] font-medium text-rose-700">
-                Yakin ingin menghapus <strong>{buggy.name}</strong>? Aksi ini permanen.
+                {t("deleteFleetInline", { name: buggy.name })}
               </p>
               <div className="flex gap-2">
                 <button
@@ -251,7 +256,7 @@ export function AdminBuggyFormPanel({
                   onClick={() => setShowDeleteConfirm(false)}
                   className="flex-1 rounded-xl border border-slate-200 bg-white px-3 py-2 text-[12px] font-bold text-slate-600 transition hover:bg-slate-50"
                 >
-                  Batal
+                  {tCommon("cancel")}
                 </button>
                 <button
                   type="button"
@@ -259,7 +264,7 @@ export function AdminBuggyFormPanel({
                   disabled={deleting}
                   className="flex-1 rounded-xl bg-rose-600 px-3 py-2 text-[12px] font-bold text-white transition hover:bg-rose-700 disabled:opacity-50"
                 >
-                  {deleting ? "Menghapus..." : "Ya, Hapus"}
+                  {deleting ? tCommon("deleting") : tCommon("yesDelete")}
                 </button>
               </div>
             </div>

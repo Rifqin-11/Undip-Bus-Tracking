@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import { useTranslation } from "react-i18next";
 import { HALTE_LOCATIONS } from "@/lib/transit/buggy-data";
 import type { HaltePoint } from "@/types/buggy";
 import { BusStopIcon, ChevronRightIcon } from "@/components/ui/Icons";
@@ -27,6 +28,8 @@ export function HalteSection({
   onToggleFavoriteHalte,
   canFavorite = false,
 }: HalteSectionProps) {
+  const { t } = useTranslation("dashboard");
+  const { t: tCommon } = useTranslation("common");
   // Admin: fetch dari API, User: pakai HALTE_LOCATIONS statis
   const [apiHaltes, setApiHaltes] = useState<HaltePoint[] | null>(null);
   /** null = list, "add" = form tambah, HaltePoint = form edit */
@@ -80,10 +83,12 @@ export function HalteSection({
         >
           <div>
             <h2 className="text-[17px] font-bold text-slate-900 tracking-tight">
-              Daftar Halte
+              {t("stopList")}
             </h2>
             <p className="text-[11px] text-slate-400">
-              {haltes.length} Halte{isAdmin ? "" : " Aktif"}
+              {isAdmin
+                ? t("stopsCount", { count: haltes.length })
+                : t("activeStops", { count: haltes.length })}
             </p>
           </div>
           {isAdmin && (
@@ -101,7 +106,7 @@ export function HalteSection({
       {/* List */}
       {haltes.length === 0 ? (
         <p className="py-4 text-center text-[12px] text-slate-400">
-          Belum ada data halte.
+          {t("noStopData")}
         </p>
       ) : (
         <div className="space-y-2">
@@ -132,14 +137,14 @@ export function HalteSection({
                       </p>
                       {canFavorite && isFav ? (
                         <span className="shrink-0 rounded-full border border-amber-200 bg-amber-100 px-1.5 py-0 text-[8px] font-bold uppercase tracking-wide text-amber-700">
-                          ★ Favorit
+                          ★ {t("favorite")}
                         </span>
                       ) : null}
                     </div>
                     <p className="truncate text-[12px] font-medium text-slate-500">
                       {isAdmin
                         ? `${halte.lat.toFixed(5)}, ${halte.lng.toFixed(5)}`
-                        : "Titik keberangkatan"}
+                        : t("departurePoint")}
                     </p>
                   </div>
                 </button>
@@ -153,8 +158,8 @@ export function HalteSection({
                       size="sm"
                       label={
                         isFav
-                          ? `Hapus ${halte.name} dari favorit`
-                          : `Tambah ${halte.name} ke favorit`
+                          ? t("removeNamedFavorite", { name: halte.name })
+                          : t("addNamedFavorite", { name: halte.name })
                       }
                     />
                   ) : null}
@@ -163,7 +168,7 @@ export function HalteSection({
                       type="button"
                       onClick={() => setFormTarget(halte)}
                       className="grid h-7 w-7 place-items-center rounded-full bg-slate-100 text-slate-400 transition-colors hover:bg-amber-100 hover:text-amber-600 active:scale-95"
-                      title="Edit halte"
+                      title={`${tCommon("edit")} ${t("halte", { ns: "navigation" })}`}
                     >
                       <Pencil className="h-3.5 w-3.5" />
                     </button>

@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from "react";
+import { useTranslation } from "react-i18next";
 import { HALTE_LOCATIONS } from "@/lib/transit/buggy-data";
 import {
   XIcon,
@@ -34,6 +35,7 @@ export function LiveSearchBar({
   isSearching = false,
   mobileTopClass = "top-10",
 }: LiveSearchBarProps) {
+  const { t } = useTranslation("dashboard");
   const [isFocused, setIsFocused] = useState(false);
   const [focusedField, setFocusedField] = useState<"from" | "to" | null>(null);
   const [locationState, setLocationState] = useState<
@@ -125,8 +127,8 @@ export function LiveSearchBar({
             </div>
             <input
               className="h-8 w-full bg-transparent text-[13px] text-slate-700 outline-none placeholder:text-slate-400"
-              placeholder="Dari mana? (cth: Geologi)"
-              aria-label="Dari lokasi asal"
+              placeholder={t("originPlaceholder")}
+              aria-label={t("originLabel")}
               value={fromValue}
               onChange={(e) => onFromChange(e.target.value)}
               onFocus={() => {
@@ -138,7 +140,7 @@ export function LiveSearchBar({
               type="button"
               onClick={onBackToDestination}
               className="grid h-6 w-6 shrink-0 place-items-center rounded-full text-slate-400 transition hover:bg-slate-100 hover:text-slate-600"
-              aria-label="Ubah tujuan"
+              aria-label={t("changeDestination")}
             >
               <XIcon className="h-3.5 w-3.5" />
             </button>
@@ -156,8 +158,8 @@ export function LiveSearchBar({
           </div>
           <input
             className="h-8 w-full bg-transparent text-[13px] text-slate-700 outline-none placeholder:text-slate-400"
-            placeholder="Ke mana? (cth: Hukum)"
-            aria-label="Ke lokasi tujuan"
+            placeholder={t("destinationPlaceholder")}
+            aria-label={t("destinationLabel")}
             value={toValue}
             onChange={(e) => onToChange(e.target.value)}
             onFocus={() => {
@@ -171,7 +173,7 @@ export function LiveSearchBar({
             type="submit"
             disabled={isSearching}
             className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-[#0f1a3b] text-white transition active:bg-[#1a2f68] disabled:opacity-50 xl:hover:bg-[#1a2f68]"
-            aria-label={showOriginField ? "Cari rute" : "Cari tujuan"}
+            aria-label={showOriginField ? t("searchRoute") : t("searchDestination")}
           >
             {isSearching ? (
               <SpinnerIcon className="h-4 w-4" />
@@ -202,10 +204,10 @@ export function LiveSearchBar({
             <div className="min-w-0 flex-1">
               <p className="truncate text-[13px] font-medium text-slate-800">
                 {locationState === "loading"
-                  ? "Mendapatkan lokasi…"
+                  ? t("gettingLocation")
                   : locationState === "error"
-                    ? "Gagal mendapatkan lokasi"
-                    : "Lokasi Saya"}
+                    ? t("locationError")
+                    : t("useMyLocation")}
               </p>
             </div>
           </button>
@@ -233,7 +235,7 @@ export function LiveSearchBar({
             ))
           ) : (
             <div className="rounded-b-2xl px-3 py-3 text-center text-[12px] text-slate-400">
-              Halte tidak ditemukan
+              {t("halteNotFound")}
             </div>
           )}
         </div>

@@ -1,6 +1,7 @@
 "use client";
 
 import { Star } from "lucide-react";
+import { useTranslation } from "react-i18next";
 
 type FavoriteStarProps = {
   /** Apakah item ini sudah di-favorit. */
@@ -43,6 +44,7 @@ export function FavoriteStar({
   label,
   className = "",
 }: FavoriteStarProps) {
+  const { t } = useTranslation("dashboard");
   if (!visible) return null;
 
   const handleClick = (e: React.MouseEvent) => {
@@ -65,7 +67,7 @@ export function FavoriteStar({
       onKeyDown={handleKeyDown}
       aria-pressed={active}
       aria-label={
-        label ?? (active ? "Hapus dari favorit" : "Tambah ke favorit")
+        label ?? (active ? t("removeFavorite") : t("addFavorite"))
       }
       className={`inline-flex shrink-0 items-center justify-center rounded-full transition-colors ${
         SIZE_CLASS[size]

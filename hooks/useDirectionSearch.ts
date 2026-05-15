@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { GoogleMapsService } from "@/lib/services/google-maps-service";
 import {
   cartesianDistance,
@@ -39,6 +40,7 @@ function ensureGoogleMaps(): boolean {
 
 /** State + handler untuk pencarian rute (origin/destination) berbasis Google Maps. */
 export function useDirectionSearch(opts: UseDirectionSearchOptions) {
+  const { t } = useTranslation("dashboard");
   const {
     liveBuggies,
     haltes,
@@ -93,7 +95,7 @@ export function useDirectionSearch(opts: UseDirectionSearchOptions) {
           return;
         }
         originPos = currentPos;
-        setFromInput("Lokasi Saya");
+        setFromInput(t("useMyLocation"));
         originHalte = mapsService.findNearestHalte(currentPos, haltes);
         if (!originHalte) {
           alert("Halte terdekat dari lokasi Anda tidak ditemukan.");
@@ -225,6 +227,7 @@ export function useDirectionSearch(opts: UseDirectionSearchOptions) {
     getLatestUserPosition,
     requireNearestBuggy,
     onSearchComplete,
+    t,
   ]);
 
   const runRecommendedHalteDirection = useCallback(
@@ -289,12 +292,12 @@ export function useDirectionSearch(opts: UseDirectionSearchOptions) {
             : best;
         }, null);
 
-        setFromInput("Lokasi Saya");
+        setFromInput(t("useMyLocation"));
         setToInput(destinationHalte.name);
         setSearchStep("origin");
 
         const result: DirectionResult = {
-          originName: "Lokasi Saya",
+          originName: t("useMyLocation"),
           destinationName: destinationHalte.name,
           originPosition: currentPos,
           destinationPosition: {
@@ -331,6 +334,7 @@ export function useDirectionSearch(opts: UseDirectionSearchOptions) {
       liveBuggies,
       getLatestUserPosition,
       onSearchComplete,
+      t,
     ],
   );
 
