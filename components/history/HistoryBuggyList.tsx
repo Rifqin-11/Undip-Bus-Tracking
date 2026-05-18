@@ -23,7 +23,6 @@ export function HistoryBuggyList({
   buggyOptions,
   sessionsByBuggy,
   refreshing,
-  onRefresh,
   onSelectBuggy,
 }: HistoryBuggyListProps) {
   const { t } = useTranslation("history");

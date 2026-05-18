@@ -90,6 +90,7 @@ export async function proxy(request: NextRequest) {
   const authenticated = !!user;
   const isAdminPage = pathname.startsWith("/admin");
   const isDriverPage = pathname.startsWith("/driver");
+  const isGpsTrackerPage = pathname.startsWith("/gps-tracker");
   const isAdminApi = pathname.startsWith("/api/admin");
   const isGeofenceApi = pathname.startsWith("/api/geofences");
   const isHistoryApi =
@@ -98,6 +99,7 @@ export async function proxy(request: NextRequest) {
   const isProtectedRoute =
     isAdminPage ||
     isDriverPage ||
+    isGpsTrackerPage ||
     isAdminApi ||
     isGeofenceApi ||
     isHistoryApi;
@@ -135,6 +137,12 @@ export async function proxy(request: NextRequest) {
     }
 
     if ((isAdminPage || isDriverPage) && role === "Pengguna umum") {
+      return NextResponse.redirect(
+        new URL(localizePath("/", activeLocale), request.url),
+      );
+    }
+
+    if (isGpsTrackerPage && role !== "Admin") {
       return NextResponse.redirect(
         new URL(localizePath("/", activeLocale), request.url),
       );
@@ -186,6 +194,7 @@ export const config = {
     "/((?!_next/static|_next/image|favicon.ico|logo.svg|.*\\..*).*)",
     "/admin/:path*",
     "/driver/:path*",
+    "/gps-tracker/:path*",
     "/login",
     "/api/geofences/:path*",
     "/api/admin/:path*",

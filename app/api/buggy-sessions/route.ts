@@ -92,7 +92,6 @@ export async function GET(request: NextRequest) {
   // Background Cleanup: Auto-hapus data mentah GPS (buggy_history) yang usianya lebih dari 3 hari.
   // Dilakukan tanpa blocking thread (fire-and-forget) agar dashboard tetap kencang.
   const threeDaysAgo = new Date(Date.now() - 3 * 24 * 3600 * 1000).toISOString();
-  // eslint-disable-next-line @typescript-eslint/no-floating-promises
   supabase.from(getBuggyHistoryTableName()).delete().lt("recorded_at", threeDaysAgo).then(() => {});
 
   const tableName = getBuggySessionTableName();
@@ -227,7 +226,6 @@ export async function GET(request: NextRequest) {
 
   // Eksekusi auto-finalize ke DB secara background tanpa memblokir request pengguna
   if (saves.length > 0) {
-      // eslint-disable-next-line @typescript-eslint/no-floating-promises
       Promise.allSettled(saves);
   }
 

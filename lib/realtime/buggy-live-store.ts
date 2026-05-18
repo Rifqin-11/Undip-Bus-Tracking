@@ -1,7 +1,4 @@
-import {
-  createInitialBuggies,
-  OFFICIAL_ROUTE_PATH,
-} from "@/lib/transit/buggy-data";
+import { OFFICIAL_ROUTE_PATH } from "@/lib/transit/buggy-data";
 import { getHalteLocations } from "@/lib/transit/halte-runtime";
 import {
   findNearestPathIndex,
@@ -46,7 +43,6 @@ export type BuggyIngestResult = {
 };
 
 declare global {
-  // eslint-disable-next-line no-var
   var __BUGGY_LIVE_STATE__: BuggyLiveState | undefined;
 }
 
@@ -552,7 +548,8 @@ export function adminRemoveBuggyFromStore(buggyId: string): void {
 export function adminDeactivateBuggyInStore(buggyId: string): void {
   const current = getMutableState();
   if (!(buggyId in current.telemetryLastSeenById)) return;
-  const { [buggyId]: _removed, ...rest } = current.telemetryLastSeenById;
+  const rest = { ...current.telemetryLastSeenById };
+  delete rest[buggyId];
   setState({
     ...current,
     updatedAt: nowMs(),

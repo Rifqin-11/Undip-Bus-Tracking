@@ -59,11 +59,8 @@ export type ActiveSessionSummary = {
 // ── Global state (survives HMR in dev) ───────────────────────────────────────
 
 declare global {
-  // eslint-disable-next-line no-var
   var __BUGGY_SESSIONS__: Map<string, ActiveSession> | undefined;
-  // eslint-disable-next-line no-var
   var __SESSION_GC_INTERVAL__: ReturnType<typeof setInterval> | undefined;
-  // eslint-disable-next-line no-var
   var __SESSION_SAVE_INFLIGHT__: Map<string, Promise<void>> | undefined;
 }
 

@@ -221,7 +221,7 @@ export function AdminStatisticsPanel({ buggies }: AdminStatisticsPanelProps) {
   const { t } = useTranslation("admin");
   const locale = useLocale();
   const localeTag = locale === "id" ? "id-ID" : "en-US";
-  const now = new Date();
+  const now = useMemo(() => new Date(), []);
 
   const [sessions, setSessions] = useState<BuggySession[]>([]);
   const [isLoadingSessions, setIsLoadingSessions] = useState(true);
@@ -239,7 +239,7 @@ export function AdminStatisticsPanel({ buggies }: AdminStatisticsPanelProps) {
           const payload = await res.json();
           setSessions(payload.sessions || []);
         }
-      } catch (e) {
+      } catch {
         // ignore
       } finally {
         setIsLoadingSessions(false);
@@ -267,7 +267,6 @@ export function AdminStatisticsPanel({ buggies }: AdminStatisticsPanelProps) {
   const elapsedDaysInMonth = Math.max(1, now.getDate()); // Approximate if viewing current month
 
   const activeBuggies = buggies.filter((buggy) => buggy.isActive);
-  const inactiveBuggies = buggies.length - activeBuggies.length;
   const totalCapacity = buggies.reduce(
     (sum, buggy) => sum + Math.max(0, buggy.capacity),
     0,
@@ -281,11 +280,6 @@ export function AdminStatisticsPanel({ buggies }: AdminStatisticsPanelProps) {
     buggies.length > 0 ? (activeBuggies.length / buggies.length) * 100 : 0;
   const occupancyRate =
     totalCapacity > 0 ? (totalPassengers / totalCapacity) * 100 : 0;
-  const availableSeats = Math.max(0, totalCapacity - totalPassengers);
-  const nearFullBuggies = buggies.filter(
-    (buggy) =>
-      buggy.crowdLevel === "HAMPIR_PENUH" || buggy.crowdLevel === "PENUH",
-  ).length;
   const averageLiveSpeed =
     activeBuggies.length > 0
       ? activeBuggies.reduce(
@@ -297,10 +291,6 @@ export function AdminStatisticsPanel({ buggies }: AdminStatisticsPanelProps) {
     if (!fastest || buggy.speedKmh > fastest.speedKmh) return buggy;
     return fastest;
   }, null);
-  const staleOrNeverUpdated = buggies.filter(
-    (buggy) => !buggy.updatedAt || buggy.updatedAt === "--:--",
-  ).length;
-
   // Real operational stats from filtered sessions
   const totalPerjalanan = filteredSessions.length;
   const previousTotalPerjalanan = previousMonthSessions.length;

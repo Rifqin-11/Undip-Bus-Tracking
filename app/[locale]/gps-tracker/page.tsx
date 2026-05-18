@@ -785,15 +785,13 @@ export default function GpsTrackerPage() {
         ) : null}
 
         <Card title="Setup Lokal">
-          <pre style={S.pre}>{`# Broker harus support WebSocket untuk browser
-mosquitto -c mosquitto-websocket.conf
+          <pre style={S.pre}>{`# Jalankan service MQTT di folder sibling
+../simobi-mosquitto-broker
+../mqtt-bridge-service
+../mqtt-simulator-bridge-service
 
-npm run dev
-
-MQTT_BROKER_URL=mqtt://localhost:1883 \\
-MQTT_TOPIC=buggy/+/data \\
-NEXT_GPS_BEACON_URL=http://localhost:3000/api/gps-beacon \\
-npm run bridge:mqtt`}</pre>
+# Jalankan app utama
+npm run dev`}</pre>
         </Card>
       </section>
     </main>

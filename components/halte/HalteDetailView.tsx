@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { HaltePoint, Buggy } from "@/types/buggy";
@@ -82,7 +83,6 @@ type HalteDetailViewProps = {
 
 export function HalteDetailView({
   halte,
-  halteIndex: _halteIndex,
   buggies = [],
   onBack,
   canFavorite = false,
@@ -145,7 +145,7 @@ export function HalteDetailView({
       clearTimeout(t);
       controller.abort();
     };
-  }, [halte.id, halte.lat, halte.lng]);
+  }, [halte]);
 
   const handleShare = async () => {
     const shareData = {
@@ -256,9 +256,12 @@ export function HalteDetailView({
 
           {/* Street View dimuat setelah panel terbuka */}
           {imageUrl && !svError && (
-            <img
+            <Image
               src={imageUrl}
               alt={`Street View ${halte.name}`}
+              width={640}
+              height={320}
+              unoptimized
               className="h-44 w-full object-cover mix-blend-multiply opacity-95"
               onError={() => setSvError(true)}
             />

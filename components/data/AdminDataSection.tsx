@@ -47,8 +47,6 @@ type AdminDataSectionProps = {
 
 export function AdminDataSection({
   buggies,
-  realtimeConnected,
-  realtimeSource,
   geofences,
   events,
   geofenceStatuses,

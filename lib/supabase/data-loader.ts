@@ -11,19 +11,14 @@
 
 import { createAdminClient } from "@/lib/supabase/server";
 import { getHalteLocations, setHalteLocations, isHalteRuntimeReady } from "@/lib/transit/halte-runtime";
-import {
-  getBuggyLiveSnapshot,
-  adminAddBuggyToStore,
-} from "@/lib/realtime/buggy-live-store";
+import { adminAddBuggyToStore } from "@/lib/realtime/buggy-live-store";
 import { findNearestPathIndex } from "@/lib/transit/buggy-route-utils";
 import { CENTER_UNDIP } from "@/lib/transit/buggy-data";
 import type { HaltePoint } from "@/types/buggy";
 import type { Buggy } from "@/types/buggy";
 
 declare global {
-  // eslint-disable-next-line no-var
   var __DB_BOOTSTRAP_DONE__: boolean | undefined;
-  // eslint-disable-next-line no-var
   var __DB_BOOTSTRAP_IN_PROGRESS__: Promise<void> | undefined;
 }
 

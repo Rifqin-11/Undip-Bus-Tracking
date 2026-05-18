@@ -11,7 +11,6 @@ import { HALTE_LOCATIONS as STATIC_HALTE_LOCATIONS } from "@/lib/transit/buggy-d
 import type { HaltePoint } from "@/types/buggy";
 
 declare global {
-  // eslint-disable-next-line no-var
   var __HALTE_RUNTIME__: HaltePoint[] | undefined;
 }
 

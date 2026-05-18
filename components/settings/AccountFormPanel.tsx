@@ -57,7 +57,7 @@ export function AccountFormPanel({ mode, onClose }: AccountFormPanelProps) {
       setBuggyId(account?.buggy_id || "");
     }
     loadUserData();
-  }, [isCreate]);
+  }, [isCreate, tCommon]);
 
   useEffect(() => {
     async function loadBuggyOptions() {

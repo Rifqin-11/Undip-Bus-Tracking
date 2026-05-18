@@ -582,11 +582,8 @@ export function MapCanvas({
       draftCircleRef.current?.setMap(null);
       draftCircleRef.current = null;
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
-    draftGeofence?.center.lat,
-    draftGeofence?.center.lng,
-    draftGeofence?.radiusMeters,
+    draftGeofence,
     mapReady,
     onDraftGeofenceChange,
   ]);
@@ -598,7 +595,7 @@ export function MapCanvas({
     const current = draftCircleRef.current.getRadius();
     if (Math.abs(current - draftGeofence.radiusMeters) < 0.5) return;
     draftCircleRef.current.setRadius(draftGeofence.radiusMeters);
-  }, [draftGeofence?.radiusMeters]);
+  }, [draftGeofence]);
 
   // ── Map click callback (kept for legacy fallback, inactive in create mode) ─
 

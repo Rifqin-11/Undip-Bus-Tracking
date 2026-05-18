@@ -300,7 +300,7 @@ export default function DashboardPage() {
   const geofenceMembershipRef = useRef<Map<string, boolean>>(new Map());
   const geofenceCooldownRef = useRef<Map<string, number>>(new Map());
 
-  const handleLogout = async () => {
+  const handleLogout = useCallback(async () => {
     try {
       const supabase = createClient();
       await supabase.auth.signOut();
@@ -309,13 +309,13 @@ export default function DashboardPage() {
     }
     setSettingsAccountForm(null);
     window.location.href = localizePath("/", locale);
-  };
+  }, [locale]);
 
-  const handleOpenSettings = (accountForm: AccountFormMode | null = null) => {
+  const handleOpenSettings = useCallback((accountForm: AccountFormMode | null = null) => {
     setSettingsAccountForm(accountForm);
     setActiveView("settings");
     setPanelOpen(true);
-  };
+  }, []);
 
   const { toggle: handleToggleBrowserNotification } =
     useBrowserNotificationToggle({
@@ -761,7 +761,7 @@ export default function DashboardPage() {
         tone: "danger",
       },
     ],
-    [handleLogout, t, tNav],
+    [handleLogout, handleOpenSettings, t, tNav],
   );
 
   const mapBuggies = activeView === "halte" ? [] : visibleBuggies;
