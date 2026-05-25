@@ -1,6 +1,12 @@
 "use client";
 
-import { useState, useEffect, useMemo, type ReactNode } from "react";
+import {
+  useState,
+  useEffect,
+  useMemo,
+  useRef,
+  type ReactNode,
+} from "react";
 import { useTranslation } from "react-i18next";
 import {
   Area,
@@ -61,7 +67,7 @@ function StatTile({
 }: {
   icon: ReactNode;
   label: string;
-  value: string;
+  value: ReactNode;
   helper: string;
   className?: string;
   tone?: StatTone;
@@ -97,6 +103,70 @@ function formatMinutes(value: number, minuteLabel: string, hourLabel: string) {
   const hours = Math.floor(value / 60);
   const minutes = Math.round(value % 60);
   return `${hours}${hourLabel} ${minutes}m`;
+}
+
+function easeOutCubic(progress: number) {
+  return 1 - Math.pow(1 - progress, 3);
+}
+
+function useAnimatedNumber(value: number, durationMs = 900) {
+  const [displayValue, setDisplayValue] = useState(0);
+  const previousValueRef = useRef(0);
+
+  useEffect(() => {
+    if (
+      window.matchMedia?.("(prefers-reduced-motion: reduce)").matches ||
+      durationMs <= 0
+    ) {
+      previousValueRef.current = value;
+      const frameId = window.requestAnimationFrame(() => {
+        setDisplayValue(value);
+      });
+      return () => {
+        window.cancelAnimationFrame(frameId);
+      };
+    }
+
+    const startValue = previousValueRef.current;
+    const delta = value - startValue;
+    const startedAt = performance.now();
+    let frameId = 0;
+
+    const animate = (time: number) => {
+      const progress = Math.min(1, (time - startedAt) / durationMs);
+      const nextValue = startValue + delta * easeOutCubic(progress);
+      setDisplayValue(nextValue);
+
+      if (progress < 1) {
+        frameId = window.requestAnimationFrame(animate);
+        return;
+      }
+
+      previousValueRef.current = value;
+      setDisplayValue(value);
+    };
+
+    frameId = window.requestAnimationFrame(animate);
+
+    return () => {
+      window.cancelAnimationFrame(frameId);
+    };
+  }, [durationMs, value]);
+
+  return displayValue;
+}
+
+function AnimatedStatNumber({
+  value,
+  formatter,
+  durationMs,
+}: {
+  value: number;
+  formatter: (value: number) => string;
+  durationMs?: number;
+}) {
+  const animatedValue = useAnimatedNumber(value, durationMs);
+  return <>{formatter(animatedValue)}</>;
 }
 
 function getNearestHalteName(lat: number, lng: number, unknownArea: string) {
@@ -388,9 +458,6 @@ export function AdminStatisticsPanel({ buggies }: AdminStatisticsPanelProps) {
     );
   })();
 
-  const totalWaktuHours = Math.floor(totalWaktuMenit / 60);
-  const totalWaktuMins = Math.round(totalWaktuMenit % 60);
-
   // Daily Trend Data
   const dailyTrends = useMemo(() => {
     const year = parseInt(selectedMonth.substring(0, 4));
@@ -601,7 +668,12 @@ export function AdminStatisticsPanel({ buggies }: AdminStatisticsPanelProps) {
             </div>
             <div className="flex items-end gap-2">
               <span className="text-[36px] font-black leading-none text-[#0f1a3b] tracking-tighter">
-                {totalPassengers.toLocaleString(localeTag)}
+                <AnimatedStatNumber
+                  value={totalPassengers}
+                  formatter={(value) =>
+                    Math.round(value).toLocaleString(localeTag)
+                  }
+                />
               </span>
               <span className="mb-1.5 rounded-full bg-slate-100 px-1.5 py-0.5 text-[9px] font-bold text-slate-600">
                 live
@@ -617,7 +689,10 @@ export function AdminStatisticsPanel({ buggies }: AdminStatisticsPanelProps) {
             </p>
             <div className="flex items-end gap-1.5">
               <span className="text-[28px] font-black leading-none text-[#0f1a3b] tracking-tighter">
-                {averagePassengersPerDay.toFixed(0)}
+                <AnimatedStatNumber
+                  value={averagePassengersPerDay}
+                  formatter={(value) => Math.round(value).toLocaleString(localeTag)}
+                />
               </span>
               <span className="mb-1 text-[11px] font-bold text-slate-400">
                 {t("peoplePerDay")}
@@ -642,7 +717,16 @@ export function AdminStatisticsPanel({ buggies }: AdminStatisticsPanelProps) {
             </div>
             <span className="shrink-0 rounded-full bg-slate-100 px-2 py-1 text-[9px] font-black text-[#0f1a3b]">
               {peakPassengerHour.value > 0
-                ? `${peakPassengerHour.label} · ${peakPassengerHour.value} ${t("peopleShort")}`
+                ? (
+                    <>
+                      {peakPassengerHour.label} ·{" "}
+                      <AnimatedStatNumber
+                        value={peakPassengerHour.value}
+                        formatter={(value) => Math.round(value).toLocaleString(localeTag)}
+                      />{" "}
+                      {t("peopleShort")}
+                    </>
+                  )
                 : "-"}
             </span>
           </div>
@@ -664,7 +748,12 @@ export function AdminStatisticsPanel({ buggies }: AdminStatisticsPanelProps) {
                   {isLoadingSessions ? (
                     <SkeletonStat width="w-14" height="h-5" />
                   ) : (
-                    totalPerjalanan.toLocaleString(localeTag)
+                    <AnimatedStatNumber
+                      value={totalPerjalanan}
+                      formatter={(value) =>
+                        Math.round(value).toLocaleString(localeTag)
+                      }
+                    />
                   )}
                 </span>
                 <span className="rounded-full bg-slate-100 px-1.5 py-0.5 text-[9px] font-bold text-slate-600">
@@ -685,7 +774,10 @@ export function AdminStatisticsPanel({ buggies }: AdminStatisticsPanelProps) {
                     {isLoadingSessions ? (
                       <SkeletonStat width="w-12" height="h-5" />
                     ) : (
-                      totalJarakKm.toFixed(1)
+                      <AnimatedStatNumber
+                        value={totalJarakKm}
+                        formatter={(value) => value.toFixed(1)}
+                      />
                     )}
                   </span>
                   <span className="text-[10px] font-bold text-slate-400">
@@ -712,7 +804,10 @@ export function AdminStatisticsPanel({ buggies }: AdminStatisticsPanelProps) {
                   {isLoadingSessions ? (
                     <SkeletonStat width="w-12" height="h-5" />
                   ) : (
-                    averageSpeedKmh.toFixed(1)
+                    <AnimatedStatNumber
+                      value={averageSpeedKmh}
+                      formatter={(value) => value.toFixed(1)}
+                    />
                   )}
                 </span>
                 <span className="text-[10px] font-bold text-slate-400">
@@ -731,7 +826,15 @@ export function AdminStatisticsPanel({ buggies }: AdminStatisticsPanelProps) {
                 {isLoadingSessions ? (
                   <SkeletonStat width="w-16" height="h-5" />
                 ) : (
-                  `${totalWaktuHours}${t("hoursShort")} ${totalWaktuMins}m`
+                  <AnimatedStatNumber
+                    value={totalWaktuMenit}
+                    formatter={(value) => {
+                      const minutes = Math.max(0, value);
+                      const hours = Math.floor(minutes / 60);
+                      const remainingMinutes = Math.round(minutes % 60);
+                      return `${hours}${t("hoursShort")} ${remainingMinutes}m`;
+                    }}
+                  />
                 )}
               </span>
             </div>
@@ -762,11 +865,21 @@ export function AdminStatisticsPanel({ buggies }: AdminStatisticsPanelProps) {
             </div>
             <span className="shrink-0 rounded-full bg-amber-50 px-2 py-1 text-[9px] font-black text-amber-600">
               {peakDelay.value > 0
-                ? `${peakDelay.label} · ${formatMinutes(
-                    peakDelay.value,
-                    t("minutesShort"),
-                    t("hoursShort"),
-                  )}`
+                ? (
+                    <>
+                      {peakDelay.label} ·{" "}
+                      <AnimatedStatNumber
+                        value={peakDelay.value}
+                        formatter={(value) =>
+                          formatMinutes(
+                            value,
+                            t("minutesShort"),
+                            t("hoursShort"),
+                          )
+                        }
+                      />
+                    </>
+                  )
                 : t("normal")}
             </span>
           </div>
@@ -778,7 +891,15 @@ export function AdminStatisticsPanel({ buggies }: AdminStatisticsPanelProps) {
             <StatTile
               icon={<Bus className="h-4 w-4" />}
               label={t("activeFleet")}
-              value={`${activeBuggies.length}/${buggies.length}`}
+              value={
+                <>
+                  <AnimatedStatNumber
+                    value={activeBuggies.length}
+                    formatter={(value) => Math.round(value).toLocaleString(localeTag)}
+                  />
+                  /{buggies.length.toLocaleString(localeTag)}
+                </>
+              }
               helper={t("activeFleetHelper", { rate: activeRate.toFixed(0) })}
               className="border-r border-slate-100"
               tone={activeBuggies.length > 0 ? "emerald" : "rose"}
@@ -786,7 +907,15 @@ export function AdminStatisticsPanel({ buggies }: AdminStatisticsPanelProps) {
             <StatTile
               icon={<Activity className="h-4 w-4" />}
               label={t("seatUtilization")}
-              value={`${occupancyRate.toFixed(0)}%`}
+              value={
+                <>
+                  <AnimatedStatNumber
+                    value={occupancyRate}
+                    formatter={(value) => Math.round(value).toLocaleString(localeTag)}
+                  />
+                  %
+                </>
+              }
               helper={t("seatsFilledShort", {
                 passengers: totalPassengers,
                 capacity: totalCapacity,
@@ -805,7 +934,12 @@ export function AdminStatisticsPanel({ buggies }: AdminStatisticsPanelProps) {
             <StatTile
               icon={<Gauge className="h-4 w-4" />}
               label={t("averageLiveSpeed")}
-              value={`${averageLiveSpeed.toFixed(1)}`}
+              value={
+                <AnimatedStatNumber
+                  value={averageLiveSpeed}
+                  formatter={(value) => value.toFixed(1)}
+                />
+              }
               helper={t("highestSpeed", {
                 code: fastestBuggy?.code ?? "-",
                 speed: fastestBuggy
@@ -821,7 +955,15 @@ export function AdminStatisticsPanel({ buggies }: AdminStatisticsPanelProps) {
               value={
                 averageBatteryUsed === null
                   ? "-"
-                  : `${averageBatteryUsed.toFixed(1)}%`
+                  : (
+                      <>
+                        <AnimatedStatNumber
+                          value={averageBatteryUsed}
+                          formatter={(value) => value.toFixed(1)}
+                        />
+                        %
+                      </>
+                    )
               }
               helper={t("batteryDrainHelper")}
               tone="slate"
@@ -936,7 +1078,13 @@ export function AdminStatisticsPanel({ buggies }: AdminStatisticsPanelProps) {
               {isLoadingSessions ? (
                 <SkeletonStat width="w-16" height="h-4" />
               ) : (
-                `${averageDistancePerTrip.toFixed(1)} km`
+                <>
+                  <AnimatedStatNumber
+                    value={averageDistancePerTrip}
+                    formatter={(value) => value.toFixed(1)}
+                  />{" "}
+                  km
+                </>
               )}
             </div>
           </div>
@@ -948,7 +1096,13 @@ export function AdminStatisticsPanel({ buggies }: AdminStatisticsPanelProps) {
               {isLoadingSessions ? (
                 <SkeletonStat width="w-16" height="h-4" />
               ) : (
-                `${averageDurationPerTrip.toFixed(0)} ${t("minutesShort")}`
+                <>
+                  <AnimatedStatNumber
+                    value={averageDurationPerTrip}
+                    formatter={(value) => Math.round(value).toLocaleString(localeTag)}
+                  />{" "}
+                  {t("minutesShort")}
+                </>
               )}
             </div>
           </div>
@@ -960,7 +1114,10 @@ export function AdminStatisticsPanel({ buggies }: AdminStatisticsPanelProps) {
               {isLoadingSessions ? (
                 <SkeletonStat width="w-12" height="h-4" />
               ) : (
-                sessionsPerBuggy.toFixed(1)
+                <AnimatedStatNumber
+                  value={sessionsPerBuggy}
+                  formatter={(value) => value.toFixed(1)}
+                />
               )}
             </div>
           </div>
