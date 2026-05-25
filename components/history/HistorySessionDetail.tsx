@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
+import { Download } from "lucide-react";
 import { ChevronLeftIcon, TrashIcon } from "@/components/ui/Icons";
 import { DeleteConfirmModal } from "@/components/ui/DeleteConfirmModal";
 import { fmtDate, fmtTime, fmtTimestamp, fmtDuration } from "@/lib/utils/format-time";
@@ -14,6 +15,31 @@ type HistorySessionDetailProps = {
   onDeleteSuccess?: () => void;
   readOnly?: boolean;
 };
+
+type CsvValue = string | number | null | undefined;
+
+function escapeCsvValue(value: CsvValue) {
+  const text = value === null || value === undefined ? "" : String(value);
+
+  if (/[",\n\r]/.test(text)) {
+    return `"${text.replace(/"/g, '""')}"`;
+  }
+
+  return text;
+}
+
+function sanitizeCsvFilename(value: string) {
+  return value.trim().replace(/[^\w.-]+/g, "_").replace(/^_+|_+$/g, "");
+}
+
+function toIsoTimestamp(value: string | number | null | undefined) {
+  if (value === null || value === undefined || value === "") return "";
+
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "";
+
+  return date.toISOString();
+}
 
 export function HistorySessionDetail({
   selectedBuggy,
@@ -55,6 +81,96 @@ export function HistorySessionDetail({
     }
   }
 
+  function downloadSessionCsv() {
+    const sessionLabel = s.isOngoing
+      ? t("ongoingSession")
+      : `${t("session")} ${s.sessionNumber}`;
+    const statusLabel = s.isOngoing ? t("ongoing") : t("completed");
+    const gpsPointCount = s.path.length;
+    const baseSessionValues = [
+      selectedBuggy.code,
+      selectedBuggy.name,
+      sessionLabel,
+      statusLabel,
+      s.sessionDate,
+      toIsoTimestamp(s.startedAt),
+      s.isOngoing ? "" : toIsoTimestamp(s.endedAt),
+      s.durationMinutes ?? "",
+      s.totalDistanceKm ?? "",
+      s.avgSpeedKmh ?? "",
+      s.batteryStart ?? "",
+      s.batteryEnd ?? "",
+      s.batteryUsed ?? "",
+      gpsPointCount,
+    ];
+
+    const headers = [
+      t("csvNo"),
+      t("csvRowType"),
+      t("csvBuggyCode"),
+      t("csvBuggyName"),
+      t("csvSession"),
+      t("csvStatus"),
+      t("csvDate"),
+      t("csvStartTime"),
+      t("csvEndTime"),
+      t("csvDurationMinutes"),
+      t("csvDistanceKm"),
+      t("csvAverageSpeed"),
+      t("csvBatteryStart"),
+      t("csvBatteryEnd"),
+      t("csvBatteryUsage"),
+      t("csvGpsPointCount"),
+      t("csvPointIndex"),
+      t("csvPointTime"),
+      t("csvLatitude"),
+      t("csvLongitude"),
+    ];
+
+    const summaryRow = [
+      1,
+      t("csvSummary"),
+      ...baseSessionValues,
+      "",
+      "",
+      "",
+      "",
+    ];
+
+    const routeRows = s.path.map(([lat, lng, tsMs], idx) => [
+      idx + 2,
+      t("csvGpsPoint"),
+      ...baseSessionValues,
+      idx + 1,
+      toIsoTimestamp(tsMs ?? s.startedAt),
+      lat,
+      lng,
+    ]);
+
+    const csvContent = [
+      headers,
+      summaryRow,
+      ...routeRows,
+    ]
+      .map((row) => row.map(escapeCsvValue).join(","))
+      .join("\n");
+
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    const sessionPart = s.isOngoing ? "ongoing" : `session_${s.sessionNumber}`;
+    const filename = sanitizeCsvFilename(
+      `Session_Detail_${selectedBuggy.code}_${sessionPart}_${s.sessionDate}.csv`,
+    );
+
+    link.href = url;
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  }
+
   return (
     <section className="space-y-3 relative">
       {/* Header */}
@@ -80,20 +196,26 @@ export function HistorySessionDetail({
             </h2>
           </div>
         </div>
-        {s.isOngoing ? (
-          <span className="flex shrink-0 items-center gap-1.5 rounded-full bg-emerald-100 px-2.5 py-0.5 text-[10px] font-semibold text-emerald-700">
-            <span className="inline-block h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-500" />
-            {t("live")}
-          </span>
-        ) : readOnly ? (
-          <span className="rounded-full bg-slate-100 px-2.5 py-0.5 text-[10px] font-semibold text-slate-500">
-            {t("completed")}
-          </span>
-        ) : (
-          <div className="flex shrink-0 items-center gap-2">
+        <div className="flex shrink-0 items-center gap-2">
+          {s.isOngoing ? (
+            <span className="flex items-center gap-1.5 rounded-full bg-emerald-100 px-2.5 py-0.5 text-[10px] font-semibold text-emerald-700">
+              <span className="inline-block h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-500" />
+              {t("live")}
+            </span>
+          ) : (
             <span className="rounded-full bg-slate-100 px-2.5 py-0.5 text-[10px] font-semibold text-slate-500">
               {t("completed")}
             </span>
+          )}
+          <button
+            type="button"
+            onClick={downloadSessionCsv}
+            className="flex h-7 items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-2.5 text-[10px] font-semibold text-slate-600 transition hover:border-slate-900 hover:bg-slate-900 hover:text-white active:scale-95"
+            aria-label={t("downloadCsv")}
+          >
+            <Download className="h-3.5 w-3.5" />
+          </button>
+          {!s.isOngoing && !readOnly && (
             <button
               onClick={() => setShowDeleteModal(true)}
               className="flex h-7 w-7 items-center justify-center rounded-lg border border-rose-100/50 bg-rose-50 text-rose-500 transition hover:bg-rose-100 hover:text-rose-600 active:scale-95"
@@ -101,8 +223,8 @@ export function HistorySessionDetail({
             >
               <TrashIcon className="h-3.5 w-3.5" />
             </button>
-          </div>
-        )}
+          )}
+        </div>
       </div>
 
       {/* Waktu mulai & selesai */}
