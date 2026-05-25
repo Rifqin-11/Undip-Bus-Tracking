@@ -110,10 +110,11 @@ export default function DashboardPage() {
     Record<string, string>
   >({});
 
-  // localBuggies: hasil fetch langsung setelah add/delete agar list update instan
+  // localBuggies: fallback instan setelah add/delete; realtime feed tetap prioritas
+  // supaya marker selalu mengikuti posisi telemetry terakhir dari /api/buggy.
   const [localBuggies, setLocalBuggies] = useState<Buggy[] | null>(null);
   const liveBuggies = useMemo(
-    () => localBuggies ?? realtimeFeed.liveBuggies ?? [],
+    () => realtimeFeed.liveBuggies ?? localBuggies ?? [],
     [localBuggies, realtimeFeed.liveBuggies],
   );
 
