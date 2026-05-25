@@ -122,6 +122,21 @@ function crowdTone(crowdLevel: Buggy["crowdLevel"]): {
 export function buildBuggyInfoContent(buggy: Buggy): string {
   const crowd = crowdDescription(buggy.crowdLevel);
   const tone = crowdTone(buggy.crowdLevel);
+  const statusTone = buggy.isActive
+    ? {
+        label: "Aktif",
+        bg: "#dcfce7",
+        color: "#166534",
+        border: "#86efac",
+        dot: "#22c55e",
+      }
+    : {
+        label: "Nonaktif",
+        bg: "#f1f5f9",
+        color: "#475569",
+        border: "#cbd5e1",
+        dot: "#94a3b8",
+      };
   const occupancy = buggy.capacity
     ? Math.min(100, Math.round((buggy.passengers / buggy.capacity) * 100))
     : 0;
@@ -132,7 +147,12 @@ export function buildBuggyInfoContent(buggy: Buggy): string {
         <div style="padding: 10px 12px; border-bottom: 1px solid #e2e8f0; background: linear-gradient(135deg, #eff6ff 0%, #f8fafc 100%);">
           <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px;">
             <div style="font-size: 14px; font-weight: 700; color: #0f172a; line-height: 1.2;">${buggy.name}</div>
-            <span style="font-size: 10px; font-weight: 700; letter-spacing: 0.03em; color: #1e3a8a; background: #dbeafe; border: 1px solid #bfdbfe; border-radius: 999px; padding: 2px 7px;">${buggy.code}</span>
+            <div style="display: flex; align-items: center; gap: 5px;">
+              <span style="display: inline-flex; align-items: center; gap: 4px; border: 1px solid ${statusTone.border}; border-radius: 999px; background: ${statusTone.bg}; color: ${statusTone.color}; font-size: 10px; font-weight: 800; padding: 2px 7px;">
+                <span style="display: inline-block; width: 5px; height: 5px; border-radius: 999px; background: ${statusTone.dot};"></span>
+                ${statusTone.label}
+              </span>
+            </div>
           </div>
           <div style="font-size: 12px; color: #475569; margin-top: 4px;">Rute: ${buggy.routeLabel}</div>
         </div>
