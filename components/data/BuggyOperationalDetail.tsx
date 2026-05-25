@@ -80,6 +80,47 @@ export function BuggyOperationalDetail({
         .filter(Boolean)
         .join(" · ")
     : "-";
+  const signalValue =
+    typeof buggy.gsm?.signalPercent === "number"
+      ? [
+          `${buggy.gsm.signalPercent}%`,
+          typeof buggy.gsm.signalDbm === "number"
+            ? `${buggy.gsm.signalDbm} dBm`
+            : null,
+          typeof buggy.gsm.signalCsq === "number"
+            ? `CSQ ${buggy.gsm.signalCsq}`
+            : null,
+        ]
+          .filter(Boolean)
+          .join(" · ")
+      : "-";
+  const networkValue = buggy.gsm
+    ? [
+        buggy.gsm.networkType ?? null,
+        buggy.gsm.networkConnected === true
+          ? t("networkConnected")
+          : buggy.gsm.networkConnected === false
+            ? t("networkDisconnected")
+            : null,
+        buggy.gsm.gprsConnected === true
+          ? t("gprsConnected")
+          : buggy.gsm.gprsConnected === false
+            ? t("gprsDisconnected")
+            : null,
+      ]
+        .filter(Boolean)
+        .join(" · ") || "-"
+    : "-";
+  const simValue = buggy.gsm
+    ? [buggy.gsm.simStatusText ?? null, buggy.gsm.simStatus ?? null]
+        .filter((value) => value !== null && value !== undefined)
+        .join(" · ") || "-"
+    : "-";
+  const mqttValue = buggy.gsm
+    ? [buggy.gsm.mqttStateText ?? null, buggy.gsm.mqttState ?? null]
+        .filter((value) => value !== null && value !== undefined)
+        .join(" · ") || "-"
+    : "-";
   const occupancyPct = Math.min(
     Math.round((buggy.passengers / buggy.capacity) * 100),
     100,
@@ -101,6 +142,11 @@ export function BuggyOperationalDetail({
     { label: t("name"), value: buggy.name },
     { label: t("driver"), value: assignedDriverName || "-" },
     { label: t("apnStatus"), value: apnValue },
+    { label: t("gsmSignal"), value: signalValue },
+    { label: t("simStatus"), value: simValue },
+    { label: t("networkStatus"), value: networkValue },
+    { label: t("localIp"), value: buggy.gsm?.localIp || "-" },
+    { label: t("mqttStatus"), value: mqttValue },
     { label: t("route"), value: buggy.routeLabel || "-" },
     {
       label: t("coordinates"),

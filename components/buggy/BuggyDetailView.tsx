@@ -114,7 +114,7 @@ export function BuggyDetailView({
             {t("fromStop", { stop: stops[currentIndex] })}
           </p>
           {shouldShowApn ? (
-            <div className="mt-1 flex flex-wrap items-center gap-1.5">
+            <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
               <span
                 className={`inline-flex items-center gap-1.5 rounded-full border px-2 py-0.5 text-[10px] font-semibold ${
                   apnState === "connected"
@@ -136,8 +136,18 @@ export function BuggyDetailView({
                 {t("apnStatus")}: {buggy.gsm?.apn}
               </span>
               {typeof buggy.gsm?.signalPercent === "number" ? (
-                <span className="text-[10px] font-medium text-slate-500">
+                <span className="rounded-full border border-slate-200 bg-white px-2 py-0.5 text-[10px] font-medium text-slate-600">
                   {buggy.gsm.signalPercent}% GSM
+                </span>
+              ) : null}
+              {buggy.gsm?.networkType ? (
+                <span className="rounded-full border border-slate-200 bg-white px-2 py-0.5 text-[10px] font-medium text-slate-600">
+                  {buggy.gsm.networkType}
+                </span>
+              ) : null}
+              {buggy.gsm?.mqttStateText ? (
+                <span className="rounded-full border border-slate-200 bg-white px-2 py-0.5 text-[10px] font-medium text-slate-600">
+                  {buggy.gsm.mqttStateText}
                 </span>
               ) : null}
             </div>

@@ -28,6 +28,10 @@ function isSchemaColumnError(message: string) {
   );
 }
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null;
+}
+
 /**
  * POST /api/gps-beacon
  *
@@ -47,8 +51,9 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
   }
 
-  // Allow sessionEnd requests without lat/lng
-  const b = body as Record<string, unknown>;
+  // Allow both flat payloads and bridge logs shaped like { topic, data: {...} }.
+  const bodyRecord = isRecord(body) ? body : {};
+  const b = isRecord(bodyRecord.data) ? bodyRecord.data : bodyRecord;
   const isSessionEnd = b.sessionEnd === true;
 
   if (
@@ -101,6 +106,8 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ ok: true, sessionEnded: true, buggyId: numericBuggyId });
   }
 
+  const normalizedGsm = normalizeGsmStatus(gsm);
+
   // ── Live store ingest ─────────────────────────────────────────────────────
   const telemetryPayload = {
     telemetry: [
@@ -123,7 +130,7 @@ export async function POST(request: NextRequest) {
         forceResync: forceResync === true,
         tag: typeof source === "string" ? source : "gps_beacon",
         timestamp: new Date().toISOString(),
-        gsm: normalizeGsmStatus(gsm),
+        gsm: normalizedGsm,
       },
     ],
   };
@@ -235,6 +242,15 @@ export async function POST(request: NextRequest) {
     accepted: result.accepted,
     buggyId: numericBuggyId,
     position: { lat: Number(lat), lng: Number(lng) },
+    gsm: normalizedGsm
+      ? {
+          apn: normalizedGsm.apn,
+          signalPercent: normalizedGsm.signalPercent,
+          networkConnected: normalizedGsm.networkConnected,
+          gprsConnected: normalizedGsm.gprsConnected,
+          mqttStateText: normalizedGsm.mqttStateText,
+        }
+      : null,
     updatedAt: result.updatedAt,
   });
 }
