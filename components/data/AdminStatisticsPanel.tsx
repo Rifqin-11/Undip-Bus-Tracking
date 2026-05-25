@@ -49,6 +49,7 @@ type AdminStatisticsPanelProps = {
 
 type StatTone = "navy" | "emerald" | "amber" | "rose" | "slate";
 type ChartDatum = { label: string; value: number; helper?: string };
+const IDLE_SPEED_THRESHOLD_KMH = 1;
 
 function formatDelta(current: number, previous: number, newLabel: string): string {
   if (previous <= 0) return current > 0 ? newLabel : "0%";
@@ -397,6 +398,13 @@ export function AdminStatisticsPanel({ buggies }: AdminStatisticsPanelProps) {
   const elapsedDaysInMonth = Math.max(1, now.getDate()); // Approximate if viewing current month
 
   const activeBuggies = buggies.filter((buggy) => buggy.isActive);
+  const movingBuggies = activeBuggies.filter(
+    (buggy) => Math.max(0, buggy.speedKmh) > IDLE_SPEED_THRESHOLD_KMH,
+  );
+  const idleBuggies = activeBuggies.filter(
+    (buggy) => Math.max(0, buggy.speedKmh) <= IDLE_SPEED_THRESHOLD_KMH,
+  );
+  const stoppedBuggies = buggies.filter((buggy) => !buggy.isActive);
   const totalCapacity = buggies.reduce(
     (sum, buggy) => sum + Math.max(0, buggy.capacity),
     0,
@@ -644,6 +652,53 @@ export function AdminStatisticsPanel({ buggies }: AdminStatisticsPanelProps) {
               ))}
             </select>
             <CalendarDays className="absolute right-3 top-1/2 -translate-y-1/2 h-3 w-3 text-slate-500 pointer-events-none" />
+          </div>
+        </div>
+
+        <div className="mb-3 grid grid-cols-3 gap-2">
+          <div className="rounded-[18px] border border-emerald-100 bg-emerald-50/70 p-3 shadow-[0_8px_20px_rgba(15,23,42,0.02)]">
+            <div className="mb-2 flex items-center gap-1.5 text-emerald-600">
+              <Activity className="h-4 w-4 shrink-0" />
+              <p className="min-w-0 text-[9px] font-black uppercase tracking-widest">
+                {t("activeVehicles")}
+              </p>
+            </div>
+            <p className="text-[24px] font-black leading-none text-black">
+              <AnimatedStatNumber
+                value={movingBuggies.length}
+                formatter={(value) => Math.round(value).toLocaleString(localeTag)}
+              />
+            </p>
+          </div>
+
+          <div className="rounded-[18px] border border-amber-100 bg-amber-50/70 p-3 shadow-[0_8px_20px_rgba(15,23,42,0.02)]">
+            <div className="mb-2 flex items-center gap-1.5 text-amber-600">
+              <Clock className="h-4 w-4 shrink-0" />
+              <p className="min-w-0 text-[9px] font-black uppercase tracking-widest">
+                {t("idleVehicles")}
+              </p>
+            </div>
+            <p className="text-[24px] font-black leading-none text-black">
+              <AnimatedStatNumber
+                value={idleBuggies.length}
+                formatter={(value) => Math.round(value).toLocaleString(localeTag)}
+              />
+            </p>
+          </div>
+
+          <div className="rounded-[18px] border border-red-200 bg-red-50 p-3 shadow-[0_8px_20px_rgba(15,23,42,0.02)]">
+            <div className="mb-2 flex items-center gap-1.5 text-red-500">
+              <Bus className="h-4 w-4 shrink-0" />
+              <p className="min-w-0 text-[9px] font-black uppercase tracking-widest">
+                {t("stoppedVehicles")}
+              </p>
+            </div>
+            <p className="text-[24px] font-black leading-none text-black">
+              <AnimatedStatNumber
+                value={stoppedBuggies.length}
+                formatter={(value) => Math.round(value).toLocaleString(localeTag)}
+              />
+            </p>
           </div>
         </div>
 
