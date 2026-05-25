@@ -88,6 +88,7 @@ export async function POST(request: NextRequest) {
 
   const numericBuggyId = Number(buggyId);
   const buggyIdNormalized = `buggy-${numericBuggyId}`;
+  const incomingPosition = { lat: Number(lat), lng: Number(lng) };
 
   // ── Bootstrap: pastikan data dari Supabase sudah dimuat ───────────────────
   await bootstrapFromDatabase();
@@ -113,8 +114,8 @@ export async function POST(request: NextRequest) {
     telemetry: [
       {
         id: resolvedBuggyId,
-        lat: Number(lat),
-        lng: Number(lng),
+        lat: incomingPosition.lat,
+        lng: incomingPosition.lng,
         speedKmh:
           typeof speedKmh === "number"
             ? speedKmh

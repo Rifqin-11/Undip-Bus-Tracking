@@ -1,6 +1,7 @@
 import { createAdminClient, getBuggyHistoryTableName } from "@/lib/supabase/server";
 import { findNearestPathIndex } from "@/lib/transit/buggy-route-utils";
 import { getHalteLocations } from "@/lib/transit/halte-runtime";
+import { sanitizeGpsPoints } from "@/lib/buggy/gps-quality";
 import type { Buggy } from "@/types/buggy";
 
 type BuggyHistoryRow = {
@@ -90,12 +91,38 @@ export async function mergeLatestBuggyTelemetryFromHistory(
   }
 
   const latestByKey = new Map<string, BuggyHistoryRow>();
+  const rowsByKey = new Map<string, BuggyHistoryRow[]>();
   for (const row of (data ?? []) as BuggyHistoryRow[]) {
-    if (typeof row.lat !== "number" || typeof row.lng !== "number") continue;
-    if (typeof row.recorded_at !== "string") continue;
-
     const key = resolveHistoryKey(row);
-    if (key && !latestByKey.has(key)) latestByKey.set(key, row);
+    if (!key) continue;
+    rowsByKey.set(key, [...(rowsByKey.get(key) ?? []), row]);
+  }
+
+  for (const [key, rows] of rowsByKey.entries()) {
+    const orderedRows = rows
+      .filter(
+        (row) =>
+          typeof row.lat === "number" &&
+          typeof row.lng === "number" &&
+          typeof row.recorded_at === "string",
+      )
+      .sort(
+        (a, b) =>
+          new Date(a.recorded_at ?? 0).getTime() -
+          new Date(b.recorded_at ?? 0).getTime(),
+      );
+
+    const sanitizedRows = sanitizeGpsPoints(
+      orderedRows.map((row) => ({
+        ...row,
+        lat: row.lat as number,
+        lng: row.lng as number,
+        recordedAt: row.recorded_at as string,
+      })),
+    );
+    const latest = sanitizedRows[sanitizedRows.length - 1];
+
+    if (latest) latestByKey.set(key, latest);
   }
 
   let mergedCount = 0;

@@ -3,6 +3,10 @@ import { requireAdmin } from "@/lib/auth/admin-guard";
 import { createAdminClient, getBuggySessionTableName, getBuggyHistoryTableName } from "@/lib/supabase/server";
 import { saveSessionPointsToDb, buildSessionSummary } from "@/lib/realtime/session-store";
 import type { SessionPoint } from "@/lib/realtime/session-store";
+import {
+  calculatePathDistanceKm,
+  sanitizePath,
+} from "@/lib/buggy/gps-quality";
 import type { BuggySession } from "@/types/buggy-session";
 
 export const runtime = "nodejs";
@@ -27,6 +31,10 @@ function mapRow(row: Record<string, unknown>): BuggySession | null {
     path = [];
   }
 
+  const sanitizedPath = sanitizePath(path);
+  const sanitizedDistanceKm =
+    sanitizedPath.length >= 2 ? calculatePathDistanceKm(sanitizedPath) : 0;
+
   return {
     id: String(row.id),
     buggyId: String(row.buggy_id),
@@ -35,14 +43,17 @@ function mapRow(row: Record<string, unknown>): BuggySession | null {
     startedAt: String(row.started_at),
     endedAt: String(row.ended_at),
     durationMinutes: asNum(row.duration_minutes),
-    pointCount: Number(row.point_count ?? 0),
-    totalDistanceKm: asNum(row.total_distance_km),
+    pointCount: sanitizedPath.length || Number(row.point_count ?? 0),
+    totalDistanceKm:
+      sanitizedPath.length >= 2
+        ? Number(sanitizedDistanceKm.toFixed(3))
+        : asNum(row.total_distance_km),
     avgSpeedKmh: asNum(row.avg_speed_kmh),
     maxSpeedKmh: asNum(row.max_speed_kmh),
     batteryStart: asNum(row.battery_start),
     batteryEnd: asNum(row.battery_end),
     batteryUsed: asNum(row.battery_used),
-    path,
+    path: sanitizedPath as [number, number, number?][],
   };
 }
 
@@ -155,7 +166,7 @@ export async function GET(request: NextRequest) {
         pointsByBuggy.set(bId, { numericId: typeof row.buggy_numeric_id === "number" ? row.buggy_numeric_id : null, pts: [] });
     }
     
-    pointsByBuggy.get(bId)!.pts.push({
+    const point = {
       lat: Number(row.lat),
       lng: Number(row.lng),
       speedKmh: asNum(row.speed_kmh),
@@ -164,7 +175,9 @@ export async function GET(request: NextRequest) {
       altitude: asNum(row.altitude),
       batteryLevel: asNum(row.battery_level),
       recordedAt: String(row.recorded_at),
-    });
+    };
+
+    pointsByBuggy.get(bId)!.pts.push(point);
   }
 
   const synthesizedOngoing: BuggySession[] = [];

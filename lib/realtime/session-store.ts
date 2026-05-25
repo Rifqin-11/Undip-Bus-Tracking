@@ -12,6 +12,7 @@
 
 import { createAdminClient, getBuggySessionTableName } from "@/lib/supabase/server";
 import { haversineMeters } from "@/lib/transit/buggy-route-utils";
+import { sanitizeGpsPoints } from "@/lib/buggy/gps-quality";
 
 // ── Config ───────────────────────────────────────────────────────────────────
 
@@ -39,6 +40,7 @@ type ActiveSession = {
   startedAt: string;    // ISO
   lastPingAt: number;   // Date.now()
   points: SessionPoint[];
+  pendingJumpPoints: SessionPoint[];
 };
 
 export type ActiveSessionSummary = {
@@ -126,6 +128,7 @@ export function startSession(buggyId: string, buggyNumericId: number): void {
     startedAt: new Date().toISOString(),
     lastPingAt: Date.now(),
     points: [],
+    pendingJumpPoints: [],
   });
 
   console.log(`[session-store] Session started for ${buggyId}`);
@@ -140,6 +143,14 @@ export function addPoint(
   buggyNumericId: number,
   point: SessionPoint,
 ): void {
+  if (sanitizeGpsPoints([point]).length === 0) {
+    console.warn(
+      `[session-store] Ignoring invalid GPS point for ${buggyId}: ` +
+        `${point.lat}, ${point.lng}`,
+    );
+    return;
+  }
+
   ensureGC();
   const sessions = getSessionMap();
   let session = sessions.get(buggyId);
@@ -153,11 +164,24 @@ export function addPoint(
       startedAt: point.recordedAt,
       lastPingAt: Date.now(),
       points: [],
+      pendingJumpPoints: [],
     };
     sessions.set(buggyId, session);
   }
 
-  session.points.push(point);
+  const candidatePoints = [...session.pendingJumpPoints, point];
+  const nextPoints = sanitizeGpsPoints([...session.points, ...candidatePoints]);
+  if (nextPoints.length === session.points.length) {
+    session.pendingJumpPoints = candidatePoints.slice(-4);
+    console.warn(
+      `[session-store] Ignoring GPS jump outlier for ${buggyId}: ` +
+        `${point.lat}, ${point.lng}`,
+    );
+    return;
+  }
+
+  session.points = nextPoints;
+  session.pendingJumpPoints = [];
   session.lastPingAt = Date.now();
 }
 
@@ -199,6 +223,8 @@ export function buildSessionSummary(
   durationMinutes: number,
   points: SessionPoint[],
 ): ActiveSessionSummary {
+  points = sanitizeGpsPoints(points);
+
   let totalDistanceM = 0;
   for (let i = 1; i < points.length; i++) {
     totalDistanceM += haversineMeters(
@@ -255,7 +281,7 @@ export async function finalizeSession(buggyId: string): Promise<void> {
   // Hapus segera agar tidak di-finalize dua kali
   sessions.delete(buggyId);
 
-  const { points } = session;
+  const points = sanitizeGpsPoints(session.points);
 
   if (points.length < MIN_POINTS_TO_SAVE) {
     console.log(`[session-store] Too few points (${points.length}) for ${buggyId}, discarding`);
@@ -291,6 +317,9 @@ export async function saveSessionPointsToDb(
   buggyNumericId: number | null,
   points: SessionPoint[],
 ): Promise<void> {
+  points = sanitizeGpsPoints(points);
+  if (points.length < MIN_POINTS_TO_SAVE) return;
+
   const startedAt = points[0]?.recordedAt || new Date().toISOString();
   const endedAt = points[points.length - 1]?.recordedAt || new Date().toISOString();
 
