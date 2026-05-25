@@ -5,7 +5,7 @@ import { useCallback, useEffect, useState } from "react";
 export type LatLng = { lat: number; lng: number };
 
 /**
- * Mengambil dan men-cache posisi geolokasi user di browser.
+ * Mengambil, memantau, dan men-cache posisi geolokasi user di browser.
  * - `userPosition`: posisi terakhir yang berhasil diambil (atau `null`)
  * - `getLatestUserPosition`: refetch on-demand (dengan accuracy tinggi); jatuh ke posisi cached jika gagal.
  */
@@ -15,7 +15,7 @@ export function useUserPosition() {
   useEffect(() => {
     if (typeof window === "undefined" || !("geolocation" in navigator)) return;
 
-    navigator.geolocation.getCurrentPosition(
+    const watchId = navigator.geolocation.watchPosition(
       (position) => {
         setUserPosition({
           lat: position.coords.latitude,
@@ -25,8 +25,16 @@ export function useUserPosition() {
       () => {
         // ignore — biarkan posisi tetap null/cached
       },
-      { enableHighAccuracy: false, timeout: 8000, maximumAge: 60_000 },
+      {
+        enableHighAccuracy: true,
+        timeout: 10_000,
+        maximumAge: 5_000,
+      },
     );
+
+    return () => {
+      navigator.geolocation.clearWatch(watchId);
+    };
   }, []);
 
   const getLatestUserPosition = useCallback(async (): Promise<LatLng | null> => {
