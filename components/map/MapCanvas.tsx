@@ -185,6 +185,8 @@ export function MapCanvas({
   const geofenceCirclesRef = useRef<Map<string, CircleHandle>>(new Map());
   const draftCircleRef = useRef<CircleHandle | null>(null);
   const draftCircleListenersRef = useRef<{ remove: () => void }[]>([]);
+  const isSyncingDraftCircleRef = useRef(false);
+  const latestDraftGeofenceRef = useRef<typeof draftGeofence>(null);
   const infoWindowCloseListenerRef = useRef<{ remove: () => void } | null>(
     null,
   );
@@ -198,6 +200,11 @@ export function MapCanvas({
   const keyError = apiKey
     ? null
     : "Isi NEXT_PUBLIC_GOOGLE_MAPS_API_KEY agar peta dapat tampil.";
+  const draftGeofenceActive = draftGeofence !== null;
+
+  useEffect(() => {
+    latestDraftGeofenceRef.current = draftGeofence;
+  }, [draftGeofence]);
 
   const stopUserLocationPulse = useCallback(() => {
     if (userLocationPulseAnimationRef.current === null) return;
@@ -576,26 +583,29 @@ export function MapCanvas({
       : null;
   }, [destinationMarkerPosition, mapReady, originMarkerPosition, t]);
 
-  // ── Draft circle for geofence creation ───────────────────────────────────
+  // ── Draft circle for geofence creation/editing ───────────────────────────
 
   useEffect(() => {
     if (!mapReady || !mapInstanceRef.current || !mapsApiRef.current) return;
+    const currentDraft = latestDraftGeofenceRef.current;
 
-    // Cleanup previous draft
-    draftCircleListenersRef.current.forEach((l) => l.remove());
-    draftCircleListenersRef.current = [];
-    draftCircleRef.current?.setMap(null);
-    draftCircleRef.current = null;
+    if (!currentDraft) {
+      draftCircleListenersRef.current.forEach((l) => l.remove());
+      draftCircleListenersRef.current = [];
+      draftCircleRef.current?.setMap(null);
+      draftCircleRef.current = null;
+      return;
+    }
 
-    if (!draftGeofence) return;
+    if (draftCircleRef.current) return;
 
     const map = mapInstanceRef.current;
     const maps = mapsApiRef.current;
 
     const circle = new maps.Circle({
       map,
-      center: draftGeofence.center,
-      radius: draftGeofence.radiusMeters,
+      center: currentDraft.center,
+      radius: currentDraft.radiusMeters,
       draggable: true,
       editable: true,
       strokeColor: "#16a34a",
@@ -607,17 +617,12 @@ export function MapCanvas({
     });
     draftCircleRef.current = circle;
 
-    // Pan map to draft center
-    map.panTo(draftGeofence.center);
+    // Pan only once when the draft is first opened. Re-panning on every radius
+    // update makes the map feel like it refreshes while the user is editing.
+    map.panTo(currentDraft.center);
 
-    const fireCenterCb = () => {
-      if (!onDraftGeofenceChange) return;
-      const c = circle.getCenter();
-      if (!c) return;
-      onDraftGeofenceChange({ lat: c.lat(), lng: c.lng() }, circle.getRadius());
-    };
-
-    const fireRadiusCb = () => {
+    const fireDraftChange = () => {
+      if (isSyncingDraftCircleRef.current) return;
       if (!onDraftGeofenceChange) return;
       const c = circle.getCenter();
       if (!c) return;
@@ -626,9 +631,9 @@ export function MapCanvas({
 
     draftCircleListenersRef.current = [
       // Update center only after drag finishes — avoids React re-render loop
-      circle.addListener("dragend", fireCenterCb),
+      circle.addListener("dragend", fireDraftChange),
       // Update radius live as user drags the resize handle
-      circle.addListener("radius_changed", fireRadiusCb),
+      circle.addListener("radius_changed", fireDraftChange),
     ];
 
     return () => {
@@ -638,18 +643,32 @@ export function MapCanvas({
       draftCircleRef.current = null;
     };
   }, [
-    draftGeofence,
+    draftGeofenceActive,
     mapReady,
     onDraftGeofenceChange,
   ]);
 
-  // ── Sync draft circle radius when slider changes ──────────────────────────
+  // ── Sync draft circle when state changes from form/slider ────────────────
 
   useEffect(() => {
     if (!draftCircleRef.current || !draftGeofence) return;
-    const current = draftCircleRef.current.getRadius();
-    if (Math.abs(current - draftGeofence.radiusMeters) < 0.5) return;
-    draftCircleRef.current.setRadius(draftGeofence.radiusMeters);
+    const circle = draftCircleRef.current;
+    const currentCenter = circle.getCenter();
+    const shouldSyncCenter =
+      !currentCenter ||
+      Math.abs(currentCenter.lat() - draftGeofence.center.lat) > 0.0000001 ||
+      Math.abs(currentCenter.lng() - draftGeofence.center.lng) > 0.0000001;
+    const shouldSyncRadius =
+      Math.abs(circle.getRadius() - draftGeofence.radiusMeters) >= 0.5;
+
+    if (!shouldSyncCenter && !shouldSyncRadius) return;
+
+    isSyncingDraftCircleRef.current = true;
+    if (shouldSyncCenter) circle.setCenter(draftGeofence.center);
+    if (shouldSyncRadius) circle.setRadius(draftGeofence.radiusMeters);
+    window.requestAnimationFrame(() => {
+      isSyncingDraftCircleRef.current = false;
+    });
   }, [draftGeofence]);
 
   // ── Map click callback (kept for legacy fallback, inactive in create mode) ─
