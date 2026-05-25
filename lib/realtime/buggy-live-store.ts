@@ -4,6 +4,7 @@ import {
   findNearestPathIndex,
   haversineMeters,
 } from "@/lib/transit/buggy-route-utils";
+import { normalizeGsmStatus } from "@/lib/buggy/gsm-status";
 import type { Buggy, CrowdLevel } from "@/types/buggy";
 
 export type BuggyLiveSource = "seed" | "ingest_snapshot" | "ingest_telemetry";
@@ -20,6 +21,7 @@ export type BuggyTelemetryInput = {
   forceResync?: boolean;
   tag?: string;
   timestamp?: string | number;
+  gsm?: Buggy["gsm"];
 };
 
 type BuggyLiveState = {
@@ -51,6 +53,7 @@ function cloneBuggy(buggy: Buggy): Buggy {
     ...buggy,
     position: { ...buggy.position },
     stops: [...buggy.stops],
+    gsm: buggy.gsm ? { ...buggy.gsm } : undefined,
   };
 }
 
@@ -297,6 +300,7 @@ function parseTelemetryPayload(payload: unknown): BuggyTelemetryInput[] | null {
         typeof item.timestamp === "string" || typeof item.timestamp === "number"
           ? item.timestamp
           : undefined,
+      gsm: normalizeGsmStatus(item.gsm),
     });
   }
 
@@ -393,6 +397,7 @@ function autoRegisterBuggy(buggyId: string, point: BuggyTelemetryInput): Buggy {
     stops: haltes.map((h) => h.name),
     pathCursor: findNearestPathIndex(point.lat, point.lng),
     position: { lat: point.lat, lng: point.lng },
+    gsm: point.gsm,
   };
 }
 
@@ -460,6 +465,7 @@ function ingestTelemetry(
       currentStopIndex: nextCurrentStopIndex,
       tag: point.tag ?? existing.tag,
       updatedAt: timestampToUpdatedAt(point.timestamp),
+      gsm: point.gsm ?? existing.gsm,
     });
     telemetryLastSeenById[buggyId] = now;
     accepted += 1;

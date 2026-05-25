@@ -11,6 +11,7 @@ import {
   finalizeSession,
 } from "@/lib/realtime/session-store";
 import { bootstrapFromDatabase } from "@/lib/supabase/data-loader";
+import { normalizeGsmStatus } from "@/lib/buggy/gsm-status";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -65,6 +66,7 @@ export async function POST(request: NextRequest) {
     lat,
     lng,
     accuracy,
+    speed,
     speedKmh = 0,
     heading,
     altitude,
@@ -76,6 +78,7 @@ export async function POST(request: NextRequest) {
     sessionStart,
     sessionEnd,
     source,
+    gsm,
   } = b;
 
   const numericBuggyId = Number(buggyId);
@@ -105,7 +108,12 @@ export async function POST(request: NextRequest) {
         id: resolvedBuggyId,
         lat: Number(lat),
         lng: Number(lng),
-        speedKmh: typeof speedKmh === "number" ? speedKmh : 0,
+        speedKmh:
+          typeof speedKmh === "number"
+            ? speedKmh
+            : typeof speed === "number"
+              ? speed
+              : 0,
         accuracy: typeof accuracy === "number" ? accuracy : undefined,
         heading: typeof heading === "number" ? heading : undefined,
         altitude: typeof altitude === "number" ? altitude : undefined,
@@ -115,6 +123,7 @@ export async function POST(request: NextRequest) {
         forceResync: forceResync === true,
         tag: typeof source === "string" ? source : "gps_beacon",
         timestamp: new Date().toISOString(),
+        gsm: normalizeGsmStatus(gsm),
       },
     ],
   };
@@ -146,7 +155,12 @@ export async function POST(request: NextRequest) {
         lat: Number(lat),
         lng: Number(lng),
         accuracy: typeof accuracy === "number" ? accuracy : null,
-        speed_kmh: typeof speedKmh === "number" ? speedKmh : 0,
+        speed_kmh:
+          typeof speedKmh === "number"
+            ? speedKmh
+            : typeof speed === "number"
+              ? speed
+              : 0,
         heading: typeof heading === "number" ? heading : null,
         altitude: typeof altitude === "number" ? altitude : null,
         battery_level:
@@ -198,7 +212,12 @@ export async function POST(request: NextRequest) {
   addPoint(resolvedBuggyId, numericBuggyId, {
     lat: Number(lat),
     lng: Number(lng),
-    speedKmh: typeof speedKmh === "number" ? speedKmh : null,
+    speedKmh:
+      typeof speedKmh === "number"
+        ? speedKmh
+        : typeof speed === "number"
+          ? speed
+          : null,
     accuracy: typeof accuracy === "number" ? accuracy : null,
     heading: typeof heading === "number" ? heading : null,
     altitude: typeof altitude === "number" ? altitude : null,

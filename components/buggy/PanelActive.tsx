@@ -49,6 +49,8 @@ type BuggyListProps = {
   onToggleFavoriteHalte?: (halteId: string) => void | Promise<unknown>;
   /** True jika user authenticated & favorit-nya sudah ready (UI menampilkan star). */
   canFavorite?: boolean;
+  /** Tampilkan status APN khusus halaman admin/driver. */
+  showApnStatus?: boolean;
 };
 
 export function BuggyList({
@@ -74,6 +76,7 @@ export function BuggyList({
   favoriteHaltes,
   onToggleFavoriteHalte,
   canFavorite = false,
+  showApnStatus = false,
 }: BuggyListProps) {
   const { t } = useTranslation("dashboard");
   const { t: tCommon } = useTranslation("common");
@@ -210,6 +213,7 @@ export function BuggyList({
         <BuggyDetailView
           buggy={selectedBuggy}
           onBack={() => setBuggyViewMode("list")}
+          showApnStatus={showApnStatus}
         />
       ) : activeView === "buggy" ? (
         <div className="rounded-3xl border border-slate-200/80 bg-white/70 p-3">
@@ -239,6 +243,7 @@ export function BuggyList({
                     setBuggyViewMode("detail");
                   }}
                   canFavorite={canFavorite}
+                  showApnStatus={showApnStatus}
                   isFavorite={favoriteBuggies?.has(buggy.id) ?? false}
                   onToggleFavorite={
                     onToggleFavoriteBuggy

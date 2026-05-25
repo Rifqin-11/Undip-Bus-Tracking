@@ -5,6 +5,7 @@ import Image from "next/image";
 import { useTranslation } from "react-i18next";
 import type { Buggy } from "@/types/buggy";
 import { getBuggyStopNameAtOffset } from "@/lib/transit/buggy-route-utils";
+import { getApnConnectionState } from "@/lib/buggy/gsm-status";
 import {
   ChevronLeft,
   Edit2Icon,
@@ -61,6 +62,24 @@ export function BuggyOperationalDetail({
 
   const currentStop = getBuggyStopNameAtOffset(buggy, 0);
   const nextStop = getBuggyStopNameAtOffset(buggy, 1);
+  const apnState = getApnConnectionState(buggy);
+  const apnStateLabel =
+    apnState === "connected"
+      ? t("connected")
+      : apnState === "disconnected"
+        ? t("disconnected")
+        : "-";
+  const apnValue = buggy.gsm?.apn
+    ? [
+        buggy.gsm.apn,
+        apnStateLabel,
+        typeof buggy.gsm.signalPercent === "number"
+          ? `${buggy.gsm.signalPercent}% GSM`
+          : null,
+      ]
+        .filter(Boolean)
+        .join(" · ")
+    : "-";
   const occupancyPct = Math.min(
     Math.round((buggy.passengers / buggy.capacity) * 100),
     100,
@@ -81,6 +100,7 @@ export function BuggyOperationalDetail({
     { label: t("fleetCode"), value: buggy.code },
     { label: t("name"), value: buggy.name },
     { label: t("driver"), value: assignedDriverName || "-" },
+    { label: t("apnStatus"), value: apnValue },
     { label: t("route"), value: buggy.routeLabel || "-" },
     {
       label: t("coordinates"),

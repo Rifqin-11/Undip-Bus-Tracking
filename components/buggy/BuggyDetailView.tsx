@@ -4,6 +4,7 @@ import { useTranslation } from "react-i18next";
 import type { Buggy } from "@/types/buggy";
 import { ChevronLeftIcon } from "@/components/ui/Icons";
 import { useLocale } from "@/lib/i18n/client";
+import { getApnConnectionState } from "@/lib/buggy/gsm-status";
 import {
   estimateMinutesBetweenStops,
   getBuggyCurrentRouteIndex,
@@ -23,13 +24,20 @@ function formatClock(date: Date, locale: string): string {
 type BuggyDetailViewProps = {
   buggy: Buggy;
   onBack: () => void;
+  showApnStatus?: boolean;
 };
 
-export function BuggyDetailView({ buggy, onBack }: BuggyDetailViewProps) {
+export function BuggyDetailView({
+  buggy,
+  onBack,
+  showApnStatus = false,
+}: BuggyDetailViewProps) {
   const locale = useLocale();
   const { t } = useTranslation("dashboard");
   const now = new Date();
   const stops = getBuggyStopsInRouteOrder(buggy);
+  const apnState = getApnConnectionState(buggy);
+  const shouldShowApn = showApnStatus && Boolean(buggy.gsm?.apn);
 
   if (!stops.length) return null;
 
@@ -105,6 +113,35 @@ export function BuggyDetailView({ buggy, onBack }: BuggyDetailViewProps) {
           <p className="truncate text-[13px] text-slate-600">
             {t("fromStop", { stop: stops[currentIndex] })}
           </p>
+          {shouldShowApn ? (
+            <div className="mt-1 flex flex-wrap items-center gap-1.5">
+              <span
+                className={`inline-flex items-center gap-1.5 rounded-full border px-2 py-0.5 text-[10px] font-semibold ${
+                  apnState === "connected"
+                    ? "border-sky-200 bg-sky-50 text-sky-700"
+                    : apnState === "disconnected"
+                      ? "border-rose-200 bg-rose-50 text-rose-700"
+                      : "border-slate-200 bg-white text-slate-500"
+                }`}
+              >
+                <span
+                  className={`h-1.5 w-1.5 rounded-full ${
+                    apnState === "connected"
+                      ? "bg-sky-500"
+                      : apnState === "disconnected"
+                        ? "bg-rose-500"
+                        : "bg-slate-400"
+                  }`}
+                />
+                {t("apnStatus")}: {buggy.gsm?.apn}
+              </span>
+              {typeof buggy.gsm?.signalPercent === "number" ? (
+                <span className="text-[10px] font-medium text-slate-500">
+                  {buggy.gsm.signalPercent}% GSM
+                </span>
+              ) : null}
+            </div>
+          ) : null}
         </div>
         <span
           className={`shrink-0 rounded-full border px-2.5 py-0.5 text-[10px] font-semibold ${crowdBadge}`}

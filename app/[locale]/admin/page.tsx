@@ -53,6 +53,7 @@ import { useLocale } from "@/lib/i18n/client";
 import { localizePath } from "@/lib/i18n/routing";
 import { LogoutIcon, BellIcon } from "@/components/ui/Icons";
 import { PenIcon } from "lucide-react";
+import LiquidGlass from "liquid-glass-react";
 
 const GEOFENCE_DEFAULT_RADIUS_METERS = 100;
 const GEOFENCE_EVENT_LIMIT = 100;
@@ -84,6 +85,7 @@ function makeId() {
 }
 
 export default function DashboardPage() {
+  const dashboardShellRef = useRef<HTMLElement | null>(null);
   const locale = useLocale();
   const { t } = useTranslation("admin");
   const { t: tCommon } = useTranslation("common");
@@ -771,7 +773,10 @@ export default function DashboardPage() {
   const mapHistoryPath = activeView === "history" ? historyPath : [];
 
   return (
-    <main className="relative h-screen w-screen overflow-hidden bg-slate-100">
+    <main
+      ref={dashboardShellRef}
+      className="relative h-screen w-screen overflow-hidden bg-slate-100"
+    >
       <MapCanvas
         buggies={mapBuggies}
         haltes={HALTE_LOCATIONS}
@@ -892,6 +897,7 @@ export default function DashboardPage() {
         favoriteHaltes={favoriteHaltes}
         onToggleFavoriteBuggy={toggleFavoriteBuggy}
         onToggleFavoriteHalte={toggleFavoriteHalte}
+        showApnStatus={isAdminUser || isDriverUser}
         dataViewContent={
           <AdminDataSection
             buggies={driverFilteredBuggies}

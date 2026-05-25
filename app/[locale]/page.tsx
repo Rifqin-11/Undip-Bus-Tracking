@@ -312,6 +312,8 @@ export default function DashboardPage() {
         />
       </div>
 
+
+
       <FloatingSidebar
         activeView={activeView}
         onSelectView={handleSelectView}

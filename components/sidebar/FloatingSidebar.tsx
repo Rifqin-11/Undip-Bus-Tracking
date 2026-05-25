@@ -160,7 +160,9 @@ export function FloatingSidebar({
         ) : null}
         <button
           className="grid h-11 w-11 place-items-center rounded-2xl border border-[#0f1a3b] bg-[#0f1a3b] text-white transition hover:bg-white hover:text-[#0f1a3b] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-300"
-          aria-label={isAuthenticated || isOnOperatorPage ? t("signOut") : t("signIn")}
+          aria-label={
+            isAuthenticated || isOnOperatorPage ? t("signOut") : t("signIn")
+          }
           type="button"
           onClick={handleAdminButtonClick}
         >

@@ -1,5 +1,20 @@
 export type CrowdLevel = "LONGGAR" | "HAMPIR_PENUH" | "PENUH";
 
+export type BuggyGsmStatus = {
+  apn?: string;
+  signalCsq?: number;
+  signalDbm?: number;
+  signalPercent?: number;
+  simStatus?: number;
+  simStatusText?: string;
+  networkConnected?: boolean;
+  gprsConnected?: boolean;
+  localIp?: string;
+  networkType?: string;
+  mqttState?: number;
+  mqttStateText?: string;
+};
+
 export type Buggy = {
   id: string;
   /** ID numerik untuk pencocokan GPS beacon (kolom numeric_id di tabel buggies) */
@@ -23,6 +38,7 @@ export type Buggy = {
     lat: number;
     lng: number;
   };
+  gsm?: BuggyGsmStatus;
 };
 
 export type HaltePoint = {

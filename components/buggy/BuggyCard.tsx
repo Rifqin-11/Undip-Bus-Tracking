@@ -4,6 +4,7 @@ import Image from "next/image";
 import { useTranslation } from "react-i18next";
 import type { Buggy } from "@/types/buggy";
 import { getBuggyStopNameAtOffset } from "@/lib/transit/buggy-route-utils";
+import { getApnConnectionState } from "@/lib/buggy/gsm-status";
 import { FavoriteStar } from "@/components/ui/FavoriteStar";
 
 type BuggyCardProps = {
@@ -19,6 +20,8 @@ type BuggyCardProps = {
   onToggleFavorite?: () => void | Promise<unknown>;
   /** True ketika user authenticated & favorites sudah ready. */
   canFavorite?: boolean;
+  /** Tampilkan status APN hanya untuk admin dan driver. */
+  showApnStatus?: boolean;
 };
 
 export function BuggyCard({
@@ -30,10 +33,13 @@ export function BuggyCard({
   isFavorite = false,
   onToggleFavorite,
   canFavorite = false,
+  showApnStatus = false,
 }: BuggyCardProps) {
   const { t } = useTranslation("dashboard");
   const { t: tCommon } = useTranslation("common");
   const currentStop = getBuggyStopNameAtOffset(buggy, 0) || t("onTheRoad");
+  const apnState = getApnConnectionState(buggy);
+  const shouldShowApn = showApnStatus && Boolean(buggy.gsm?.apn);
 
   // Stagger: tiap card 70ms lebih lambat. Maksimum 8 card untuk menghindari delay panjang.
   const cardDelayMs = Math.min(index, 8) * 70;
@@ -100,6 +106,19 @@ export function BuggyCard({
           {canFavorite && isFavorite ? (
             <span className="inline-flex shrink-0 items-center gap-1 rounded-full border border-amber-200 bg-amber-50 px-2 py-0.5 text-[8px] font-bold uppercase tracking-wide text-amber-600 shadow-sm">
               ★ {t("favorite")}
+            </span>
+          ) : null}
+          {shouldShowApn ? (
+            <span
+              className={`inline-flex shrink-0 items-center gap-1 rounded-full border px-2 py-0.5 text-[8px] font-bold uppercase tracking-wide shadow-sm ${
+                apnState === "connected"
+                  ? "border-sky-200 bg-sky-50 text-sky-700"
+                  : apnState === "disconnected"
+                    ? "border-rose-200 bg-rose-50 text-rose-700"
+                    : "border-slate-200 bg-white text-slate-500"
+              }`}
+            >
+              APN {buggy.gsm?.apn}
             </span>
           ) : null}
         </div>
