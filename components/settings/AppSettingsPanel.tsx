@@ -339,9 +339,7 @@ export function AppSettingsPanel({
               <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">
                 {t("route")}
               </p>
-              <p className="mt-1 font-bold text-slate-800">
-                {t("campusLoop")}
-              </p>
+              <p className="mt-1 font-bold text-slate-800">{t("campusLoop")}</p>
             </div>
           </div>
         </div>
@@ -409,7 +407,7 @@ export function AppSettingsPanel({
           </div>
         ) : null}
 
-        <div className={settingCardClass}>
+        {/* <div className={settingCardClass}>
           <div className="flex min-w-0 items-center gap-3">
             <span className="grid size-10 shrink-0 place-items-center rounded-2xl bg-blue-50 text-blue-600">
               <PanelRightOpen className="h-5 w-5" />
@@ -433,49 +431,7 @@ export function AppSettingsPanel({
             }
             label={t("openPanelAutomatically")}
           />
-        </div>
-
-        {/* Map Style ── segmented control */}
-        <div className="rounded-[20px] border border-slate-200/80 bg-white px-3.5 py-3 shadow-[0_8px_24px_rgba(15,23,42,0.05)]">
-          <div className="mb-2.5 flex items-center gap-3">
-            <span className="grid size-10 shrink-0 place-items-center rounded-2xl bg-emerald-50 text-emerald-600">
-              <MapIcon className="h-5 w-5" />
-            </span>
-            <div className="min-w-0">
-              <p className="text-[13px] font-black text-slate-900">
-                {t("mapStyle")}
-              </p>
-              <p className="text-[11px] font-semibold text-slate-400">
-                {t("mapStyleDescription")}
-              </p>
-            </div>
-          </div>
-          <div
-            role="radiogroup"
-            aria-label={t("mapStyle")}
-            className="grid grid-cols-3 gap-1 rounded-2xl bg-slate-100 p-1"
-          >
-            {MAP_STYLE_OPTIONS.map((opt) => {
-              const active = settings.mapStyle === opt.value;
-              return (
-                <button
-                  key={opt.value}
-                  type="button"
-                  role="radio"
-                  aria-checked={active}
-                  onClick={() => onUpdateSetting("mapStyle", opt.value)}
-                  className={`rounded-xl py-1.5 text-[11px] font-bold transition active:scale-95 ${
-                    active
-                      ? "bg-white text-[#0f1a3b] shadow-sm"
-                      : "text-slate-500 hover:text-slate-700"
-                  }`}
-                >
-                  {t(`mapStyle${opt.value[0].toUpperCase()}${opt.value.slice(1)}`)}
-                </button>
-              );
-            })}
-          </div>
-        </div>
+        </div> */}
 
         {/* Nearby alert radius ── chip selector (hanya untuk user login) */}
         {userProfile ? (
@@ -525,7 +481,51 @@ export function AppSettingsPanel({
           </div>
         ) : null}
 
-        {isAdmin ? (
+        {/* Map Style ── segmented control */}
+        <div className="rounded-[20px] border border-slate-200/80 bg-white px-3.5 py-3 shadow-[0_8px_24px_rgba(15,23,42,0.05)]">
+          <div className="mb-2.5 flex items-center gap-3">
+            <span className="grid size-10 shrink-0 place-items-center rounded-2xl bg-emerald-50 text-emerald-600">
+              <MapIcon className="h-5 w-5" />
+            </span>
+            <div className="min-w-0">
+              <p className="text-[13px] font-black text-slate-900">
+                {t("mapStyle")}
+              </p>
+              <p className="text-[11px] font-semibold text-slate-400">
+                {t("mapStyleDescription")}
+              </p>
+            </div>
+          </div>
+          <div
+            role="radiogroup"
+            aria-label={t("mapStyle")}
+            className="grid grid-cols-3 gap-1 rounded-2xl bg-slate-100 p-1"
+          >
+            {MAP_STYLE_OPTIONS.map((opt) => {
+              const active = settings.mapStyle === opt.value;
+              return (
+                <button
+                  key={opt.value}
+                  type="button"
+                  role="radio"
+                  aria-checked={active}
+                  onClick={() => onUpdateSetting("mapStyle", opt.value)}
+                  className={`rounded-xl py-1.5 text-[11px] font-bold transition active:scale-95 ${
+                    active
+                      ? "bg-white text-[#0f1a3b] shadow-sm"
+                      : "text-slate-500 hover:text-slate-700"
+                  }`}
+                >
+                  {t(
+                    `mapStyle${opt.value[0].toUpperCase()}${opt.value.slice(1)}`,
+                  )}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* {isAdmin ? (
           <div className={settingCardClass}>
             <div className="flex min-w-0 items-center gap-3">
               <span className="grid size-10 shrink-0 place-items-center rounded-2xl bg-violet-50 text-violet-600">
@@ -551,7 +551,7 @@ export function AppSettingsPanel({
               label={t("compactAdminPanelMode")}
             />
           </div>
-        ) : null}
+        ) : null} */}
 
         {/* Reset preferensi (2-step confirm, auto-revert 4s) */}
         {onResetSettings ? (
@@ -570,9 +570,7 @@ export function AppSettingsPanel({
             }
           >
             <RotateCcw className="h-4 w-4" />
-            {pendingReset
-              ? t("tapAgainConfirmReset")
-              : t("resetToDefault")}
+            {pendingReset ? t("tapAgainConfirmReset") : t("resetToDefault")}
           </button>
         ) : null}
 
