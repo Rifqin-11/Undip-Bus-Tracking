@@ -2,7 +2,20 @@
 
 import { useState, useEffect, useMemo, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
+import {
+  Area,
+  AreaChart,
+  Bar,
+  BarChart,
+  CartesianGrid,
+  XAxis,
+} from "recharts";
 import { SkeletonStat, Skeleton } from "@/components/ui/Skeleton";
+import {
+  ChartContainer,
+  ChartTooltip,
+  ChartTooltipContent,
+} from "@/components/ui/chart";
 import { useLocale } from "@/lib/i18n/client";
 import {
   Activity,
@@ -112,60 +125,107 @@ function getMedian(values: number[]) {
     : (sorted[middle - 1] + sorted[middle]) / 2;
 }
 
-function MiniAreaChart({
+function SmoothAreaChart({
   data,
   color = "#0f1a3b",
 }: {
   data: ChartDatum[];
   color?: string;
 }) {
-  const width = 280;
-  const height = 86;
-  const maxValue = Math.max(1, ...data.map((item) => item.value));
-  const step = data.length > 1 ? width / (data.length - 1) : width;
-  const points = data.map((item, index) => {
-    const x = index * step;
-    const y = height - (item.value / maxValue) * (height - 12) - 6;
-    return { x, y, ...item };
-  });
-  const linePath = points
-    .map((point, index) => `${index === 0 ? "M" : "L"} ${point.x} ${point.y}`)
-    .join(" ");
-  const areaPath = `${linePath} L ${width} ${height} L 0 ${height} Z`;
-
   return (
-    <div className="relative">
-      <svg
-        viewBox={`0 0 ${width} ${height}`}
-        className="h-24 w-full overflow-visible"
-        role="img"
+    <div>
+      <ChartContainer
+        config={{ value: { label: "Value", color } }}
+        className="h-24 w-full aspect-auto"
       >
-        <path d={areaPath} fill={color} opacity="0.12" />
-        <path
-          d={linePath}
-          fill="none"
-          stroke={color}
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          strokeWidth="3"
-        />
-        {points.map((point) => (
-          <circle
-            key={point.label}
-            cx={point.x}
-            cy={point.y}
-            r={point.value > 0 ? 3 : 0}
-            fill={color}
-            opacity="0.8"
+        <AreaChart
+          data={data}
+          margin={{ left: 2, right: 2, top: 8, bottom: 0 }}
+        >
+          <defs>
+            <linearGradient
+              id={`fill-${color.replace("#", "")}`}
+              x1="0"
+              y1="0"
+              x2="0"
+              y2="1"
+            >
+              <stop offset="5%" stopColor={color} stopOpacity={0.26} />
+              <stop offset="95%" stopColor={color} stopOpacity={0.03} />
+            </linearGradient>
+          </defs>
+          <CartesianGrid vertical={false} strokeDasharray="3 3" />
+          <XAxis
+            dataKey="label"
+            tickLine={false}
+            axisLine={false}
+            tick={false}
+            height={4}
           />
-        ))}
-      </svg>
+          <ChartTooltip
+            cursor={false}
+            content={
+              <ChartTooltipContent
+                valueFormatter={(value) =>
+                  Number(value).toLocaleString(undefined, {
+                    maximumFractionDigits: 1,
+                  })
+                }
+              />
+            }
+          />
+          <Area
+            dataKey="value"
+            type="monotone"
+            fill={`url(#fill-${color.replace("#", "")})`}
+            stroke={color}
+            strokeWidth={2.5}
+            dot={false}
+            activeDot={{ r: 4, strokeWidth: 0 }}
+            isAnimationActive
+            animationDuration={900}
+            animationEasing="ease-out"
+          />
+        </AreaChart>
+      </ChartContainer>
       <div className="-mt-1 flex justify-between text-[9px] font-bold text-slate-400">
         <span>{data[0]?.label ?? "-"}</span>
         <span>{data[Math.floor(data.length / 2)]?.label ?? "-"}</span>
         <span>{data[data.length - 1]?.label ?? "-"}</span>
       </div>
     </div>
+  );
+}
+
+function SmoothBarChart({
+  data,
+  color = "#0f1a3b",
+}: {
+  data: ChartDatum[];
+  color?: string;
+}) {
+  return (
+    <ChartContainer
+      config={{ value: { label: "Trip", color } }}
+      className="h-16 w-full aspect-auto"
+    >
+      <BarChart data={data} margin={{ left: 0, right: 0, top: 4, bottom: 0 }}>
+        <XAxis dataKey="label" tickLine={false} axisLine={false} tick={false} />
+        <ChartTooltip
+          cursor={{ fill: "rgba(15, 23, 42, 0.04)" }}
+          content={<ChartTooltipContent />}
+        />
+        <Bar
+          dataKey="value"
+          fill={color}
+          radius={[3, 3, 0, 0]}
+          minPointSize={2}
+          isAnimationActive
+          animationDuration={850}
+          animationEasing="ease-out"
+        />
+      </BarChart>
+    </ChartContainer>
   );
 }
 
@@ -353,7 +413,6 @@ export function AdminStatisticsPanel({ buggies }: AdminStatisticsPanelProps) {
     return trends;
   }, [filteredSessions, selectedMonth]);
 
-  const maxDailyCount = Math.max(1, ...dailyTrends.map((t) => t.count));
   const busiestDay = dailyTrends.reduce(
     (best, item) => (item.count > best.count ? item : best),
     { day: 0, count: 0 },
@@ -587,7 +646,7 @@ export function AdminStatisticsPanel({ buggies }: AdminStatisticsPanelProps) {
                 : "-"}
             </span>
           </div>
-          <MiniAreaChart data={hourlyPassengerDemand} />
+          <SmoothAreaChart data={hourlyPassengerDemand} />
         </div>
 
         {/* Grid Bawah: Statistik Operasional */}
@@ -711,7 +770,7 @@ export function AdminStatisticsPanel({ buggies }: AdminStatisticsPanelProps) {
                 : t("normal")}
             </span>
           </div>
-          <MiniAreaChart data={delayTrend.data} color="#f59e0b" />
+          <SmoothAreaChart data={delayTrend.data} color="#f59e0b" />
         </div>
 
         <div className="mt-3 overflow-hidden rounded-[20px] border border-slate-100 bg-white shadow-[0_8px_20px_rgba(15,23,42,0.02)]">
@@ -795,37 +854,12 @@ export function AdminStatisticsPanel({ buggies }: AdminStatisticsPanelProps) {
                 })}
               </span>
             </div>
-            <div className="flex h-14 w-full items-end gap-[2px] sm:gap-1">
-              {dailyTrends.map((trend) => (
-                <div
-                  key={trend.day}
-                  title={t("dateTripCount", {
-                    day: trend.day,
-                    count: trend.count,
-                  })}
-                  className="group relative flex w-full flex-col justify-end h-full"
-                >
-                  <div
-                    className={`w-full rounded-t-sm transition-all ${
-                      trend.count > 0
-                        ? "bg-[#0f1a3b]/30 group-hover:bg-[#0f1a3b]/60 cursor-pointer"
-                        : "bg-transparent"
-                    }`}
-                    style={{
-                      height: `${(trend.count / maxDailyCount) * 100}%`,
-                      minHeight: trend.count > 0 ? "4px" : "0",
-                    }}
-                  />
-                  {/* Tooltip on hover */}
-                  <div className="pointer-events-none absolute -top-8 left-1/2 -translate-x-1/2 rounded bg-slate-800 px-2 py-1 text-[10px] font-bold text-white opacity-0 shadow-sm transition-opacity group-hover:opacity-100 whitespace-nowrap z-10">
-                    {t("shortDateTripCount", {
-                      day: trend.day,
-                      count: trend.count,
-                    })}
-                  </div>
-                </div>
-              ))}
-            </div>
+            <SmoothBarChart
+              data={dailyTrends.map((trend) => ({
+                label: t("dayLabel", { day: trend.day }),
+                value: trend.count,
+              }))}
+            />
             <div className="mt-1 flex justify-between text-[9px] font-bold text-slate-400">
               <span>1</span>
               <span>{dailyTrends.length}</span>
