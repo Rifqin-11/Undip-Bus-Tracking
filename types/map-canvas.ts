@@ -54,6 +54,7 @@ export type CircleHandle = {
   setMap: (map: unknown | null) => void;
   setCenter: (center: LatLngLiteral) => void;
   setRadius: (radius: number) => void;
+  setOptions: (options: Record<string, unknown>) => void;
   getCenter: () => { lat: () => number; lng: () => number } | null;
   getRadius: () => number;
   addListener: (

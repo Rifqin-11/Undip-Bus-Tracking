@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { CENTER_UNDIP } from "@/lib/transit/buggy-data";
 import { useLocale } from "@/lib/i18n/client";
@@ -113,6 +113,10 @@ const MAP_TYPE_ID_BY_STYLE: Record<
   terrain: "terrain",
 };
 
+const USER_LOCATION_PULSE_MIN_RADIUS = 14;
+const USER_LOCATION_PULSE_MAX_RADIUS = 48;
+const USER_LOCATION_PULSE_DURATION_MS = 1700;
+
 function getPathEndpoints(path: [number, number][]) {
   if (path.length < 2) return [];
   const [startLat, startLng] = path[0];
@@ -175,6 +179,7 @@ export function MapCanvas({
   const historyPolylineRef = useRef<PolylineHandle | null>(null);
   const userLocationMarkerRef = useRef<MarkerHandle | null>(null);
   const userLocationPulseRef = useRef<CircleHandle | null>(null);
+  const userLocationPulseAnimationRef = useRef<number | null>(null);
   const originMarkerRef = useRef<MarkerHandle | null>(null);
   const destinationMarkerRef = useRef<MarkerHandle | null>(null);
   const geofenceCirclesRef = useRef<Map<string, CircleHandle>>(new Map());
@@ -193,6 +198,46 @@ export function MapCanvas({
   const keyError = apiKey
     ? null
     : "Isi NEXT_PUBLIC_GOOGLE_MAPS_API_KEY agar peta dapat tampil.";
+
+  const stopUserLocationPulse = useCallback(() => {
+    if (userLocationPulseAnimationRef.current === null) return;
+    window.cancelAnimationFrame(userLocationPulseAnimationRef.current);
+    userLocationPulseAnimationRef.current = null;
+  }, []);
+
+  const startUserLocationPulse = useCallback(() => {
+    if (userLocationPulseAnimationRef.current !== null) return;
+
+    const startedAt = performance.now();
+    const animate = (time: number) => {
+      const pulse = userLocationPulseRef.current;
+      if (!pulse) {
+        userLocationPulseAnimationRef.current = null;
+        return;
+      }
+
+      const progress =
+        ((time - startedAt) % USER_LOCATION_PULSE_DURATION_MS) /
+        USER_LOCATION_PULSE_DURATION_MS;
+      const eased = 1 - Math.pow(1 - progress, 3);
+      const radius =
+        USER_LOCATION_PULSE_MIN_RADIUS +
+        (USER_LOCATION_PULSE_MAX_RADIUS - USER_LOCATION_PULSE_MIN_RADIUS) *
+          eased;
+
+      pulse.setRadius(radius);
+      pulse.setOptions({
+        strokeOpacity: 0.34 * (1 - progress),
+        fillOpacity: 0.16 * (1 - progress),
+      });
+
+      userLocationPulseAnimationRef.current =
+        window.requestAnimationFrame(animate);
+    };
+
+    userLocationPulseAnimationRef.current =
+      window.requestAnimationFrame(animate);
+  }, []);
 
   // ── Initialize map ─────────────────────────────────────────────────────────
 
@@ -276,6 +321,7 @@ export function MapCanvas({
       routeEndpointMarkersRef.current.forEach((marker) => marker.setMap(null));
       routeEndpointMarkersRef.current = [];
       historyPolylineRef.current?.setMap(null);
+      stopUserLocationPulse();
       userLocationMarkerRef.current?.setMap(null);
       userLocationPulseRef.current?.setMap(null);
       originMarkerRef.current?.setMap(null);
@@ -409,6 +455,7 @@ export function MapCanvas({
     const maps = mapsApiRef.current;
 
     if (!userPosition) {
+      stopUserLocationPulse();
       userLocationMarkerRef.current?.setMap(null);
       userLocationPulseRef.current?.setMap(null);
       userLocationMarkerRef.current = null;
@@ -420,19 +467,20 @@ export function MapCanvas({
       userLocationMarkerRef.current.setPosition(userPosition);
       userLocationMarkerRef.current.setTitle(t("userLocation"));
       userLocationPulseRef.current?.setCenter(userPosition);
+      startUserLocationPulse();
       return;
     }
 
     userLocationPulseRef.current = new maps.Circle({
       map,
       center: userPosition,
-      radius: 32,
+      radius: USER_LOCATION_PULSE_MIN_RADIUS,
       clickable: false,
       strokeColor: "#2563eb",
-      strokeOpacity: 0.28,
+      strokeOpacity: 0.34,
       strokeWeight: 1,
       fillColor: "#3b82f6",
-      fillOpacity: 0.14,
+      fillOpacity: 0.16,
       zIndex: 28,
     });
 
@@ -451,7 +499,14 @@ export function MapCanvas({
       zIndex: 35,
     });
 
-  }, [mapReady, t, userPosition]);
+    startUserLocationPulse();
+  }, [
+    mapReady,
+    startUserLocationPulse,
+    stopUserLocationPulse,
+    t,
+    userPosition,
+  ]);
 
   // ── Render geofence circles ───────────────────────────────────────────────
 
