@@ -14,6 +14,8 @@ import {
   Route,
   Zap,
   MapPin,
+  Radio,
+  Wifi,
 } from "lucide-react";
 import { AdminBuggyFormPanel } from "./AdminBuggyFormPanel";
 import { DeleteConfirmModal } from "@/components/ui/DeleteConfirmModal";
@@ -141,12 +143,6 @@ export function BuggyOperationalDetail({
     { label: t("fleetCode"), value: buggy.code },
     { label: t("name"), value: buggy.name },
     { label: t("driver"), value: assignedDriverName || "-" },
-    { label: t("apnStatus"), value: apnValue },
-    { label: t("gsmSignal"), value: signalValue },
-    { label: t("simStatus"), value: simValue },
-    { label: t("networkStatus"), value: networkValue },
-    { label: t("localIp"), value: buggy.gsm?.localIp || "-" },
-    { label: t("mqttStatus"), value: mqttValue },
     { label: t("route"), value: buggy.routeLabel || "-" },
     {
       label: t("coordinates"),
@@ -367,6 +363,127 @@ export function BuggyOperationalDetail({
             capacity: buggy.capacity,
           })}
         </p>
+      </div>
+
+      {/* ── Connectivity Cards ─────────────────────────────────────────── */}
+      <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
+        <div className="rounded-3xl border border-slate-200/80 bg-white/75 p-3 shadow-[0_8px_24px_rgba(15,23,42,0.04)]">
+          <div className="mb-3 flex items-center justify-between gap-3">
+            <div className="flex min-w-0 items-center gap-2">
+              <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-2xl border border-sky-100 bg-sky-50 text-sky-600">
+                <Radio className="size-4" />
+              </span>
+              <div className="min-w-0">
+                <p className="text-[10px] font-semibold uppercase tracking-widest text-slate-400">
+                  {t("gsmStatus")}
+                </p>
+                <p className="truncate text-[13px] font-bold text-slate-900">
+                  {buggy.gsm?.networkType || "-"}
+                </p>
+              </div>
+            </div>
+            <span
+              className={`shrink-0 rounded-full border px-2 py-0.5 text-[10px] font-bold ${
+                apnState === "connected"
+                  ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+                  : apnState === "disconnected"
+                    ? "border-rose-200 bg-rose-50 text-rose-700"
+                    : "border-slate-200 bg-slate-50 text-slate-500"
+              }`}
+            >
+              {apnStateLabel}
+            </span>
+          </div>
+
+          <div className="grid grid-cols-2 gap-2">
+            {[
+              { label: t("apnStatus"), value: apnValue },
+              { label: t("gsmSignal"), value: signalValue },
+              { label: t("simStatus"), value: simValue },
+              { label: t("localIp"), value: buggy.gsm?.localIp || "-" },
+            ].map((item) => (
+              <div
+                key={item.label}
+                className="min-w-0 rounded-2xl border border-slate-100 bg-slate-50/70 p-2.5"
+              >
+                <p className="truncate text-[10px] font-semibold text-slate-400">
+                  {item.label}
+                </p>
+                <p className="mt-1 break-words text-[12px] font-bold leading-snug text-slate-800">
+                  {item.value}
+                </p>
+              </div>
+            ))}
+          </div>
+
+          <div className="mt-2 rounded-2xl border border-slate-100 bg-white p-2.5">
+            <p className="text-[10px] font-semibold text-slate-400">
+              {t("networkStatus")}
+            </p>
+            <p className="mt-1 text-[12px] font-bold leading-snug text-slate-800">
+              {networkValue}
+            </p>
+          </div>
+        </div>
+
+        <div className="rounded-3xl border border-slate-200/80 bg-white/75 p-3 shadow-[0_8px_24px_rgba(15,23,42,0.04)]">
+          <div className="mb-3 flex items-center justify-between gap-3">
+            <div className="flex min-w-0 items-center gap-2">
+              <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-2xl border border-indigo-100 bg-indigo-50 text-indigo-600">
+                <Wifi className="size-4" />
+              </span>
+              <div className="min-w-0">
+                <p className="text-[10px] font-semibold uppercase tracking-widest text-slate-400">
+                  {t("mqttStatus")}
+                </p>
+                <p className="truncate text-[13px] font-bold text-slate-900">
+                  {buggy.gsm?.mqttStateText || "-"}
+                </p>
+              </div>
+            </div>
+            <span
+              className={`shrink-0 rounded-full border px-2 py-0.5 text-[10px] font-bold ${
+                buggy.gsm?.mqttStateText === "MQTT_CONNECTED"
+                  ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+                  : buggy.gsm?.mqttStateText
+                    ? "border-amber-200 bg-amber-50 text-amber-700"
+                    : "border-slate-200 bg-slate-50 text-slate-500"
+              }`}
+            >
+              {typeof buggy.gsm?.mqttState === "number"
+                ? buggy.gsm.mqttState
+                : "-"}
+            </span>
+          </div>
+
+          <div className="grid grid-cols-2 gap-2">
+            <div className="min-w-0 rounded-2xl border border-slate-100 bg-slate-50/70 p-2.5">
+              <p className="truncate text-[10px] font-semibold text-slate-400">
+                {t("mqttStatus")}
+              </p>
+              <p className="mt-1 break-words text-[12px] font-bold leading-snug text-slate-800">
+                {mqttValue}
+              </p>
+            </div>
+            <div className="min-w-0 rounded-2xl border border-slate-100 bg-slate-50/70 p-2.5">
+              <p className="truncate text-[10px] font-semibold text-slate-400">
+                {t("apnStatus")}
+              </p>
+              <p className="mt-1 break-words text-[12px] font-bold leading-snug text-slate-800">
+                {buggy.gsm?.apn || "-"}
+              </p>
+            </div>
+          </div>
+
+          <div className="mt-2 rounded-2xl border border-slate-100 bg-white p-2.5">
+            <p className="text-[10px] font-semibold text-slate-400">
+              {t("lastUpdated")}
+            </p>
+            <p className="mt-1 text-[12px] font-bold text-slate-800">
+              {buggy.updatedAt}
+            </p>
+          </div>
+        </div>
       </div>
 
       {/* ── Data Rows ──────────────────────────────────────────────────── */}
