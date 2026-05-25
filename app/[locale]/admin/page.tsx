@@ -58,6 +58,16 @@ import LiquidGlass from "liquid-glass-react";
 const GEOFENCE_DEFAULT_RADIUS_METERS = 100;
 const GEOFENCE_EVENT_LIMIT = 100;
 const GEOFENCE_EVENT_COOLDOWN_MS = 10_000;
+const ADMIN_ACTIVE_VIEW_STORAGE_KEY = "simobi.admin.activeView";
+const PERSISTED_ADMIN_VIEWS: PanelView[] = [
+  "buggy",
+  "halte",
+  "notifikasi",
+  "settings",
+  "lapor",
+  "data",
+  "history",
+];
 
 const HALTE_FALLBACK_POSITION = {
   lat: HALTE_LOCATIONS[0].lat,
@@ -82,6 +92,21 @@ function makeId() {
     return crypto.randomUUID();
   }
   return `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+}
+
+function isPersistedAdminView(value: string | null): value is PanelView {
+  return PERSISTED_ADMIN_VIEWS.includes(value as PanelView);
+}
+
+function replaceAdminViewQuery(view: PanelView) {
+  if (typeof window === "undefined") return;
+  if (!isPersistedAdminView(view)) return;
+
+  const url = new URL(window.location.href);
+  if (url.searchParams.get("view") === view) return;
+
+  url.searchParams.set("view", view);
+  window.history.replaceState(null, "", `${url.pathname}${url.search}${url.hash}`);
 }
 
 export default function DashboardPage() {
@@ -164,6 +189,7 @@ export default function DashboardPage() {
   const [historyPath, setHistoryPath] = useState<[number, number][]>([]);
   const [settingsAccountForm, setSettingsAccountForm] =
     useState<AccountFormMode | null>(null);
+  const [activeViewHydrated, setActiveViewHydrated] = useState(false);
 
   const driverFilteredBuggies = useMemo(() => {
     if (userProfile?.role === "Driver" && userProfile.buggy_id) {
@@ -369,20 +395,28 @@ export default function DashboardPage() {
     if (typeof window === "undefined") return;
 
     const viewParam = new URLSearchParams(window.location.search).get("view");
-    const dashboardViews: PanelView[] = [
-      "buggy",
-      "halte",
-      "notifikasi",
-      "settings",
-      "lapor",
-      "data",
-      "history",
-    ];
+    const storedView = window.localStorage.getItem(ADMIN_ACTIVE_VIEW_STORAGE_KEY);
+    const restoredView = isPersistedAdminView(viewParam)
+      ? viewParam
+      : isPersistedAdminView(storedView)
+        ? storedView
+        : null;
 
-    if (viewParam && dashboardViews.includes(viewParam as PanelView)) {
-      handleSelectView(viewParam as PanelView);
+    if (restoredView) {
+      handleSelectView(restoredView);
     }
+
+    setActiveViewHydrated(true);
   }, [handleSelectView]);
+
+  useEffect(() => {
+    if (!activeViewHydrated) return;
+    if (typeof window === "undefined") return;
+    if (!isPersistedAdminView(activeView)) return;
+
+    window.localStorage.setItem(ADMIN_ACTIVE_VIEW_STORAGE_KEY, activeView);
+    replaceAdminViewQuery(activeView);
+  }, [activeView, activeViewHydrated]);
 
   useEffect(() => {
     if (
