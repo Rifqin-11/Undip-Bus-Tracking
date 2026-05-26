@@ -196,6 +196,20 @@ function getMedian(values: number[]) {
     : (sorted[middle - 1] + sorted[middle]) / 2;
 }
 
+function getSessionPassengerLoad(session: BuggySession): number {
+  const peak = session.passengerPeak;
+  if (typeof peak === "number" && Number.isFinite(peak) && peak > 0) {
+    return peak;
+  }
+
+  const average = session.passengerAvg;
+  if (typeof average === "number" && Number.isFinite(average) && average > 0) {
+    return average;
+  }
+
+  return 0;
+}
+
 function SmoothAreaChart({
   data,
   color = "#0f1a3b",
@@ -413,7 +427,14 @@ export function AdminStatisticsPanel({ buggies }: AdminStatisticsPanelProps) {
     (sum, buggy) => sum + Math.max(0, buggy.passengers),
     0,
   );
-  const averagePassengersPerDay = totalPassengers / elapsedDaysInMonth;
+  const historicalPassengerTotal = filteredSessions.reduce(
+    (sum, session) => sum + getSessionPassengerLoad(session),
+    0,
+  );
+  const displayTotalPassengers =
+    historicalPassengerTotal > 0 ? historicalPassengerTotal : totalPassengers;
+  const averagePassengersPerDay =
+    displayTotalPassengers / elapsedDaysInMonth;
   const activeRate =
     buggies.length > 0 ? (activeBuggies.length / buggies.length) * 100 : 0;
   const occupancyRate =
@@ -494,12 +515,6 @@ export function AdminStatisticsPanel({ buggies }: AdminStatisticsPanelProps) {
   );
 
   const hourlyPassengerDemand = useMemo(() => {
-    const livePassengerBaseline =
-      activeBuggies.length > 0
-        ? totalPassengers / activeBuggies.length
-        : buggies.length > 0
-          ? totalPassengers / buggies.length
-          : 0;
     const buckets = Array.from({ length: 24 }, (_, hour) => ({
       label: `${String(hour).padStart(2, "0")}:00`,
       value: 0,
@@ -509,7 +524,7 @@ export function AdminStatisticsPanel({ buggies }: AdminStatisticsPanelProps) {
       const startedAt = new Date(session.startedAt);
       if (Number.isNaN(startedAt.getTime())) continue;
       const hour = startedAt.getHours();
-      buckets[hour].value += Math.max(1, livePassengerBaseline);
+      buckets[hour].value += getSessionPassengerLoad(session);
     }
 
     const currentHour = new Date().getHours();
@@ -519,7 +534,7 @@ export function AdminStatisticsPanel({ buggies }: AdminStatisticsPanelProps) {
       ...item,
       value: Math.round(item.value),
     }));
-  }, [activeBuggies.length, buggies.length, filteredSessions, totalPassengers]);
+  }, [filteredSessions, totalPassengers]);
 
   const peakPassengerHour = hourlyPassengerDemand.reduce(
     (best, item) => (item.value > best.value ? item : best),
@@ -724,14 +739,14 @@ export function AdminStatisticsPanel({ buggies }: AdminStatisticsPanelProps) {
             <div className="flex items-end gap-2">
               <span className="text-[36px] font-black leading-none text-[#0f1a3b] tracking-tighter">
                 <AnimatedStatNumber
-                  value={totalPassengers}
+                  value={displayTotalPassengers}
                   formatter={(value) =>
                     Math.round(value).toLocaleString(localeTag)
                   }
                 />
               </span>
               <span className="mb-1.5 rounded-full bg-slate-100 px-1.5 py-0.5 text-[9px] font-bold text-slate-600">
-                live
+                {historicalPassengerTotal > 0 ? selectedMonth : "live"}
               </span>
             </div>
           </div>

@@ -27,6 +27,7 @@ export type SessionPoint = {
   lat: number;
   lng: number;
   speedKmh: number | null;
+  passengers: number | null;
   accuracy: number | null;
   heading: number | null;
   altitude: number | null;
@@ -58,6 +59,9 @@ export type ActiveSessionSummary = {
   batteryStart: number | null;
   currentBattery: number | null;
   batteryUsed: number | null;
+  passengerAvg: number | null;
+  passengerPeak: number | null;
+  passengerSamples: number;
   path: [number, number, number][];
 };
 
@@ -88,6 +92,14 @@ function getSaveInflightMap(): Map<string, Promise<void>> {
     globalThis.__SESSION_SAVE_INFLIGHT__ = new Map();
   }
   return globalThis.__SESSION_SAVE_INFLIGHT__;
+}
+
+function isSchemaColumnError(message: string): boolean {
+  return (
+    message.includes("schema cache") ||
+    message.includes("Could not find") ||
+    message.includes("column")
+  );
 }
 
 function getJakartaDateParts(value: string | number | Date): {
@@ -339,6 +351,16 @@ export function buildSessionSummary(
     batteryStart !== null && currentBattery !== null
       ? batteryStart - currentBattery
       : null;
+  const passengerValues = points
+    .map((p) => p.passengers)
+    .filter((value): value is number => value !== null && value >= 0);
+  const passengerAvg =
+    passengerValues.length > 0
+      ? passengerValues.reduce((sum, value) => sum + value, 0) /
+        passengerValues.length
+      : null;
+  const passengerPeak =
+    passengerValues.length > 0 ? Math.max(...passengerValues) : null;
 
   const path: [number, number, number][] = points.map((p) => [
     p.lat,
@@ -358,6 +380,9 @@ export function buildSessionSummary(
     batteryStart,
     currentBattery,
     batteryUsed,
+    passengerAvg,
+    passengerPeak,
+    passengerSamples: passengerValues.length,
     path,
   };
 }
@@ -452,6 +477,16 @@ export async function saveSessionPointsToDb(
     batteryStart !== null && batteryEnd !== null
       ? batteryStart - batteryEnd
       : null;
+  const passengerValues = points
+    .map((p) => p.passengers)
+    .filter((value): value is number => value !== null && value >= 0);
+  const passengerAvg =
+    passengerValues.length > 0
+      ? passengerValues.reduce((sum, value) => sum + value, 0) /
+        passengerValues.length
+      : null;
+  const passengerPeak =
+    passengerValues.length > 0 ? Math.max(...passengerValues) : null;
 
   // Duration
   const startMs = new Date(startedAt).getTime();
@@ -536,6 +571,10 @@ export async function saveSessionPointsToDb(
       battery_start: batteryStart,
       battery_end: batteryEnd,
       battery_used: batteryUsed,
+      passenger_avg:
+        passengerAvg !== null ? Number(passengerAvg.toFixed(1)) : null,
+      passenger_peak: passengerPeak,
+      passenger_samples: passengerValues.length,
       path,
     };
 
@@ -547,6 +586,32 @@ export async function saveSessionPointsToDb(
       });
 
     if (error) {
+      if (isSchemaColumnError(error.message)) {
+        const fallbackRow: Record<string, unknown> = { ...sessionRow };
+        delete fallbackRow.passenger_avg;
+        delete fallbackRow.passenger_peak;
+        delete fallbackRow.passenger_samples;
+        const { error: fallbackError } = await supabase
+          .from(tableName)
+          .upsert(fallbackRow, {
+            onConflict: "buggy_id,started_at,ended_at",
+            ignoreDuplicates: true,
+          });
+
+        if (fallbackError) {
+          console.error(
+            `[session-store] Save failed for ${buggyId}:`,
+            fallbackError.message,
+          );
+          return;
+        }
+
+        console.warn(
+          `[session-store] Saved session for ${buggyId} without passenger metrics; apply passenger migration.`,
+        );
+        return;
+      }
+
       console.error(`[session-store] Save failed for ${buggyId}:`, error.message);
     } else {
       console.log(

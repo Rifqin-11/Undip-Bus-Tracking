@@ -273,6 +273,10 @@ export async function POST(request: NextRequest) {
     lat: Number(lat),
     lng: Number(lng),
     speedKmh: incomingSpeedKmh,
+    passengers:
+      typeof passengers === "number" && Number.isFinite(passengers)
+        ? Math.max(0, Math.round(passengers))
+        : null,
     accuracy: typeof accuracy === "number" ? accuracy : null,
     heading: typeof heading === "number" ? heading : null,
     altitude: typeof altitude === "number" ? altitude : null,

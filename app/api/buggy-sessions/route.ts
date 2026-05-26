@@ -61,6 +61,9 @@ function mapRow(row: Record<string, unknown>): BuggySession | null {
     batteryStart: asNum(row.battery_start),
     batteryEnd: asNum(row.battery_end),
     batteryUsed: asNum(row.battery_used),
+    passengerAvg: asNum(row.passenger_avg),
+    passengerPeak: asNum(row.passenger_peak),
+    passengerSamples: Number(row.passenger_samples ?? 0),
     path: sanitizedPath as [number, number, number?][],
   };
 }
@@ -151,6 +154,25 @@ function mergeSessionsByOperationalBucket(
       mergedPath.length >= 2 ? calculatePathDistanceKm(mergedPath) : 0;
     const avgSpeedKmh =
       durationMinutes > 0 ? totalDistanceKm / (durationMinutes / 60) : null;
+    const passengerSamples = ordered.reduce(
+      (sum, session) => sum + (session.passengerSamples ?? 0),
+      0,
+    );
+    const passengerAvg =
+      passengerSamples > 0
+        ? ordered.reduce(
+            (sum, session) =>
+              sum +
+              (session.passengerAvg ?? 0) * (session.passengerSamples ?? 0),
+            0,
+          ) / passengerSamples
+        : null;
+    const passengerPeak = Math.max(
+      ...ordered
+        .map((session) => session.passengerPeak ?? 0)
+        .filter((value) => value > 0),
+      0,
+    ) || null;
 
     return {
       ...first,
@@ -180,6 +202,10 @@ function mergeSessionsByOperationalBucket(
           .map((session) => session.batteryUsed)
           .filter((value): value is number => value !== null)
           .reduce((sum, value) => sum + value, 0) || null,
+      passengerAvg:
+        passengerAvg !== null ? Number(passengerAvg.toFixed(1)) : null,
+      passengerPeak,
+      passengerSamples,
       path: mergedPath as [number, number, number?][],
       isOngoing: ordered.some((session) => session.isOngoing),
     };
@@ -312,6 +338,7 @@ export async function GET(request: NextRequest) {
       lat: Number(row.lat),
       lng: Number(row.lng),
       speedKmh: asNum(row.speed_kmh),
+      passengers: asNum(row.passengers),
       accuracy: asNum(row.accuracy),
       heading: asNum(row.heading),
       altitude: asNum(row.altitude),
@@ -363,6 +390,9 @@ export async function GET(request: NextRequest) {
             batteryStart: sum.batteryStart,
             batteryEnd: sum.currentBattery,
             batteryUsed: sum.batteryUsed,
+            passengerAvg: sum.passengerAvg,
+            passengerPeak: sum.passengerPeak,
+            passengerSamples: sum.passengerSamples,
             path: sum.path,
         };
 

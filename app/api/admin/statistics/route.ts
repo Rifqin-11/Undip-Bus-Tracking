@@ -14,6 +14,9 @@ type SessionRow = {
   duration_minutes?: number | string | null;
   avg_speed_kmh?: number | string | null;
   point_count?: number | string | null;
+  passenger_avg?: number | string | null;
+  passenger_peak?: number | string | null;
+  passenger_samples?: number | string | null;
 };
 
 function toNumber(value: number | string | null | undefined): number {
@@ -48,7 +51,7 @@ export async function GET(request: Request) {
 
     const { data: currentMonthData, error: currentMonthError } = await supabase
       .from(tableName)
-      .select("buggy_id, started_at, total_distance_km, duration_minutes, avg_speed_kmh, point_count")
+      .select("buggy_id, started_at, total_distance_km, duration_minutes, avg_speed_kmh, point_count, passenger_avg, passenger_peak, passenger_samples")
       .gte("started_at", firstDayOfMonth)
       .lte("started_at", lastDayOfMonth);
 
@@ -60,7 +63,7 @@ export async function GET(request: Request) {
 
     const { data: lastMonthData, error: lastMonthError } = await supabase
       .from(tableName)
-      .select("buggy_id, started_at, total_distance_km, duration_minutes, avg_speed_kmh, point_count")
+      .select("buggy_id, started_at, total_distance_km, duration_minutes, avg_speed_kmh, point_count, passenger_avg, passenger_peak, passenger_samples")
       .gte("started_at", firstDayOfLastMonth)
       .lte("started_at", lastDayOfLastMonth);
 
@@ -71,6 +74,7 @@ export async function GET(request: Request) {
     let totalDurationMin = 0;
     let totalSpeed = 0;
     let speedCount = 0;
+    let totalPassengers = 0;
 
     const tripsThisMonth = currentMonthData?.length || 0;
 
@@ -82,20 +86,33 @@ export async function GET(request: Request) {
         totalSpeed += avgSpeed;
         speedCount++;
       }
+      totalPassengers += Math.max(
+        0,
+        toNumber(row.passenger_peak) || toNumber(row.passenger_avg),
+      );
     }
 
     const avgSpeedThisMonth = speedCount > 0 ? totalSpeed / speedCount : 0;
 
     // --- Kalkulasi Data Bulan Lalu ---
     let totalDistanceLastMonth = 0;
+    let totalPassengersLastMonth = 0;
     const tripsLastMonth = lastMonthData?.length || 0;
 
     for (const row of (lastMonthData || []) as SessionRow[]) {
       totalDistanceLastMonth += toNumber(row.total_distance_km);
+      totalPassengersLastMonth += Math.max(
+        0,
+        toNumber(row.passenger_peak) || toNumber(row.passenger_avg),
+      );
     }
 
     const distanceTrend = calculateTrend(totalDistanceKm, totalDistanceLastMonth);
     const tripsTrend = calculateTrend(tripsThisMonth, tripsLastMonth);
+    const passengersTrend = calculateTrend(
+      totalPassengers,
+      totalPassengersLastMonth,
+    );
     
     const dailyMap = new Map<
       string,
@@ -162,18 +179,20 @@ export async function GET(request: Request) {
           totalDistanceKm: Number(totalDistanceKm.toFixed(1)),
           avgSpeedKmh: Number(avgSpeedThisMonth.toFixed(1)),
           totalDurationMin: Math.round(totalDurationMin),
-          totalPassengers: null,
-          avgPassengersPerDay: null,
+          totalPassengers: Math.round(totalPassengers),
+          avgPassengersPerDay: Number(
+            (totalPassengers / Math.max(1, new Date().getUTCDate())).toFixed(1),
+          ),
         },
         trends: {
           trips: Number(tripsTrend.toFixed(1)),
           distance: Number(distanceTrend.toFixed(1)),
-          passengers: null,
+          passengers: Number(passengersTrend.toFixed(1)),
         },
         dataQuality: {
-          passengerMetric: "unavailable",
+          passengerMetric: "session_summary",
           passengerNote:
-            "Data penumpang historis belum direkam di sesi, sehingga metrik penumpang tidak diestimasi.",
+            "Data penumpang dihitung dari passenger_peak/passenger_avg pada ringkasan sesi.",
         },
         dailySeries,
         topBuggies,

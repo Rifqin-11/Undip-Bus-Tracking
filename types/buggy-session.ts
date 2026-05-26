@@ -16,6 +16,9 @@ export type BuggySession = {
   batteryStart: number | null; // % at session start
   batteryEnd: number | null;   // % at session end
   batteryUsed: number | null;  // start - end (positive = drain)
+  passengerAvg?: number | null;
+  passengerPeak?: number | null;
+  passengerSamples?: number;
   /**
    * GPS path as ordered tuples for map rendering.
    * Format: [lat, lng, unixMs?] — 3rd element is unix timestamp (ms) for per-point display.
