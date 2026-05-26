@@ -14,6 +14,10 @@ import {
 import { bootstrapFromDatabase } from "@/lib/supabase/data-loader";
 import { normalizeGsmStatus } from "@/lib/buggy/gsm-status";
 import { haversineMeters } from "@/lib/transit/buggy-route-utils";
+import {
+  isKnownNoFixCoordinate,
+  isSameGpsCoordinate,
+} from "@/lib/buggy/gps-quality";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -46,8 +50,12 @@ function shouldInsertHistoryPoint(
   speedKmh: number,
   now: number,
 ): boolean {
+  const currentPoint = { lat, lng };
+  if (isKnownNoFixCoordinate(currentPoint)) return false;
+
   const lastInsert = lastHistoryInsertPerBuggy[buggyNumericId];
   if (!lastInsert) return true;
+  if (isSameGpsCoordinate(lastInsert, currentPoint)) return false;
 
   const elapsedMs = now - lastInsert.insertedAtMs;
   const distanceMeters = haversineMeters(

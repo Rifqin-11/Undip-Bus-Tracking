@@ -15,6 +15,8 @@ export type GpsPathPoint = [number, number, number?];
 const MAX_DISTANCE_FROM_ROUTE_METERS = 2_500;
 const MAX_SEGMENT_SPEED_KMH = 90;
 const MIN_SUSTAINED_JUMP_POINTS = 5;
+const GPS_STUCK_DECIMAL_PRECISION = 6;
+const KNOWN_NO_FIX_COORDINATE_KEYS = new Set(["-6.200000:106.816666"]);
 
 export function isFiniteLatLng(point: LatLng): boolean {
   return (
@@ -25,6 +27,18 @@ export function isFiniteLatLng(point: LatLng): boolean {
     point.lng >= -180 &&
     point.lng <= 180
   );
+}
+
+export function getGpsCoordinateKey(point: LatLng): string {
+  return `${point.lat.toFixed(GPS_STUCK_DECIMAL_PRECISION)}:${point.lng.toFixed(GPS_STUCK_DECIMAL_PRECISION)}`;
+}
+
+export function isSameGpsCoordinate(a: LatLng, b: LatLng): boolean {
+  return getGpsCoordinateKey(a) === getGpsCoordinateKey(b);
+}
+
+export function isKnownNoFixCoordinate(point: LatLng): boolean {
+  return KNOWN_NO_FIX_COORDINATE_KEYS.has(getGpsCoordinateKey(point));
 }
 
 export function getDistanceFromOfficialRouteMeters(point: LatLng): number {
@@ -59,10 +73,16 @@ export function sanitizeGpsPoints<T extends TimestampedGpsPoint>(
 
   for (const point of points) {
     if (!isFiniteLatLng(point)) continue;
+    if (isKnownNoFixCoordinate(point)) continue;
 
     const previous = output[output.length - 1];
     if (!previous) {
       output.push(point);
+      continue;
+    }
+
+    if (isSameGpsCoordinate(previous, point)) {
+      jumpCandidates = [];
       continue;
     }
 
