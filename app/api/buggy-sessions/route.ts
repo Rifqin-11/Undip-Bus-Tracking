@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import type { SupabaseClient } from "@supabase/supabase-js";
 import { requireAdmin } from "@/lib/auth/admin-guard";
 import { createAdminClient, getBuggySessionTableName, getBuggyHistoryTableName } from "@/lib/supabase/server";
 import {
@@ -15,6 +16,9 @@ import type { BuggySession } from "@/types/buggy-session";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
+
+const HISTORY_PAGE_SIZE = 1_000;
+const MAX_RAW_HISTORY_ROWS = 50_000;
 
 // ── Row mapper ────────────────────────────────────────────────────────────────
 
@@ -96,6 +100,130 @@ function groupPointsIntoSessions(points: SessionPoint[]): SessionPoint[][] {
   return sessions;
 }
 
+function mergeSessionsByOperationalBucket(
+  sessions: BuggySession[],
+): BuggySession[] {
+  const groups = new Map<string, BuggySession[]>();
+
+  for (const session of sessions) {
+    const bucket = getOperationalSessionBucket(session.startedAt);
+    const key = bucket.isScheduled
+      ? `${session.buggyId}:${bucket.key}`
+      : `${session.buggyId}:outside:${session.startedAt}:${session.endedAt}`;
+    groups.set(key, [...(groups.get(key) ?? []), session]);
+  }
+
+  return Array.from(groups.values()).map((group) => {
+    if (group.length === 1) return group[0];
+
+    const ordered = [...group].sort(
+      (a, b) =>
+        new Date(a.startedAt).getTime() - new Date(b.startedAt).getTime(),
+    );
+    const first = ordered[0];
+    const last = ordered.reduce((latest, session) =>
+      new Date(session.endedAt).getTime() > new Date(latest.endedAt).getTime()
+        ? session
+        : latest,
+    );
+    const bucket = getOperationalSessionBucket(first.startedAt);
+    const pathByKey = new Map<string, [number, number, number?]>();
+
+    for (const session of ordered) {
+      for (const [lat, lng, tsMs] of session.path) {
+        const key = `${tsMs ?? ""}:${lat}:${lng}`;
+        pathByKey.set(key, [lat, lng, tsMs]);
+      }
+    }
+
+    const mergedPath = sanitizePath(
+      Array.from(pathByKey.values()).sort(
+        (a, b) => (a[2] ?? 0) - (b[2] ?? 0),
+      ) as [number, number, number][],
+    );
+    const startedAt = ordered[0].startedAt;
+    const endedAt = last.endedAt;
+    const durationMinutes = Math.max(
+      0,
+      (new Date(endedAt).getTime() - new Date(startedAt).getTime()) / 60_000,
+    );
+    const totalDistanceKm =
+      mergedPath.length >= 2 ? calculatePathDistanceKm(mergedPath) : 0;
+    const avgSpeedKmh =
+      durationMinutes > 0 ? totalDistanceKm / (durationMinutes / 60) : null;
+
+    return {
+      ...first,
+      id: `merged-${first.buggyId}-${bucket.key}`,
+      sessionDate: bucket.date,
+      sessionNumber: bucket.sessionNumber,
+      startedAt,
+      endedAt,
+      durationMinutes: Number(durationMinutes.toFixed(1)),
+      pointCount: mergedPath.length,
+      totalDistanceKm: Number(totalDistanceKm.toFixed(3)),
+      avgSpeedKmh:
+        avgSpeedKmh !== null ? Number(avgSpeedKmh.toFixed(1)) : null,
+      maxSpeedKmh: Math.max(
+        ...ordered
+          .map((session) => session.maxSpeedKmh ?? 0)
+          .filter((speed) => speed > 0),
+        0,
+      ) || null,
+      batteryStart: ordered.find((session) => session.batteryStart !== null)
+        ?.batteryStart ?? null,
+      batteryEnd:
+        [...ordered].reverse().find((session) => session.batteryEnd !== null)
+          ?.batteryEnd ?? null,
+      batteryUsed:
+        ordered
+          .map((session) => session.batteryUsed)
+          .filter((value): value is number => value !== null)
+          .reduce((sum, value) => sum + value, 0) || null,
+      path: mergedPath as [number, number, number?][],
+      isOngoing: ordered.some((session) => session.isOngoing),
+    };
+  });
+}
+
+async function fetchRecentHistoryRows(
+  supabase: SupabaseClient,
+  sinceIso: string,
+  buggyIdFilter: string,
+): Promise<Record<string, unknown>[]> {
+  const rows: Record<string, unknown>[] = [];
+  const tableName = getBuggyHistoryTableName();
+
+  for (
+    let offset = 0;
+    offset < MAX_RAW_HISTORY_ROWS;
+    offset += HISTORY_PAGE_SIZE
+  ) {
+    let query = supabase
+      .from(tableName)
+      .select("*")
+      .gte("recorded_at", sinceIso)
+      .order("recorded_at", { ascending: true })
+      .range(offset, offset + HISTORY_PAGE_SIZE - 1);
+
+    if (buggyIdFilter) {
+      query = query.eq("buggy_id", buggyIdFilter);
+    }
+
+    const { data, error } = await query;
+    if (error) throw error;
+
+    const pageRows = Array.isArray(data)
+      ? (data as Record<string, unknown>[])
+      : [];
+    rows.push(...pageRows);
+
+    if (pageRows.length < HISTORY_PAGE_SIZE) break;
+  }
+
+  return rows;
+}
+
 // ── GET /api/buggy-sessions ───────────────────────────────────────────────────
 
 export async function GET(request: NextRequest) {
@@ -150,18 +278,20 @@ export async function GET(request: NextRequest) {
   // 2. Tarik semua data ping raw GPS yang terjadi SEJAK H-1 (untuk mencari sesi yang belum sempat tersimpan)
   const yesterday = new Date(Date.now() - 24 * 3600 * 1000).toISOString();
   
-  let historyQuery = supabase
-    .from(getBuggyHistoryTableName())
-    .select('*')
-    .gte('recorded_at', yesterday)
-    .order('recorded_at', { ascending: true }); // Harus Ascending agar runut waktu
-
-  if (buggyIdFilter) {
-    historyQuery = historyQuery.eq("buggy_id", buggyIdFilter);
+  let rawPoints: Record<string, unknown>[] = [];
+  try {
+    rawPoints = await fetchRecentHistoryRows(supabase, yesterday, buggyIdFilter);
+  } catch (error) {
+    return NextResponse.json(
+      {
+        error:
+          error instanceof Error
+            ? error.message
+            : "Failed to load raw buggy history",
+      },
+      { status: 500 },
+    );
   }
-    
-  const { data: rawPointsData } = await historyQuery;
-  const rawPoints = Array.isArray(rawPointsData) ? rawPointsData : [];
 
   // Group titik-titik tersebut per buggy, dan ABAIKAN titik yang terekam sebelum "ended_at" terbaru sesi di DB
   const pointsByBuggy = new Map<string, { numericId: number | null; pts: SessionPoint[] }>();
@@ -170,8 +300,9 @@ export async function GET(request: NextRequest) {
     const bId = String(row.buggy_id);
     const recAt = new Date(String(row.recorded_at)).getTime();
     const latestFin = latestEndedAt.get(bId) || 0;
+    const rawBucket = getOperationalSessionBucket(String(row.recorded_at));
     
-    if (recAt <= latestFin) continue;
+    if (!rawBucket.isScheduled && recAt <= latestFin) continue;
 
     if (!pointsByBuggy.has(bId)) {
         pointsByBuggy.set(bId, { numericId: typeof row.buggy_numeric_id === "number" ? row.buggy_numeric_id : null, pts: [] });
@@ -262,11 +393,13 @@ export async function GET(request: NextRequest) {
       Promise.allSettled(saves);
   }
 
-  // Urutkan completed berdasarkan startedAt karena ada yang dari sintesis
-  completed.sort((a, b) => new Date(b.startedAt).getTime() - new Date(a.startedAt).getTime());
-
   // Ongoing sessions digabung dengan completed
-  const sessions = [...synthesizedOngoing, ...completed];
+  const sessions = mergeSessionsByOperationalBucket([
+    ...synthesizedOngoing,
+    ...completed,
+  ]).sort(
+    (a, b) => new Date(b.endedAt).getTime() - new Date(a.endedAt).getTime(),
+  );
 
   return NextResponse.json({ sessions, count: sessions.length });
 }

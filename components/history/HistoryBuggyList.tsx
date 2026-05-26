@@ -54,6 +54,8 @@ export function HistoryBuggyList({
             {buggyOptions.map((opt) => {
               const sessionsForBuggy = sessionsByBuggy.get(opt.norm) ?? [];
               const latestSession = sessionsForBuggy[0];
+              const latestActivityAt =
+                latestSession?.endedAt || latestSession?.startedAt;
 
               return (
                 <button
@@ -103,8 +105,8 @@ export function HistoryBuggyList({
                         <span className="font-bold text-slate-800">
                           {t("sessions", { count: sessionsForBuggy.length })}
                         </span>{" "}
-                        · {t("latest")} {fmtDate(latestSession.startedAt)}{" "}
-                        {fmtTime(latestSession.startedAt)}
+                        · {t("latest")} {fmtDate(latestActivityAt)}{" "}
+                        {fmtTime(latestActivityAt)}
                       </p>
                     ) : (
                       <p className="text-[10px] font-medium text-slate-400 italic">

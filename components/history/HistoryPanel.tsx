@@ -45,6 +45,13 @@ function getBuggyNorm(b: Buggy): string {
   return normalizeBuggyId(b.id);
 }
 
+function getSessionLastActivityMs(session: BuggySession): number {
+  const endedAtMs = new Date(session.endedAt).getTime();
+  if (!Number.isNaN(endedAtMs)) return endedAtMs;
+  const startedAtMs = new Date(session.startedAt).getTime();
+  return Number.isNaN(startedAtMs) ? 0 : startedAtMs;
+}
+
 // ── Component ─────────────────────────────────────────────────────────────────
 
 export function HistoryPanel({
@@ -131,7 +138,7 @@ export function HistoryPanel({
     map.forEach((arr) =>
       arr.sort(
         (a, b) =>
-          new Date(b.startedAt).getTime() - new Date(a.startedAt).getTime(),
+          getSessionLastActivityMs(b) - getSessionLastActivityMs(a),
       ),
     );
     return map;
