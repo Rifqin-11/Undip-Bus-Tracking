@@ -145,10 +145,9 @@ export async function mergeLatestBuggyTelemetryFromHistory(
 
     mergedCount += 1;
 
-    const capacity =
-      typeof row.capacity === "number" && row.capacity > 0
-        ? row.capacity
-        : buggy.capacity;
+    // Capacity is fleet master data edited from the admin panel. History rows
+    // may contain stale device payloads, so they must not override DB changes.
+    const capacity = Math.max(1, buggy.capacity);
     const passengers =
       typeof row.passengers === "number"
         ? Math.max(0, Math.min(row.passengers, capacity))

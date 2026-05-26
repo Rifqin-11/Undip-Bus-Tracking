@@ -427,7 +427,9 @@ function ingestTelemetry(
       continue;
     }
 
-    const capacity = Math.max(1, point.capacity ?? existing.capacity);
+    // Capacity is configured from admin master data. Telemetry can carry stale
+    // capacity values from devices/simulators, so only use it for auto-register.
+    const capacity = Math.max(1, existing.capacity);
     const passengers = Math.max(
       0,
       Math.min(capacity, point.passengers ?? existing.passengers),

@@ -79,7 +79,6 @@ export async function POST(request: NextRequest) {
     forceResync,
     batteryLevel,
     passengers,
-    capacity,
     sessionStart,
     sessionEnd,
     source,
@@ -127,7 +126,6 @@ export async function POST(request: NextRequest) {
         altitude: typeof altitude === "number" ? altitude : undefined,
         etaMinutes: typeof etaMinutes === "number" ? etaMinutes : undefined,
         passengers: typeof passengers === "number" ? passengers : undefined,
-        capacity: typeof capacity === "number" ? capacity : undefined,
         forceResync: forceResync === true,
         tag: typeof source === "string" ? source : "gps_beacon",
         timestamp: new Date().toISOString(),
@@ -181,10 +179,6 @@ export async function POST(request: NextRequest) {
           typeof passengers === "number" && Number.isFinite(passengers)
             ? Math.max(0, Math.round(passengers))
             : null,
-        capacity:
-          typeof capacity === "number" && Number.isFinite(capacity)
-            ? Math.max(1, Math.round(capacity))
-            : null,
         source: typeof source === "string" ? source : "gps_beacon",
         recorded_at: new Date().toISOString(),
       };
@@ -195,7 +189,6 @@ export async function POST(request: NextRequest) {
         if (isSchemaColumnError(error.message)) {
           const fallbackRow: Record<string, unknown> = { ...historyRow };
           delete fallbackRow.passengers;
-          delete fallbackRow.capacity;
           const { error: fallbackError } = await supabase
             .from(tableName)
             .insert(fallbackRow);
