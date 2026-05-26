@@ -98,6 +98,9 @@ export function HistorySessionDetail({
       s.durationMinutes ?? "",
       s.totalDistanceKm ?? "",
       s.avgSpeedKmh ?? "",
+      s.passengerAvg ?? "",
+      s.passengerPeak ?? "",
+      s.passengerSamples ?? "",
       s.batteryStart ?? "",
       s.batteryEnd ?? "",
       s.batteryUsed ?? "",
@@ -117,6 +120,9 @@ export function HistorySessionDetail({
       t("csvDurationMinutes"),
       t("csvDistanceKm"),
       t("csvAverageSpeed"),
+      t("csvAveragePassengers"),
+      t("csvPeakPassengers"),
+      t("csvPassengerSamples"),
       t("csvBatteryStart"),
       t("csvBatteryEnd"),
       t("csvBatteryUsage"),
@@ -262,6 +268,27 @@ export function HistorySessionDetail({
           { label: t("gpsPoints"), value: `${s.pointCount} ${t("point")}` },
           { label: t("distance"), value: s.totalDistanceKm !== null ? `${s.totalDistanceKm.toFixed(2)} km` : "—" },
           { label: t("averageSpeed"), value: s.avgSpeedKmh !== null ? tCommon("kmh", { value: s.avgSpeedKmh.toFixed(1) }) : "—" },
+          {
+            label: t("averagePassengers"),
+            value:
+              typeof s.passengerAvg === "number" && s.passengerAvg > 0
+                ? `${s.passengerAvg.toFixed(1)} ${t("passengers")}`
+                : "—",
+          },
+          {
+            label: t("peakPassengers"),
+            value:
+              typeof s.passengerPeak === "number" && s.passengerPeak > 0
+                ? `${s.passengerPeak} ${t("passengers")}`
+                : "—",
+          },
+          {
+            label: t("passengerSamples"),
+            value:
+              typeof s.passengerSamples === "number" && s.passengerSamples > 0
+                ? `${s.passengerSamples} ${t("point")}`
+                : "—",
+          },
           {
             label: t("battery"),
             value: s.batteryStart !== null && s.batteryEnd !== null

@@ -34,6 +34,9 @@ export function HistorySessionList({
       t("csvDurationMinutes"),
       t("csvDistanceKm"),
       t("csvAverageSpeed"),
+      t("csvAveragePassengers"),
+      t("csvPeakPassengers"),
+      t("csvPassengerSamples"),
       t("csvBatteryStart"),
       t("csvBatteryEnd")
     ];
@@ -46,6 +49,9 @@ export function HistorySessionList({
       s.durationMinutes || 0,
       s.totalDistanceKm || 0,
       s.avgSpeedKmh || 0,
+      s.passengerAvg || "",
+      s.passengerPeak || "",
+      s.passengerSamples || "",
       s.batteryStart || "",
       s.batteryEnd || ""
     ]);
@@ -160,6 +166,11 @@ export function HistorySessionList({
                   </span>
                   <span className="text-[11px] text-slate-400">
                     {session.avgSpeedKmh !== null ? tCommon("kmh", { value: session.avgSpeedKmh.toFixed(1) }) : "—"}
+                  </span>
+                  <span className="text-[11px] text-slate-400">
+                    {typeof session.passengerAvg === "number" && session.passengerAvg > 0
+                      ? `${session.passengerAvg.toFixed(1)} ${t("passengers")}`
+                      : "—"}
                   </span>
                 </div>
               </div>
