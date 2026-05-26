@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { getBuggyLiveSnapshot } from "@/lib/realtime/buggy-live-store";
 import { bootstrapFromDatabase } from "@/lib/supabase/data-loader";
-import { mergeLatestBuggyTelemetryFromHistory } from "@/lib/supabase/latest-buggy-telemetry";
+import { mergeLatestBuggyTelemetry } from "@/lib/supabase/latest-buggy-telemetry";
 import { createAdminClient } from "@/lib/supabase/server";
 import type { Buggy, CrowdLevel } from "@/types/buggy";
 
@@ -81,12 +81,12 @@ export async function GET() {
 
   const snapshot = getBuggyLiveSnapshot();
   const masterSyncedBuggies = await overlayBuggyMasterData(snapshot.buggies);
-  const latest = await mergeLatestBuggyTelemetryFromHistory(masterSyncedBuggies);
-  const hasHistoryTelemetry = latest.mergedCount > 0;
+  const latest = await mergeLatestBuggyTelemetry(masterSyncedBuggies);
+  const hasLatestTelemetry = latest.mergedCount > 0;
 
   return NextResponse.json(latest.buggies, {
     headers: {
-      "x-buggy-source": hasHistoryTelemetry ? "ingest_telemetry" : snapshot.source,
+      "x-buggy-source": hasLatestTelemetry ? "ingest_telemetry" : snapshot.source,
       "x-buggy-updated-at": String(latest.updatedAt ?? snapshot.updatedAt),
     },
   });

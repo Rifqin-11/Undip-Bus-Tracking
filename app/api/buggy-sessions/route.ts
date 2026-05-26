@@ -239,10 +239,10 @@ export async function GET(request: NextRequest) {
   const buggyIdFilter = params.get("buggyId") ?? "";
   const limit = Math.min(Math.max(Number.parseInt(params.get("limit") ?? "100", 10), 1), 500);
 
-  // Background Cleanup: Auto-hapus data mentah GPS (buggy_history) yang usianya lebih dari 3 hari.
+  // Background Cleanup: Auto-hapus data mentah GPS (buggy_history) yang usianya lebih dari 7 hari.
   // Dilakukan tanpa blocking thread (fire-and-forget) agar dashboard tetap kencang.
-  const threeDaysAgo = new Date(Date.now() - 3 * 24 * 3600 * 1000).toISOString();
-  supabase.from(getBuggyHistoryTableName()).delete().lt("recorded_at", threeDaysAgo).then(() => {});
+  const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 3600 * 1000).toISOString();
+  supabase.from(getBuggyHistoryTableName()).delete().lt("recorded_at", sevenDaysAgo).then(() => {});
 
   const tableName = getBuggySessionTableName();
 

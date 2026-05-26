@@ -1,10 +1,12 @@
-import { createAdminClient, getBuggyHistoryTableName } from "@/lib/supabase/server";
+import {
+  createAdminClient,
+  getLatestBuggyTelemetryTableName,
+} from "@/lib/supabase/server";
 import { findNearestPathIndex } from "@/lib/transit/buggy-route-utils";
 import { getHalteLocations } from "@/lib/transit/halte-runtime";
-import { sanitizeGpsPoints } from "@/lib/buggy/gps-quality";
 import type { Buggy } from "@/types/buggy";
 
-type BuggyHistoryRow = {
+type LatestBuggyTelemetryRow = {
   buggy_id: string | null;
   buggy_numeric_id: number | null;
   lat: number | null;
@@ -15,7 +17,6 @@ type BuggyHistoryRow = {
   recorded_at: string | null;
 };
 
-const LATEST_HISTORY_LOOKBACK_LIMIT = 100;
 const ACTIVE_HISTORY_WINDOW_MS = 30_000;
 
 function toTimeLabel(value: string): string {
@@ -55,7 +56,7 @@ function resolveCrowdLevel(passengers: number, capacity: number): Buggy["crowdLe
   return "LONGGAR";
 }
 
-function resolveHistoryKey(row: BuggyHistoryRow): string | null {
+function resolveTelemetryKey(row: LatestBuggyTelemetryRow): string | null {
   if (typeof row.buggy_numeric_id === "number") {
     return `numeric:${row.buggy_numeric_id}`;
   }
@@ -71,7 +72,7 @@ function resolveBuggyKeys(buggy: Buggy): string[] {
   return keys;
 }
 
-export async function mergeLatestBuggyTelemetryFromHistory(
+export async function mergeLatestBuggyTelemetry(
   buggies: Buggy[],
 ): Promise<{ buggies: Buggy[]; updatedAt: number | null; mergedCount: number }> {
   const supabase = createAdminClient();
@@ -80,49 +81,20 @@ export async function mergeLatestBuggyTelemetryFromHistory(
   }
 
   const { data, error } = await supabase
-    .from(getBuggyHistoryTableName())
+    .from(getLatestBuggyTelemetryTableName())
     .select("*")
-    .order("recorded_at", { ascending: false })
-    .limit(LATEST_HISTORY_LOOKBACK_LIMIT);
+    .order("recorded_at", { ascending: false });
 
   if (error) {
-    console.warn("[latest-buggy-telemetry] Gagal fetch history terbaru:", error.message);
+    console.warn("[latest-buggy-telemetry] Gagal fetch latest telemetry:", error.message);
     return { buggies, updatedAt: null, mergedCount: 0 };
   }
 
-  const latestByKey = new Map<string, BuggyHistoryRow>();
-  const rowsByKey = new Map<string, BuggyHistoryRow[]>();
-  for (const row of (data ?? []) as BuggyHistoryRow[]) {
-    const key = resolveHistoryKey(row);
+  const latestByKey = new Map<string, LatestBuggyTelemetryRow>();
+  for (const row of (data ?? []) as LatestBuggyTelemetryRow[]) {
+    const key = resolveTelemetryKey(row);
     if (!key) continue;
-    rowsByKey.set(key, [...(rowsByKey.get(key) ?? []), row]);
-  }
-
-  for (const [key, rows] of rowsByKey.entries()) {
-    const orderedRows = rows
-      .filter(
-        (row) =>
-          typeof row.lat === "number" &&
-          typeof row.lng === "number" &&
-          typeof row.recorded_at === "string",
-      )
-      .sort(
-        (a, b) =>
-          new Date(a.recorded_at ?? 0).getTime() -
-          new Date(b.recorded_at ?? 0).getTime(),
-      );
-
-    const sanitizedRows = sanitizeGpsPoints(
-      orderedRows.map((row) => ({
-        ...row,
-        lat: row.lat as number,
-        lng: row.lng as number,
-        recordedAt: row.recorded_at as string,
-      })),
-    );
-    const latest = sanitizedRows[sanitizedRows.length - 1];
-
-    if (latest) latestByKey.set(key, latest);
+    latestByKey.set(key, row);
   }
 
   let mergedCount = 0;
@@ -132,7 +104,7 @@ export async function mergeLatestBuggyTelemetryFromHistory(
   const merged = buggies.map((buggy) => {
     const row = resolveBuggyKeys(buggy)
       .map((key) => latestByKey.get(key))
-      .find((item): item is BuggyHistoryRow => Boolean(item));
+      .find((item): item is LatestBuggyTelemetryRow => Boolean(item));
 
     if (!row || typeof row.lat !== "number" || typeof row.lng !== "number" || !row.recorded_at) {
       return buggy;

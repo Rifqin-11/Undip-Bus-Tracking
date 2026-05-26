@@ -4,6 +4,7 @@ import { ingestBuggyPayload, getBuggyByNumericId, adminDeactivateBuggyInStore } 
 import {
   createAdminClient,
   getBuggyHistoryTableName,
+  getLatestBuggyTelemetryTableName,
 } from "@/lib/supabase/server";
 import {
   startSession,
@@ -12,13 +13,19 @@ import {
 } from "@/lib/realtime/session-store";
 import { bootstrapFromDatabase } from "@/lib/supabase/data-loader";
 import { normalizeGsmStatus } from "@/lib/buggy/gsm-status";
+import { haversineMeters } from "@/lib/transit/buggy-route-utils";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 // Membatasi insert ke Supabase maksimal 1 kali setiap 10 detik per buggy
 const HISTORY_INSERT_INTERVAL_MS = 10_000;
-const lastHistoryInsertPerBuggy: Record<number, number> = {};
+const HISTORY_DISTANCE_THRESHOLD_METERS = 10;
+const HISTORY_SPEED_DELTA_THRESHOLD_KMH = 5;
+const lastHistoryInsertPerBuggy: Record<
+  number,
+  { insertedAtMs: number; lat: number; lng: number; speedKmh: number }
+> = {};
 
 function isSchemaColumnError(message: string) {
   return (
@@ -30,6 +37,30 @@ function isSchemaColumnError(message: string) {
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
+}
+
+function shouldInsertHistoryPoint(
+  buggyNumericId: number,
+  lat: number,
+  lng: number,
+  speedKmh: number,
+  now: number,
+): boolean {
+  const lastInsert = lastHistoryInsertPerBuggy[buggyNumericId];
+  if (!lastInsert) return true;
+
+  const elapsedMs = now - lastInsert.insertedAtMs;
+  const distanceMeters = haversineMeters(
+    { lat: lastInsert.lat, lng: lastInsert.lng },
+    { lat, lng },
+  );
+  const speedDeltaKmh = Math.abs(speedKmh - lastInsert.speedKmh);
+
+  return (
+    elapsedMs >= HISTORY_INSERT_INTERVAL_MS ||
+    distanceMeters >= HISTORY_DISTANCE_THRESHOLD_METERS ||
+    speedDeltaKmh >= HISTORY_SPEED_DELTA_THRESHOLD_KMH
+  );
 }
 
 /**
@@ -72,7 +103,7 @@ export async function POST(request: NextRequest) {
     lng,
     accuracy,
     speed,
-    speedKmh = 0,
+    speedKmh,
     heading,
     altitude,
     etaMinutes,
@@ -107,6 +138,13 @@ export async function POST(request: NextRequest) {
   }
 
   const normalizedGsm = normalizeGsmStatus(gsm);
+  const incomingSpeedKmh =
+    typeof speedKmh === "number"
+      ? speedKmh
+      : typeof speed === "number"
+        ? speed
+        : 0;
+  const recordedAt = new Date().toISOString();
 
   // ── Live store ingest ─────────────────────────────────────────────────────
   const telemetryPayload = {
@@ -115,12 +153,7 @@ export async function POST(request: NextRequest) {
         id: resolvedBuggyId,
         lat: incomingPosition.lat,
         lng: incomingPosition.lng,
-        speedKmh:
-          typeof speedKmh === "number"
-            ? speedKmh
-            : typeof speed === "number"
-              ? speed
-              : 0,
+        speedKmh: incomingSpeedKmh,
         accuracy: typeof accuracy === "number" ? accuracy : undefined,
         heading: typeof heading === "number" ? heading : undefined,
         altitude: typeof altitude === "number" ? altitude : undefined,
@@ -128,7 +161,7 @@ export async function POST(request: NextRequest) {
         passengers: typeof passengers === "number" ? passengers : undefined,
         forceResync: forceResync === true,
         tag: typeof source === "string" ? source : "gps_beacon",
-        timestamp: new Date().toISOString(),
+        timestamp: recordedAt,
         gsm: normalizedGsm,
       },
     ],
@@ -143,45 +176,73 @@ export async function POST(request: NextRequest) {
     );
   }
 
+  const supabase = createAdminClient();
+  const telemetryRow = {
+    buggy_id: buggyIdNormalized,
+    buggy_numeric_id: numericBuggyId,
+    lat: Number(lat),
+    lng: Number(lng),
+    accuracy: typeof accuracy === "number" ? accuracy : null,
+    speed_kmh: incomingSpeedKmh,
+    heading: typeof heading === "number" ? heading : null,
+    altitude: typeof altitude === "number" ? altitude : null,
+    battery_level:
+      typeof batteryLevel === "number" &&
+      batteryLevel >= 0 &&
+      batteryLevel <= 100
+        ? Math.round(batteryLevel)
+        : null,
+    passengers:
+      typeof passengers === "number" && Number.isFinite(passengers)
+        ? Math.max(0, Math.round(passengers))
+        : null,
+    gsm: normalizedGsm,
+    source: typeof source === "string" ? source : "gps_beacon",
+    recorded_at: recordedAt,
+  };
+
+  if (supabase) {
+    const { error } = await supabase
+      .from(getLatestBuggyTelemetryTableName())
+      .upsert(
+        {
+          ...telemetryRow,
+          updated_at: recordedAt,
+        },
+        { onConflict: "buggy_id" },
+      );
+
+    if (error) {
+      console.warn("Supabase latest telemetry upsert failed:", error.message);
+    }
+  }
+
   // Best effort persistence for admin trip history (do not block live ingest).
   const now = Date.now();
-  const lastInsert = lastHistoryInsertPerBuggy[numericBuggyId] || 0;
 
-  if (now - lastInsert >= HISTORY_INSERT_INTERVAL_MS) {
-    // Segera perbarui timestamp agar request dalam 10 detik ke depan di-throttle
-    lastHistoryInsertPerBuggy[numericBuggyId] = now;
+  if (
+    shouldInsertHistoryPoint(
+      numericBuggyId,
+      incomingPosition.lat,
+      incomingPosition.lng,
+      incomingSpeedKmh,
+      now,
+    )
+  ) {
+    // Segera perbarui cache agar request padat tidak spam insert raw history.
+    lastHistoryInsertPerBuggy[numericBuggyId] = {
+      insertedAtMs: now,
+      lat: incomingPosition.lat,
+      lng: incomingPosition.lng,
+      speedKmh: incomingSpeedKmh,
+    };
 
-    const supabase = createAdminClient();
     if (supabase) {
-      const buggyIdNormalized = `buggy-${numericBuggyId}`;
       const tableName = getBuggyHistoryTableName();
       const historyRow = {
-        buggy_id: buggyIdNormalized,
-        buggy_numeric_id: numericBuggyId,
-        lat: Number(lat),
-        lng: Number(lng),
-        accuracy: typeof accuracy === "number" ? accuracy : null,
-        speed_kmh:
-          typeof speedKmh === "number"
-            ? speedKmh
-            : typeof speed === "number"
-              ? speed
-              : 0,
-        heading: typeof heading === "number" ? heading : null,
-        altitude: typeof altitude === "number" ? altitude : null,
-        battery_level:
-          typeof batteryLevel === "number" &&
-          batteryLevel >= 0 &&
-          batteryLevel <= 100
-            ? Math.round(batteryLevel)
-            : null,
-        passengers:
-          typeof passengers === "number" && Number.isFinite(passengers)
-            ? Math.max(0, Math.round(passengers))
-            : null,
-        source: typeof source === "string" ? source : "gps_beacon",
-        recorded_at: new Date().toISOString(),
+        ...telemetryRow,
       };
+      delete (historyRow as Record<string, unknown>).gsm;
 
       const { error } = await supabase.from(tableName).insert(historyRow);
 
@@ -204,8 +265,6 @@ export async function POST(request: NextRequest) {
   }
 
   // ── Session store: start / accumulate ─────────────────────────────────────
-  const recordedAt = new Date().toISOString();
-
   if (sessionStart === true) {
     startSession(resolvedBuggyId, numericBuggyId);
   }
@@ -213,12 +272,7 @@ export async function POST(request: NextRequest) {
   addPoint(resolvedBuggyId, numericBuggyId, {
     lat: Number(lat),
     lng: Number(lng),
-    speedKmh:
-      typeof speedKmh === "number"
-        ? speedKmh
-        : typeof speed === "number"
-          ? speed
-          : null,
+    speedKmh: incomingSpeedKmh,
     accuracy: typeof accuracy === "number" ? accuracy : null,
     heading: typeof heading === "number" ? heading : null,
     altitude: typeof altitude === "number" ? altitude : null,
