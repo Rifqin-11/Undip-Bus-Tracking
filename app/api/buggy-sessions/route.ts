@@ -1,7 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdmin } from "@/lib/auth/admin-guard";
 import { createAdminClient, getBuggySessionTableName, getBuggyHistoryTableName } from "@/lib/supabase/server";
-import { saveSessionPointsToDb, buildSessionSummary } from "@/lib/realtime/session-store";
+import {
+  saveSessionPointsToDb,
+  buildSessionSummary,
+  getOperationalSessionBucket,
+} from "@/lib/realtime/session-store";
 import type { SessionPoint } from "@/lib/realtime/session-store";
 import {
   calculatePathDistanceKm,
@@ -70,9 +74,16 @@ function groupPointsIntoSessions(points: SessionPoint[]): SessionPoint[][] {
     }
     const lastPt = currentGroup[currentGroup.length - 1];
     const gapMs = new Date(pt.recordedAt).getTime() - new Date(lastPt.recordedAt).getTime();
+    const lastBucket = getOperationalSessionBucket(lastPt.recordedAt);
+    const currentBucket = getOperationalSessionBucket(pt.recordedAt);
     
-    // Gap of > 5 minutes indicates a new session
-    if (gapMs > 5 * 60_000) {
+    // Sesi pagi (06-12) dan siang (13-17) digabung berdasarkan bucket waktu,
+    // meskipun ada jeda ping. Di luar jam operasional, gap > 5 menit tetap
+    // dianggap sesi lain agar data testing/off-hour tidak menyatu terlalu jauh.
+    if (
+      lastBucket.key !== currentBucket.key ||
+      (!currentBucket.isScheduled && gapMs > 5 * 60_000)
+    ) {
       sessions.push(currentGroup);
       currentGroup = [pt];
     } else {
@@ -195,17 +206,22 @@ export async function GET(request: NextRequest) {
         const lastRecAt = new Date(group[group.length - 1].recordedAt).getTime();
         const firstRecAt = new Date(group[0].recordedAt).getTime();
         const durationMinutes = Math.max(0, (lastRecAt - firstRecAt) / 60_000);
+        const bucket = getOperationalSessionBucket(group[0].recordedAt);
         
-        // Sesi usang jika tidak ada ping > 5 menit
+        // Sesi terjadwal selesai ketika bucket waktunya sudah lewat. Sesi di
+        // luar jam operasional tetap selesai jika tidak ada ping > 5 menit.
+        const currentBucket = getOperationalSessionBucket(new Date());
+        const isBucketClosed = bucket.key !== currentBucket.key;
         const isIdle = (Date.now() - lastRecAt) > 5 * 60_000;
+        const shouldFinalize = bucket.isScheduled ? isBucketClosed : isIdle;
         
         const sum = buildSessionSummary(`synth-${bId}-${i}`, bId, group[0].recordedAt, group[group.length - 1].recordedAt, durationMinutes, group);
 
         const syntheticSession: BuggySession = {
             id: sum.id,
             buggyId: sum.buggyId,
-            sessionDate: sum.startedAt.slice(0, 10),
-            sessionNumber: 0,
+            sessionDate: bucket.date,
+            sessionNumber: bucket.sessionNumber,
             startedAt: sum.startedAt,
             endedAt: sum.lastPingAt,
             durationMinutes: sum.durationMinutes,
@@ -219,13 +235,17 @@ export async function GET(request: NextRequest) {
             path: sum.path,
         };
 
-        // Abaikan sesi yang belum menempuh 1 km (konsisten dengan MIN_DISTANCE_KM di session-store.ts)
-        const isValidSession = sum.totalDistanceKm !== null && sum.totalDistanceKm >= 1.0;
+        // Sesi pagi/siang tetap disimpan walau jarak kecil. Batas 1 km hanya
+        // dipakai untuk data di luar jam operasional agar noise/testing tidak
+        // menjadi riwayat permanen.
+        const isValidSession =
+          bucket.isScheduled ||
+          (sum.totalDistanceKm !== null && sum.totalDistanceKm >= 1.0);
 
-        if (isIdle || !isLatest) {
+        if (shouldFinalize || !isLatest) {
             // Sesi sudah terputus. Kita FINALISASIKAN ke database di background agar permanen.
             if (group.length >= 3 && isValidSession) {
-                saves.push(saveSessionPointsToDb(bId, numericId, group).catch(e => console.error("Auto-finalize error:", e)));
+                saves.push(saveSessionPointsToDb(bId, numericId, group, bucket.sessionNumber).catch(e => console.error("Auto-finalize error:", e)));
                 completed.push(syntheticSession);
             }
         } else {

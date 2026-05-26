@@ -19,6 +19,7 @@ import { sanitizeGpsPoints } from "@/lib/buggy/gps-quality";
 const SESSION_IDLE_TIMEOUT_MS = 5 * 60 * 1000; // auto-finalize after 5 min silence
 const MIN_POINTS_TO_SAVE = 3;                   // discard micro-sessions
 const MIN_DISTANCE_KM    = 1.0;                 // discard sesi yang belum menempuh 1 km
+const OPERATIONAL_TIME_ZONE = "Asia/Jakarta";
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -37,6 +38,8 @@ type ActiveSession = {
   sessionId: string;
   buggyId: string;
   buggyNumericId: number;
+  sessionKey: string;
+  sessionNumber: number;
   startedAt: string;    // ISO
   lastPingAt: number;   // Date.now()
   points: SessionPoint[];
@@ -87,6 +90,63 @@ function getSaveInflightMap(): Map<string, Promise<void>> {
   return globalThis.__SESSION_SAVE_INFLIGHT__;
 }
 
+function getJakartaDateParts(value: string | number | Date): {
+  date: string;
+  hour: number;
+} {
+  const date = new Date(value);
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: OPERATIONAL_TIME_ZONE,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    hour12: false,
+  }).formatToParts(date);
+  const partMap = Object.fromEntries(
+    parts.map((part) => [part.type, part.value]),
+  );
+
+  return {
+    date: `${partMap.year}-${partMap.month}-${partMap.day}`,
+    hour: Number(partMap.hour ?? 0),
+  };
+}
+
+export function getOperationalSessionBucket(value: string | number | Date): {
+  date: string;
+  key: string;
+  sessionNumber: number;
+  isScheduled: boolean;
+} {
+  const { date, hour } = getJakartaDateParts(value);
+
+  if (hour >= 6 && hour < 12) {
+    return {
+      date,
+      key: `${date}:morning`,
+      sessionNumber: 1,
+      isScheduled: true,
+    };
+  }
+
+  if (hour >= 13 && hour < 17) {
+    return {
+      date,
+      key: `${date}:afternoon`,
+      sessionNumber: 2,
+      isScheduled: true,
+    };
+  }
+
+  return {
+    date,
+    key: `${date}:outside`,
+    sessionNumber: 3,
+    isScheduled: false,
+  };
+}
+
 // ── Background auto-finalize ──────────────────────────────────────────────────
 
 function ensureGC(): void {
@@ -97,6 +157,14 @@ function ensureGC(): void {
     const sessions = getSessionMap();
 
     for (const [buggyId, session] of sessions) {
+      const currentBucket = getOperationalSessionBucket(new Date());
+      if (
+        session.sessionKey === currentBucket.key &&
+        currentBucket.isScheduled
+      ) {
+        continue;
+      }
+
       if (now - session.lastPingAt > SESSION_IDLE_TIMEOUT_MS) {
         console.log(`[session-store] Auto-finalizing stale session for ${buggyId} (no ping for 5 min)`);
         void finalizeSession(buggyId);
@@ -114,9 +182,16 @@ function ensureGC(): void {
 export function startSession(buggyId: string, buggyNumericId: number): void {
   ensureGC();
   const sessions = getSessionMap();
+  const bucket = getOperationalSessionBucket(new Date());
 
-  // Finalize any lingering session
-  if (sessions.has(buggyId)) {
+  const existing = sessions.get(buggyId);
+  if (existing?.sessionKey === bucket.key) {
+    existing.lastPingAt = Date.now();
+    return;
+  }
+
+  // Finalize any lingering session from a different operational bucket.
+  if (existing) {
     console.log(`[session-store] New start for ${buggyId} — finalizing previous session`);
     void finalizeSession(buggyId);
   }
@@ -125,6 +200,8 @@ export function startSession(buggyId: string, buggyNumericId: number): void {
     sessionId: makeId(),
     buggyId,
     buggyNumericId,
+    sessionKey: bucket.key,
+    sessionNumber: bucket.sessionNumber,
     startedAt: new Date().toISOString(),
     lastPingAt: Date.now(),
     points: [],
@@ -154,6 +231,16 @@ export function addPoint(
   ensureGC();
   const sessions = getSessionMap();
   let session = sessions.get(buggyId);
+  const pointBucket = getOperationalSessionBucket(point.recordedAt);
+
+  if (session && session.sessionKey !== pointBucket.key) {
+    console.log(
+      `[session-store] Session bucket changed for ${buggyId}: ` +
+        `${session.sessionKey} -> ${pointBucket.key}`,
+    );
+    void finalizeSession(buggyId);
+    session = undefined;
+  }
 
   if (!session) {
     // Auto-create session (handles server restart / no sessionStart signal)
@@ -161,6 +248,8 @@ export function addPoint(
       sessionId: makeId(),
       buggyId,
       buggyNumericId,
+      sessionKey: pointBucket.key,
+      sessionNumber: pointBucket.sessionNumber,
       startedAt: point.recordedAt,
       lastPingAt: Date.now(),
       points: [],
@@ -297,8 +386,9 @@ export async function finalizeSession(buggyId: string): Promise<void> {
     );
   }
   const totalDistanceKm = totalDistanceM / 1000;
+  const bucket = getOperationalSessionBucket(points[0].recordedAt);
 
-  if (totalDistanceKm < MIN_DISTANCE_KM) {
+  if (!bucket.isScheduled && totalDistanceKm < MIN_DISTANCE_KM) {
     console.log(
       `[session-store] Jarak terlalu pendek (${totalDistanceKm.toFixed(3)} km < ${MIN_DISTANCE_KM} km) ` +
       `untuk ${buggyId}, sesi tidak disimpan.`,
@@ -306,7 +396,12 @@ export async function finalizeSession(buggyId: string): Promise<void> {
     return;
   }
 
-  await saveSessionPointsToDb(buggyId, session.buggyNumericId, points);
+  await saveSessionPointsToDb(
+    buggyId,
+    session.buggyNumericId,
+    points,
+    session.sessionNumber,
+  );
 }
 
 /**
@@ -316,6 +411,7 @@ export async function saveSessionPointsToDb(
   buggyId: string,
   buggyNumericId: number | null,
   points: SessionPoint[],
+  forcedSessionNumber?: number,
 ): Promise<void> {
   points = sanitizeGpsPoints(points);
   if (points.length < MIN_POINTS_TO_SAVE) return;
@@ -362,8 +458,8 @@ export async function saveSessionPointsToDb(
   const endMs = new Date(endedAt).getTime();
   const durationMinutes = Math.max(0, (endMs - startMs) / 60_000);
 
-  // Session date (UTC, YYYY-MM-DD)
-  const sessionDate = startedAt.slice(0, 10);
+  const bucket = getOperationalSessionBucket(startedAt);
+  const sessionDate = bucket.date;
 
   // Path (downsample to max 500 points to keep Supabase row small)
   const MAX_PATH_POINTS = 500;
@@ -423,14 +519,7 @@ export async function saveSessionPointsToDb(
       return;
     }
 
-    // Determine session number for this buggy on this date
-    const { count } = await supabase
-      .from(tableName)
-      .select("*", { count: "exact", head: true })
-      .eq("buggy_id", buggyId)
-      .eq("session_date", sessionDate);
-
-    const sessionNumber = (count ?? 0) + 1;
+    const sessionNumber = forcedSessionNumber ?? bucket.sessionNumber;
 
     const sessionRow = {
       buggy_id: buggyId,

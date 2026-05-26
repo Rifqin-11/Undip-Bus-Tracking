@@ -32,6 +32,35 @@ type BuggyOperationalDetailProps = {
   readOnly?: boolean;
 };
 
+function titleCaseStatus(value: string) {
+  return value
+    .replace(/^(MQTT|SIM|GSM|GPRS)_/i, "")
+    .replace(/_/g, " ")
+    .toLowerCase()
+    .replace(/\b\w/g, (letter) => letter.toUpperCase());
+}
+
+function formatMqttStatus(value?: string) {
+  if (!value) return "-";
+  if (value === "MQTT_CONNECTED") return "Connected";
+  if (value === "MQTT_DISCONNECTED") return "Disconnected";
+  return titleCaseStatus(value);
+}
+
+function formatSimStatus(value?: string) {
+  if (!value) return "-";
+  if (value === "SIM_READY") return "Ready";
+  return titleCaseStatus(value);
+}
+
+function formatNetworkType(value?: string) {
+  if (!value) return "-";
+  return value
+    .replace(/^GSM_GPRS_/i, "")
+    .replace(/^GSM_/i, "")
+    .replace(/_/g, " ");
+}
+
 export function BuggyOperationalDetail({
   buggy,
   assignedDriverName,
@@ -71,58 +100,39 @@ export function BuggyOperationalDetail({
       : apnState === "disconnected"
         ? t("disconnected")
         : "-";
-  const apnValue = buggy.gsm?.apn
-    ? [
-        buggy.gsm.apn,
-        apnStateLabel,
-        typeof buggy.gsm.signalPercent === "number"
-          ? `${buggy.gsm.signalPercent}% GSM`
-          : null,
-      ]
-        .filter(Boolean)
-        .join(" · ")
-    : "-";
+  const apnValue = buggy.gsm?.apn || "-";
   const signalValue =
     typeof buggy.gsm?.signalPercent === "number"
-      ? [
-          `${buggy.gsm.signalPercent}%`,
-          typeof buggy.gsm.signalDbm === "number"
-            ? `${buggy.gsm.signalDbm} dBm`
-            : null,
-          typeof buggy.gsm.signalCsq === "number"
-            ? `CSQ ${buggy.gsm.signalCsq}`
-            : null,
-        ]
-          .filter(Boolean)
-          .join(" · ")
+      ? `${buggy.gsm.signalPercent}%`
       : "-";
   const networkValue = buggy.gsm
     ? [
-        buggy.gsm.networkType ?? null,
+        formatNetworkType(buggy.gsm.networkType),
         buggy.gsm.networkConnected === true
-          ? t("networkConnected")
+          ? t("connected")
           : buggy.gsm.networkConnected === false
-            ? t("networkDisconnected")
+            ? t("disconnected")
             : null,
         buggy.gsm.gprsConnected === true
-          ? t("gprsConnected")
+          ? "GPRS"
           : buggy.gsm.gprsConnected === false
-            ? t("gprsDisconnected")
+            ? null
             : null,
       ]
-        .filter(Boolean)
+        .filter((value) => value && value !== "-")
         .join(" · ") || "-"
     : "-";
-  const simValue = buggy.gsm
-    ? [buggy.gsm.simStatusText ?? null, buggy.gsm.simStatus ?? null]
-        .filter((value) => value !== null && value !== undefined)
-        .join(" · ") || "-"
-    : "-";
-  const mqttValue = buggy.gsm
-    ? [buggy.gsm.mqttStateText ?? null, buggy.gsm.mqttState ?? null]
-        .filter((value) => value !== null && value !== undefined)
-        .join(" · ") || "-"
-    : "-";
+  const simValue = formatSimStatus(buggy.gsm?.simStatusText);
+  const mqttValue = formatMqttStatus(buggy.gsm?.mqttStateText);
+  const signalDetailValue =
+    typeof buggy.gsm?.signalDbm === "number" &&
+    typeof buggy.gsm?.signalCsq === "number"
+      ? `${buggy.gsm.signalDbm} dBm · CSQ ${buggy.gsm.signalCsq}`
+      : typeof buggy.gsm?.signalDbm === "number"
+        ? `${buggy.gsm.signalDbm} dBm`
+        : typeof buggy.gsm?.signalCsq === "number"
+          ? `CSQ ${buggy.gsm.signalCsq}`
+          : "-";
   const occupancyPct = Math.min(
     Math.round((buggy.passengers / buggy.capacity) * 100),
     100,
@@ -378,7 +388,7 @@ export function BuggyOperationalDetail({
                   {t("gsmStatus")}
                 </p>
                 <p className="truncate text-[13px] font-bold text-slate-900">
-                  {buggy.gsm?.networkType || "-"}
+                  {networkValue}
                 </p>
               </div>
             </div>
@@ -418,10 +428,10 @@ export function BuggyOperationalDetail({
 
           <div className="mt-2 rounded-2xl border border-slate-100 bg-white p-2.5">
             <p className="text-[10px] font-semibold text-slate-400">
-              {t("networkStatus")}
+              {t("signalDetail")}
             </p>
             <p className="mt-1 text-[12px] font-bold leading-snug text-slate-800">
-              {networkValue}
+              {signalDetailValue}
             </p>
           </div>
         </div>
@@ -437,22 +447,20 @@ export function BuggyOperationalDetail({
                   {t("mqttStatus")}
                 </p>
                 <p className="truncate text-[13px] font-bold text-slate-900">
-                  {buggy.gsm?.mqttStateText || "-"}
+                  {mqttValue}
                 </p>
               </div>
             </div>
             <span
               className={`shrink-0 rounded-full border px-2 py-0.5 text-[10px] font-bold ${
-                buggy.gsm?.mqttStateText === "MQTT_CONNECTED"
+                mqttValue === "Connected"
                   ? "border-emerald-200 bg-emerald-50 text-emerald-700"
                   : buggy.gsm?.mqttStateText
                     ? "border-amber-200 bg-amber-50 text-amber-700"
                     : "border-slate-200 bg-slate-50 text-slate-500"
               }`}
             >
-              {typeof buggy.gsm?.mqttState === "number"
-                ? buggy.gsm.mqttState
-                : "-"}
+              {mqttValue}
             </span>
           </div>
 

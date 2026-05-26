@@ -94,7 +94,7 @@ export function useBuggyLiveFeed(): UseBuggyLiveFeedState {
             err instanceof Error ? err.message : "Polling realtime feed failed";
           setError(message);
         }
-      }, 1_500);
+      }, 1_000);
 
       return () => {
         disposed = true;
