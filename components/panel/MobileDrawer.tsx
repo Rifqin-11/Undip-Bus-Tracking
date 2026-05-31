@@ -341,10 +341,17 @@ export function MobileDrawer({ open, onClose, children }: MobileDrawerProps) {
           onPan={onContentPan}
           onPanEnd={onContentPanEnd}
           onWheel={onContentWheel}
-          className="flex-1 overscroll-contain px-4 pb-6 pt-18"
+          className="flex-1 overscroll-contain px-4 pt-18"
           style={{
             overflow: snap === "half" ? "hidden" : "auto",
             touchAction: snap === "half" ? "none" : "pan-y",
+            // In full mode the card sits flush at bottom:0, so we must add the
+            // device safe-area-inset-bottom (home indicator / gesture bar) to
+            // ensure the last item is never clipped behind it.
+            paddingBottom:
+              snap === "full"
+                ? "calc(1.5rem + env(safe-area-inset-bottom, 0px))"
+                : "1.5rem",
           }}
         >
           {children}
