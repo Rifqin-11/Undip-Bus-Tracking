@@ -83,9 +83,23 @@ export function MobileDrawer({ open, onClose, children }: MobileDrawerProps) {
   const headerTextOpacity = useTransform(scrollY, [0, 45], [1, 0]);
   const headerBgOpacity = useTransform(scrollY, [0, 45], [0, 1]);
 
-  /** Helper – full mode height in px (allows spring animation without dvh unit issues) */
-  const fullHeightPx = () =>
-    typeof window !== "undefined" ? window.innerHeight * 0.85 : 700;
+  /**
+   * Helper – full mode height in px.
+   * We subtract the safe-area-inset-bottom so the panel sits ABOVE the home
+   * indicator (the shapeAnimate uses `bottom: env(safe-area-inset-bottom)`
+   * in full mode, so we must not double-count it in the height).
+   */
+  const fullHeightPx = () => {
+    if (typeof window === "undefined") return 700;
+    // Read the current safe-area-inset-bottom in px (0 on non-notched devices)
+    const saiBottom = parseInt(
+      getComputedStyle(document.documentElement)
+        .getPropertyValue("--sai-bottom")
+        .trim() || "0",
+      10,
+    );
+    return window.innerHeight * 0.85 - (isNaN(saiBottom) ? 0 : saiBottom);
+  };
 
   // ── Sync open prop ↔ animate in / out ────────────────────────────────────────
   useEffect(() => {
@@ -233,7 +247,9 @@ export function MobileDrawer({ open, onClose, children }: MobileDrawerProps) {
         boxShadow: "0 8px 40px rgba(15,23,42,0.22)",
       }
     : {
-        bottom: "0px",
+        // Sit ABOVE the home indicator, not behind it.
+        // env(safe-area-inset-bottom) is ~34px on iPhone with home bar.
+        bottom: "env(safe-area-inset-bottom, 0px)",
         left: "0px",
         right: "0px",
         borderRadius: "28px 28px 0 0",
@@ -345,13 +361,9 @@ export function MobileDrawer({ open, onClose, children }: MobileDrawerProps) {
           style={{
             overflow: snap === "half" ? "hidden" : "auto",
             touchAction: snap === "half" ? "none" : "pan-y",
-            // In full mode the card sits flush at bottom:0, so we must add the
-            // device safe-area-inset-bottom (home indicator / gesture bar) to
-            // ensure the last item is never clipped behind it.
-            paddingBottom:
-              snap === "full"
-                ? "calc(1.5rem + env(safe-area-inset-bottom, 0px))"
-                : "1.5rem",
+            // The panel itself now sits above the safe area, so content only
+            // needs a comfortable bottom padding — no extra safe-area offset.
+            paddingBottom: "1.5rem",
           }}
         >
           {children}
