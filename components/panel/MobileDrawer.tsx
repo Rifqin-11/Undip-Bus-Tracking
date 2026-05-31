@@ -237,7 +237,7 @@ export function MobileDrawer({ open, onClose, children }: MobileDrawerProps) {
         left: "0px",
         right: "0px",
         borderRadius: "28px 28px 0 0",
-        boxShadow: "0 -16px 50px rgba(15,23,42,0.14)",
+        boxShadow: "none",
       };
 
   const showBackdrop = open && snap === "full";
