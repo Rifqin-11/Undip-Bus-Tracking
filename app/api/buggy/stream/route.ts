@@ -18,21 +18,24 @@ export async function GET(request: Request) {
     start(controller) {
       let closed = false;
       let lastUpdatedAt = -1;
-      let lastActiveFlags = "";
+      let lastConnectionFlags = "";
 
       const sendSnapshot = () => {
         if (closed) return;
         const snapshot = getBuggyLiveSnapshot();
 
-        // Lacak perubahan isActive secara terpisah dari updatedAt
-        // agar ketika GPS berhenti (isActive → false setelah 15 detik),
-        // client langsung mendapat update tanpa menunggu refresh.
-        const activeFlags = snapshot.buggies.map((b) => `${b.id}:${b.isActive ? 1 : 0}`).join("|");
-        const hasChanged = snapshot.updatedAt !== lastUpdatedAt || activeFlags !== lastActiveFlags;
+        // Lacak perubahan status koneksi secara terpisah dari updatedAt agar
+        // client tetap menerima update saat telemetry berhenti masuk.
+        const connectionFlags = snapshot.buggies
+          .map((b) => `${b.id}:${b.connectionStatus}:${b.lastSeenSecondsAgo}`)
+          .join("|");
+        const hasChanged =
+          snapshot.updatedAt !== lastUpdatedAt ||
+          connectionFlags !== lastConnectionFlags;
 
         if (!hasChanged) return;
         lastUpdatedAt = snapshot.updatedAt;
-        lastActiveFlags = activeFlags;
+        lastConnectionFlags = connectionFlags;
         controller.enqueue(formatSseMessage(snapshot));
       };
 

@@ -185,6 +185,7 @@ export async function POST(request: NextRequest) {
   }
 
   const supabase = createAdminClient();
+  const receivedAt = new Date().toISOString();
   const telemetryRow = {
     buggy_id: buggyIdNormalized,
     buggy_numeric_id: numericBuggyId,
@@ -207,6 +208,7 @@ export async function POST(request: NextRequest) {
     gsm: normalizedGsm,
     source: typeof source === "string" ? source : "gps_beacon",
     recorded_at: recordedAt,
+    received_at: receivedAt,
   };
 
   if (supabase) {
@@ -215,13 +217,31 @@ export async function POST(request: NextRequest) {
       .upsert(
         {
           ...telemetryRow,
-          updated_at: recordedAt,
+          updated_at: receivedAt,
         },
         { onConflict: "buggy_id" },
       );
 
     if (error) {
-      console.warn("Supabase latest telemetry upsert failed:", error.message);
+      if (isSchemaColumnError(error.message)) {
+        const fallbackTelemetryRow: Record<string, unknown> = {
+          ...telemetryRow,
+          updated_at: receivedAt,
+        };
+        delete fallbackTelemetryRow.received_at;
+        const { error: fallbackError } = await supabase
+          .from(getLatestBuggyTelemetryTableName())
+          .upsert(fallbackTelemetryRow, { onConflict: "buggy_id" });
+
+        if (fallbackError) {
+          console.warn(
+            "Supabase latest telemetry upsert failed:",
+            fallbackError.message,
+          );
+        }
+      } else {
+        console.warn("Supabase latest telemetry upsert failed:", error.message);
+      }
     }
   }
 
@@ -251,6 +271,7 @@ export async function POST(request: NextRequest) {
         ...telemetryRow,
       };
       delete (historyRow as Record<string, unknown>).gsm;
+      delete (historyRow as Record<string, unknown>).received_at;
 
       const { error } = await supabase.from(tableName).insert(historyRow);
 

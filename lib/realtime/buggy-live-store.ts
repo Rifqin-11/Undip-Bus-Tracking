@@ -5,6 +5,7 @@ import {
   haversineMeters,
 } from "@/lib/transit/buggy-route-utils";
 import { normalizeGsmStatus } from "@/lib/buggy/gsm-status";
+import { resolveBuggyConnectionStatus } from "@/lib/buggy/connection-status";
 import type { Buggy, CrowdLevel } from "@/types/buggy";
 
 export type BuggyLiveSource = "seed" | "ingest_snapshot" | "ingest_telemetry";
@@ -334,11 +335,20 @@ export function getBuggyLiveSnapshot(): BuggyLiveSnapshot {
     buggies: state.buggies.map((buggy) => {
       const cloned = cloneBuggy(buggy);
       const lastSeen = state.telemetryLastSeenById[buggy.id] ?? 0;
+      const lastSeenSecondsAgo =
+        lastSeen > 0
+          ? Math.max(0, Math.floor((now - lastSeen) / 1000))
+          : undefined;
+      const connectionStatus =
+        resolveBuggyConnectionStatus(lastSeenSecondsAgo);
       const isActive =
         lastSeen > 0 && now - lastSeen <= ACTIVE_TELEMETRY_WINDOW_MS;
       return {
         ...cloned,
         isActive,
+        connectionStatus,
+        lastSeenAt: lastSeen > 0 ? new Date(lastSeen).toISOString() : undefined,
+        lastSeenSecondsAgo,
       };
     }),
   };

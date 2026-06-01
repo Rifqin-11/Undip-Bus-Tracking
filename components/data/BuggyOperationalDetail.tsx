@@ -7,6 +7,10 @@ import type { Buggy } from "@/types/buggy";
 import { getBuggyStopNameAtOffset } from "@/lib/transit/buggy-route-utils";
 import { getApnConnectionState } from "@/lib/buggy/gsm-status";
 import {
+  formatLastSeen,
+  getBuggyConnectionTone,
+} from "@/lib/buggy/connection-status";
+import {
   ChevronLeft,
   Edit2Icon,
   BatteryMedium,
@@ -94,6 +98,7 @@ export function BuggyOperationalDetail({
   const currentStop = getBuggyStopNameAtOffset(buggy, 0);
   const nextStop = getBuggyStopNameAtOffset(buggy, 1);
   const apnState = getApnConnectionState(buggy);
+  const connectionTone = getBuggyConnectionTone(buggy.connectionStatus);
   const apnStateLabel =
     apnState === "connected"
       ? t("connected")
@@ -162,6 +167,10 @@ export function BuggyOperationalDetail({
     { label: t("eta"), value: `${buggy.etaMinutes} ${t("minutes")}` },
     { label: t("currentStop"), value: currentStop || "-" },
     { label: t("nextStop"), value: nextStop || "-" },
+    {
+      label: "Status koneksi",
+      value: `${connectionTone.label} · ${formatLastSeen(buggy.lastSeenSecondsAgo)}`,
+    },
     {
       label: t("occupancy"),
       value: `${buggy.passengers}/${buggy.capacity} ${t("passengers")}`,
@@ -240,19 +249,13 @@ export function BuggyOperationalDetail({
           <div className="absolute top-0 left-0 z-10">
             <span
               className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider backdrop-blur-md ${
-                buggy.isActive
-                  ? "bg-emerald-500/10 text-emerald-700 border border-emerald-500/20"
-                  : "bg-slate-200/70 text-slate-500 border border-slate-300/40"
+                `${connectionTone.bgClass} ${connectionTone.textClass} border ${connectionTone.borderClass}`
               }`}
             >
               <span
-                className={`h-1.5 w-1.5 rounded-full ${
-                  buggy.isActive
-                    ? "bg-emerald-500 shadow-[0_0_6px_rgba(16,185,129,0.6)]"
-                    : "bg-slate-400"
-                }`}
+                className={`h-1.5 w-1.5 rounded-full ${connectionTone.dotClass}`}
               />
-              {buggy.isActive ? t("operating") : t("standby")}
+              {connectionTone.label}
             </span>
           </div>
 

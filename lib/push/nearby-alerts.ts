@@ -6,6 +6,7 @@ import { createAdminClient } from "@/lib/supabase/server";
 import { getHalteLocations } from "@/lib/transit/halte-runtime";
 import { haversineMeters } from "@/lib/transit/buggy-route-utils";
 import { sendWebPush } from "@/lib/push/web-push";
+import { isBuggyRealtimeReachable } from "@/lib/buggy/connection-status";
 import type { Buggy, HaltePoint } from "@/types/buggy";
 
 const USER_HALTE_RADIUS_METERS = 500;
@@ -93,7 +94,7 @@ function findNearbyBuggyForSubscription(
   );
 
   for (const buggy of buggies) {
-    if (!buggy.isActive) continue;
+    if (!isBuggyRealtimeReachable(buggy)) continue;
 
     const distanceMeters = haversineMeters(buggy.position, halte);
     if (distanceMeters > radius) continue;
@@ -113,7 +114,7 @@ async function fetchActiveBuggies() {
   await bootstrapFromDatabase();
   const snapshot = getBuggyLiveSnapshot();
   const latest = await mergeLatestBuggyTelemetry(snapshot.buggies);
-  return latest.buggies.filter((buggy) => buggy.isActive);
+  return latest.buggies.filter(isBuggyRealtimeReachable);
 }
 
 async function updateNotificationState(

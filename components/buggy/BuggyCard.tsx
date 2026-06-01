@@ -2,9 +2,15 @@
 
 import Image from "next/image";
 import { useTranslation } from "react-i18next";
+import { Clock3 } from "lucide-react";
 import type { Buggy } from "@/types/buggy";
 import { getBuggyStopNameAtOffset } from "@/lib/transit/buggy-route-utils";
 import { getApnConnectionState } from "@/lib/buggy/gsm-status";
+import {
+  formatLastSeen,
+  getBuggyConnectionTone,
+  isBuggyRealtimeReachable,
+} from "@/lib/buggy/connection-status";
 import { FavoriteStar } from "@/components/ui/FavoriteStar";
 
 type BuggyCardProps = {
@@ -36,9 +42,10 @@ export function BuggyCard({
   showApnStatus = false,
 }: BuggyCardProps) {
   const { t } = useTranslation("dashboard");
-  const { t: tCommon } = useTranslation("common");
   const currentStop = getBuggyStopNameAtOffset(buggy, 0) || t("onTheRoad");
   const apnState = getApnConnectionState(buggy);
+  const connectionTone = getBuggyConnectionTone(buggy.connectionStatus);
+  const realtimeReachable = isBuggyRealtimeReachable(buggy);
   const shouldShowApn = showApnStatus && Boolean(buggy.gsm?.apn);
 
   // Stagger: tiap card 70ms lebih lambat. Maksimum 8 card untuk menghindari delay panjang.
@@ -97,11 +104,9 @@ export function BuggyCard({
       {/* Top Left: ETA Info */}
       <div className="relative z-10 max-w-[65%] mb-5">
         <div className="mb-1.5 flex flex-wrap items-center gap-1.5">
-          <span className="inline-flex shrink-0 items-center justify-center gap-1.5 rounded-full border border-slate-200 bg-white px-2 py-0.5 text-[8px] font-bold text-slate-500 shadow-sm uppercase tracking-wide">
-            <span
-              className={`h-1.5 w-1.5 rounded-full ${buggy.isActive ? "bg-emerald-500" : "bg-slate-400"}`}
-            />
-            {buggy.isActive ? tCommon("active") : t("inactive")}
+          <span className="inline-flex shrink-0 items-center justify-center gap-1.5 rounded-full border border-slate-200 bg-white px-2 py-0.5 text-[8px] font-bold text-slate-500 shadow-sm">
+            <Clock3 className="size-2.5" strokeWidth={2.5} />
+            {formatLastSeen(buggy.lastSeenSecondsAgo)}
           </span>
           {canFavorite && isFavorite ? (
             <span className="inline-flex shrink-0 items-center gap-1 rounded-full border border-amber-200 bg-amber-50 px-2 py-0.5 text-[8px] font-bold uppercase tracking-wide text-amber-600 shadow-sm">
@@ -124,7 +129,7 @@ export function BuggyCard({
         </div>
 
         <div>
-          {buggy.isActive ? (
+          {realtimeReachable ? (
             <h3 className="text-[22px] font-black leading-tight tracking-tight text-[#0f1a3b]">
               <span className="text-[10px] font-semibold text-slate-400 tracking-normal mr-1 block -mb-1">
                 {t("arrivingIn")}
@@ -136,8 +141,7 @@ export function BuggyCard({
             </h3>
           ) : (
             <h3 className="text-[17px] font-black leading-tight tracking-tight text-slate-400 mt-1">
-              {tCommon("inactive")}
-              <span className="text-[14px]"> 💤</span>
+              {connectionTone.label}
             </h3>
           )}
         </div>

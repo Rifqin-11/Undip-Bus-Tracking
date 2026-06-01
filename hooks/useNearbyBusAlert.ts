@@ -1,6 +1,7 @@
 import { useEffect, useRef } from "react";
 import { haversineMeters } from "@/lib/transit/buggy-route-utils";
 import { HALTE_LOCATIONS } from "@/lib/transit/buggy-data";
+import { isBuggyRealtimeReachable } from "@/lib/buggy/connection-status";
 import type { Buggy } from "@/types/buggy";
 
 // ─── Configuration ────────────────────────────────────────────────────────────
@@ -81,8 +82,8 @@ export function useNearbyBusAlert({
     const now = Date.now();
 
     for (const buggy of buggies) {
-      // Hanya pantau bus yang aktif
-      if (!buggy.isActive) continue;
+      // Hanya pantau bus yang datanya masih cukup segar.
+      if (!isBuggyRealtimeReachable(buggy)) continue;
 
       // Jarak bus ke halte terdekat user
       const busToHalteDistance = haversineMeters(buggy.position, {

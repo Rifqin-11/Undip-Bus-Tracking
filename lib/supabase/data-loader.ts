@@ -128,6 +128,7 @@ async function bootstrapBuggies(): Promise<void> {
     capacity: row.capacity,
     tag: "GPS Nyata",
     updatedAt: "--:--",
+    connectionStatus: "offline",
     currentStopIndex: 0,
     stops: haltes.map((h) => h.name),
     pathCursor: findNearestPathIndex(lat, lng),

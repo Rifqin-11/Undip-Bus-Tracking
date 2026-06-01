@@ -14,6 +14,7 @@ import {
   MapPinIcon,
 } from "@/components/ui/Icons";
 import { FavoriteStar } from "@/components/ui/FavoriteStar";
+import { isBuggyRealtimeReachable } from "@/lib/buggy/connection-status";
 
 function generateSchedule(halteId: string): string[] {
   const baseHour = 7;
@@ -172,7 +173,7 @@ export function HalteDetailView({
   };
 
   // ETA Calculation
-  const activeBuggies = buggies.filter((b) => b.isActive);
+  const activeBuggies = buggies.filter(isBuggyRealtimeReachable);
   let etaMinutes: number | null = null;
 
   if (activeBuggies.length > 0) {

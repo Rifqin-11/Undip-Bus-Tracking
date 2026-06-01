@@ -1,5 +1,11 @@
 export type CrowdLevel = "LONGGAR" | "HAMPIR_PENUH" | "PENUH";
 
+export type BuggyConnectionStatus =
+  | "online"
+  | "signal_unstable"
+  | "connection_lost"
+  | "offline";
+
 export type BuggyGsmStatus = {
   apn?: string;
   signalCsq?: number;
@@ -31,6 +37,9 @@ export type Buggy = {
   capacity: number;
   tag: string;
   updatedAt: string;
+  connectionStatus?: BuggyConnectionStatus;
+  lastSeenAt?: string;
+  lastSeenSecondsAgo?: number;
   currentStopIndex: number;
   stops: string[];
   pathCursor: number;

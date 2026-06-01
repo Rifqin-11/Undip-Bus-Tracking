@@ -54,7 +54,7 @@ export default function DashboardPage() {
     toggleHalte: toggleFavoriteHalte,
   } = useFavorites();
   const liveBuggies = useMemo(
-    () => (realtimeFeed.liveBuggies ?? []).filter((buggy) => buggy.isActive),
+    () => realtimeFeed.liveBuggies ?? [],
     [realtimeFeed.liveBuggies],
   );
 

@@ -6,6 +6,10 @@ import { ChevronLeftIcon } from "@/components/ui/Icons";
 import { useLocale } from "@/lib/i18n/client";
 import { getApnConnectionState } from "@/lib/buggy/gsm-status";
 import {
+  formatLastSeen,
+  getBuggyConnectionTone,
+} from "@/lib/buggy/connection-status";
+import {
   estimateMinutesBetweenStops,
   getBuggyCurrentRouteIndex,
   getBuggyStopsInRouteOrder,
@@ -37,6 +41,7 @@ export function BuggyDetailView({
   const now = new Date();
   const stops = getBuggyStopsInRouteOrder(buggy);
   const apnState = getApnConnectionState(buggy);
+  const connectionTone = getBuggyConnectionTone(buggy.connectionStatus);
   const shouldShowApn = showApnStatus && Boolean(buggy.gsm?.apn);
 
   if (!stops.length) return null;
@@ -113,6 +118,12 @@ export function BuggyDetailView({
           <p className="truncate text-[13px] text-slate-600">
             {t("fromStop", { stop: stops[currentIndex] })}
           </p>
+          <div
+            className={`mt-1.5 inline-flex items-center gap-1.5 rounded-full border px-2 py-0.5 text-[10px] font-semibold ${connectionTone.borderClass} ${connectionTone.bgClass} ${connectionTone.textClass}`}
+          >
+            <span className={`h-1.5 w-1.5 rounded-full ${connectionTone.dotClass}`} />
+            {connectionTone.label} · Last update {formatLastSeen(buggy.lastSeenSecondsAgo)}
+          </div>
           {shouldShowApn ? (
             <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
               <span

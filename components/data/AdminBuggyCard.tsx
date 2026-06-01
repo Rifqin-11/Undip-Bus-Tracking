@@ -4,6 +4,11 @@ import Image from "next/image";
 import { useTranslation } from "react-i18next";
 import type { Buggy } from "@/types/buggy";
 import { ChevronRight } from "lucide-react";
+import {
+  formatLastSeen,
+  getBuggyConnectionTone,
+  isBuggyRealtimeReachable,
+} from "@/lib/buggy/connection-status";
 
 type AdminBuggyCardProps = {
   buggy: Buggy;
@@ -17,7 +22,8 @@ export function AdminBuggyCard({
   onClick,
 }: AdminBuggyCardProps) {
   const { t } = useTranslation("admin");
-  const isActive = buggy.isActive;
+  const connectionTone = getBuggyConnectionTone(buggy.connectionStatus);
+  const realtimeReachable = isBuggyRealtimeReachable(buggy);
 
   return (
     <button
@@ -29,7 +35,7 @@ export function AdminBuggyCard({
         {/* Image Container */}
         <div
           className={`relative h-[40px] w-[52px] shrink-0 overflow-hidden flex items-center justify-center transition ${
-            isActive ? "" : "grayscale-[0.35] opacity-80"
+            realtimeReachable ? "" : "grayscale-[0.35] opacity-80"
           } group-hover:grayscale-0 group-hover:opacity-100`}
         >
           <Image
@@ -63,31 +69,31 @@ export function AdminBuggyCard({
             <div className="flex items-center shrink-0">
               <div
                 className={`h-[2px] w-4 bg-linear-to-r from-transparent ${
-                  isActive ? "to-emerald-400" : "to-slate-300"
+                  realtimeReachable ? "to-amber-400" : "to-slate-300"
                 } rounded-full mr-1`}
               />
               <div
-                className={`h-[6px] w-[6px] rounded-full ${
-                  isActive
-                    ? "bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.6)]"
-                    : "bg-slate-300"
-                }`}
+                className={`h-[6px] w-[6px] rounded-full ${connectionTone.dotClass}`}
               />
             </div>
-            {isActive ? (
+            {realtimeReachable ? (
               <p className="text-[10px] font-medium text-slate-600 truncate">
                 {t("arrivingIn")}{" "}
                 <span className="font-bold text-slate-800">
                   {buggy.etaMinutes} {t("minutesShort")}
                 </span>
+                <span className="ml-1 font-semibold text-slate-400">
+                  · {formatLastSeen(buggy.lastSeenSecondsAgo)}
+                </span>
               </p>
             ) : (
               <p className="text-[10px] font-semibold text-slate-400 italic truncate">
-                {t("notOperating")}
+                {connectionTone.label} ·{" "}
+                {formatLastSeen(buggy.lastSeenSecondsAgo)}
               </p>
             )}
 
-            {isActive && (
+            {realtimeReachable && (
               <div className="ml-auto flex items-center gap-1 text-[9px] text-slate-400 font-semibold uppercase tracking-wide shrink-0">
                 <svg
                   className="w-3 h-3"

@@ -350,6 +350,7 @@ export function createInitialBuggies(): Buggy[] {
       capacity: src.capacity,
       tag: src.tag,
       updatedAt: "--:--",
+      connectionStatus: "offline" as const,
       currentStopIndex: src.currentStopIndex,
       stops: STOP_NAMES,
       pathCursor,

@@ -1,5 +1,6 @@
 import type { Buggy } from "@/types/buggy";
 import type { MapsApi } from "@/types/map-canvas";
+import { getBuggyConnectionTone } from "@/lib/buggy/connection-status";
 
 // ─── Buggy bus marker icon ──────────────────────────────────────────────────
 
@@ -21,8 +22,10 @@ export function buildBuggyIcon(
   maps: Pick<MapsApi, "Point" | "Size">,
   code: string,
   selected: boolean,
+  buggy?: Pick<Buggy, "connectionStatus">,
 ) {
-  const pinColor = selected ? "#dc2626" : "#004aad";
+  const tone = getBuggyConnectionTone(buggy?.connectionStatus);
+  const pinColor = selected ? "#dc2626" : tone.marker;
   const pixelSize = selected ? 48 : 44;
   const fontSize = code.length > 3 ? 190 : 220;
   const escapedCode = escapeSvgText(code);
@@ -122,21 +125,11 @@ function crowdTone(crowdLevel: Buggy["crowdLevel"]): {
 export function buildBuggyInfoContent(buggy: Buggy): string {
   const crowd = crowdDescription(buggy.crowdLevel);
   const tone = crowdTone(buggy.crowdLevel);
-  const statusTone = buggy.isActive
-    ? {
-        label: "Aktif",
-        bg: "#dcfce7",
-        color: "#166534",
-        border: "#86efac",
-        dot: "#22c55e",
-      }
-    : {
-        label: "Nonaktif",
-        bg: "#f1f5f9",
-        color: "#475569",
-        border: "#cbd5e1",
-        dot: "#94a3b8",
-      };
+  const statusTone = getBuggyConnectionTone(buggy.connectionStatus);
+  const signalText =
+    typeof buggy.gsm?.signalPercent === "number"
+      ? `${buggy.gsm.signalPercent}% GSM`
+      : "Tidak tersedia";
   const occupancy = buggy.capacity
     ? Math.min(100, Math.round((buggy.passengers / buggy.capacity) * 100))
     : 0;
@@ -175,6 +168,7 @@ export function buildBuggyInfoContent(buggy: Buggy): string {
           </div>
 
           <div style="font-size: 11px; color: #64748b;">Diperbarui ${buggy.updatedAt}</div>
+          <div style="font-size: 11px; color: #64748b;">GSM signal: ${signalText}</div>
         </div>
       </div>
     </div>

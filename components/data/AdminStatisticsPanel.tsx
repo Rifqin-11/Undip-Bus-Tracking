@@ -23,6 +23,7 @@ import {
   ChartTooltipContent,
 } from "@/components/ui/chart";
 import { useLocale } from "@/lib/i18n/client";
+import { isBuggyRealtimeReachable } from "@/lib/buggy/connection-status";
 import {
   Activity,
   AlertTriangle,
@@ -411,14 +412,16 @@ export function AdminStatisticsPanel({ buggies }: AdminStatisticsPanelProps) {
 
   const elapsedDaysInMonth = Math.max(1, now.getDate()); // Approximate if viewing current month
 
-  const activeBuggies = buggies.filter((buggy) => buggy.isActive);
+  const activeBuggies = buggies.filter(isBuggyRealtimeReachable);
   const movingBuggies = activeBuggies.filter(
     (buggy) => Math.max(0, buggy.speedKmh) > IDLE_SPEED_THRESHOLD_KMH,
   );
   const idleBuggies = activeBuggies.filter(
     (buggy) => Math.max(0, buggy.speedKmh) <= IDLE_SPEED_THRESHOLD_KMH,
   );
-  const stoppedBuggies = buggies.filter((buggy) => !buggy.isActive);
+  const stoppedBuggies = buggies.filter(
+    (buggy) => !isBuggyRealtimeReachable(buggy),
+  );
   const totalCapacity = buggies.reduce(
     (sum, buggy) => sum + Math.max(0, buggy.capacity),
     0,

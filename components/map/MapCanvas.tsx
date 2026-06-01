@@ -731,7 +731,7 @@ export function MapCanvas({
     buggies.forEach((buggy) => {
       const isSelected = selectedBuggyId === buggy.id;
       const existing = buggyMarkersRef.current.get(buggy.id);
-      const icon = buildBuggyIcon(maps, buggy.code, isSelected);
+      const icon = buildBuggyIcon(maps, buggy.code, isSelected, buggy);
 
       if (existing) {
         existing.setPosition(buggy.position);

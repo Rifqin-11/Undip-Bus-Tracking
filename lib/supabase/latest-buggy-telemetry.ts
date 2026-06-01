@@ -4,6 +4,7 @@ import {
 } from "@/lib/supabase/server";
 import { findNearestPathIndex } from "@/lib/transit/buggy-route-utils";
 import { getHalteLocations } from "@/lib/transit/halte-runtime";
+import { resolveBuggyConnectionStatus } from "@/lib/buggy/connection-status";
 import type { Buggy } from "@/types/buggy";
 
 type LatestBuggyTelemetryRow = {
@@ -15,9 +16,15 @@ type LatestBuggyTelemetryRow = {
   passengers?: number | null;
   capacity?: number | null;
   recorded_at: string | null;
+  received_at?: string | null;
+  updated_at?: string | null;
 };
 
-const ACTIVE_HISTORY_WINDOW_MS = 30_000;
+const ACTIVE_HISTORY_WINDOW_MS = 10_000;
+
+function resolveLastSeenAt(row: LatestBuggyTelemetryRow): string | null {
+  return row.received_at ?? row.updated_at ?? row.recorded_at;
+}
 
 function toTimeLabel(value: string): string {
   const date = new Date(value);
@@ -106,13 +113,20 @@ export async function mergeLatestBuggyTelemetry(
       .map((key) => latestByKey.get(key))
       .find((item): item is LatestBuggyTelemetryRow => Boolean(item));
 
-    if (!row || typeof row.lat !== "number" || typeof row.lng !== "number" || !row.recorded_at) {
+    const lastSeenAt = row ? resolveLastSeenAt(row) : null;
+    if (
+      !row ||
+      typeof row.lat !== "number" ||
+      typeof row.lng !== "number" ||
+      !row.recorded_at ||
+      !lastSeenAt
+    ) {
       return buggy;
     }
 
-    const recordedAtMs = new Date(row.recorded_at).getTime();
-    if (Number.isFinite(recordedAtMs)) {
-      newestUpdatedAt = Math.max(newestUpdatedAt ?? 0, recordedAtMs);
+    const lastSeenAtMs = new Date(lastSeenAt).getTime();
+    if (Number.isFinite(lastSeenAtMs)) {
+      newestUpdatedAt = Math.max(newestUpdatedAt ?? 0, lastSeenAtMs);
     }
 
     mergedCount += 1;
@@ -124,11 +138,24 @@ export async function mergeLatestBuggyTelemetry(
       typeof row.passengers === "number"
         ? Math.max(0, Math.min(row.passengers, capacity))
         : buggy.passengers;
+    const lastSeenSecondsAgo = Number.isFinite(lastSeenAtMs)
+      ? Math.max(0, Math.floor((now - lastSeenAtMs) / 1000))
+      : undefined;
+    const connectionStatus =
+      resolveBuggyConnectionStatus(lastSeenSecondsAgo);
 
     return {
       ...buggy,
-      isActive: Number.isFinite(recordedAtMs) && now - recordedAtMs <= ACTIVE_HISTORY_WINDOW_MS,
-      speedKmh: typeof row.speed_kmh === "number" ? Math.max(0, row.speed_kmh) : buggy.speedKmh,
+      isActive:
+        Number.isFinite(lastSeenAtMs) &&
+        now - lastSeenAtMs <= ACTIVE_HISTORY_WINDOW_MS,
+      connectionStatus,
+      lastSeenAt,
+      lastSeenSecondsAgo,
+      speedKmh:
+        typeof row.speed_kmh === "number"
+          ? Math.max(0, row.speed_kmh)
+          : buggy.speedKmh,
       passengers,
       capacity,
       crowdLevel: resolveCrowdLevel(passengers, capacity),
