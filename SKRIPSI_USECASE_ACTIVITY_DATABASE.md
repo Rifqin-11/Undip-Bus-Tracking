@@ -387,7 +387,8 @@ flowchart TD
     H -- "Ya" --> J["Validasi lat, lng, dan buggyId"]
     J --> K["Mapping numeric_id ke id buggy database"]
     K --> L["Update live buggy store"]
-    L --> M["Insert throttled ke buggy_history"]
+    L --> L2["Upsert ke latest_buggy_telemetry"]
+    L2 --> M["Insert throttled ke buggy_history"]
     M --> N{sessionStart / sessionEnd?}
     N -- "sessionStart" --> O["Mulai session perjalanan"]
     N -- "sessionEnd" --> P["Finalize session dan simpan ke buggy_session_history"]
@@ -554,10 +555,12 @@ Menyimpan telemetry GPS mentah. Insert ke tabel ini dibatasi maksimal sekali set
 | `heading` | Numeric nullable | Arah pergerakan. |
 | `altitude` | Numeric nullable | Ketinggian. |
 | `battery_level` | Integer nullable | Level baterai 0-100. |
-| `passengers` | Integer nullable | Jumlah penumpang. |
+| `passengers` | Integer nullable | Jumlah penumpang saat data direkam. |
 | `capacity` | Integer nullable | Kapasitas saat telemetry dikirim. |
 | `source` | Text | Sumber data, misalnya `gps_beacon`. |
 | `recorded_at` | Timestamp | Waktu data direkam. |
+
+Catatan: kolom `passengers` ditambahkan melalui migrasi `20260526062537_add_passengers_to_buggy_history.sql`.
 
 ### 8.7 Tabel `buggy_session_history`
 
@@ -580,7 +583,36 @@ Menyimpan ringkasan session perjalanan.
 | `battery_start` | Integer nullable | Baterai awal. |
 | `battery_end` | Integer nullable | Baterai akhir. |
 | `battery_used` | Integer nullable | Estimasi baterai terpakai. |
+| `passenger_avg` | Numeric nullable | Rata-rata penumpang selama session. |
+| `passenger_peak` | Integer nullable | Puncak penumpang tertinggi selama session. |
+| `passenger_samples` | Integer nullable | Jumlah sampel pembacaan penumpang. |
 | `path` | JSON / JSONB | Daftar titik perjalanan `[lat, lng, timestamp]`. |
+
+Catatan: kolom `passenger_avg`, `passenger_peak`, dan `passenger_samples` ditambahkan melalui migrasi `20260526061902_add_passenger_metrics_to_buggy_sessions.sql`.
+
+### 8.8 Tabel `latest_buggy_telemetry`
+
+Menyimpan snapshot telemetry terbaru per buggy. Tabel ini dibuat untuk mendukung fallback pada `GET /api/buggy` agar data posisi terbaru tetap tersedia meskipun live store in-memory direset saat serverless cold start.
+
+| Kolom | Tipe Konseptual | Keterangan |
+| --- | --- | --- |
+| `id` | UUID | Primary key. |
+| `buggy_id` | Text (unique) | ID buggy aplikasi, unique per buggy. |
+| `buggy_numeric_id` | Integer nullable | ID numerik dari device. |
+| `lat` | Numeric | Latitude terbaru. |
+| `lng` | Numeric | Longitude terbaru. |
+| `speed_kmh` | Numeric nullable | Kecepatan terbaru. |
+| `accuracy` | Numeric nullable | Akurasi GPS terbaru. |
+| `heading` | Numeric nullable | Arah pergerakan terbaru. |
+| `altitude` | Numeric nullable | Ketinggian terbaru. |
+| `battery_level` | Integer nullable | Level baterai 0-100. |
+| `passengers` | Integer nullable | Jumlah penumpang terbaru. |
+| `gsm` | JSONB nullable | Status modul GSM (APN, sinyal, MQTT state, dsb). |
+| `source` | Text | Sumber data, default `gps_beacon`. |
+| `recorded_at` | Timestamp | Waktu data perangkat direkam. |
+| `updated_at` | Timestamp | Waktu baris terakhir diperbarui di database. |
+
+Catatan: tabel ini dibuat melalui migrasi `20260526054636_create_latest_buggy_telemetry.sql`. RLS diaktifkan. Setiap kali data baru masuk melalui `/api/gps-beacon`, baris buggy yang sesuai di-upsert.
 
 ---
 
@@ -613,6 +645,7 @@ erDiagram
     BUGGIES ||--o{ ACCOUNTS : "assigned to driver"
     BUGGIES ||--o{ BUGGY_HISTORY : "has telemetry"
     BUGGIES ||--o{ BUGGY_SESSION_HISTORY : "has sessions"
+    BUGGIES ||--o{ LATEST_BUGGY_TELEMETRY : "latest snapshot"
     HALTES }o--o{ ACCOUNTS : "favorite_haltes array"
     BUGGIES }o--o{ ACCOUNTS : "favorite_buggies array"
 
@@ -703,7 +736,28 @@ erDiagram
         int battery_start
         int battery_end
         int battery_used
+        numeric passenger_avg
+        int passenger_peak
+        int passenger_samples
         jsonb path
+    }
+
+    LATEST_BUGGY_TELEMETRY {
+        uuid id PK
+        text buggy_id UK
+        int buggy_numeric_id
+        numeric lat
+        numeric lng
+        numeric speed_kmh
+        numeric accuracy
+        numeric heading
+        numeric altitude
+        int battery_level
+        int passengers
+        jsonb gsm
+        text source
+        timestamp recorded_at
+        timestamp updated_at
     }
 ```
 

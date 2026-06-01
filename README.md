@@ -88,6 +88,7 @@ This project was built as a final-year thesis project and focuses on practical s
 | Historical Analytics | Stores raw GPS history and aggregates trip sessions for admin review. |
 | Role-Based Access | Separates public, driver, and admin experiences using Supabase Auth. |
 | MQTT Ingestion | Accepts telemetry through an external MQTT bridge and protected ingest API. |
+| PWA Push Alerts | Stores Web Push subscriptions and can notify users when an active buggy approaches the halte nearest to their last known browser position. |
 | Bilingual UI | Supports Indonesian and English user experiences. |
 
 ## System Architecture
@@ -127,6 +128,35 @@ SIMOBI keeps MQTT outside the browser-facing app. Telemetry is normalized by a b
 | `announcements` | Admin-managed public notifications. |
 | `buggy_history` | Raw GPS telemetry records. |
 | `buggy_session_history` | Aggregated trip/session history. |
+| `notification_subscriptions` | Web Push endpoints, last known user location, alert radius, and push cooldown state. |
+
+## PWA Web Push Setup
+
+SIMOBI includes a service worker at `/sw.js`, public subscribe/unsubscribe APIs, and a protected `/api/push/check-nearby` worker endpoint. The endpoint checks active buggy positions against each subscriber's nearest halte and sends Web Push notifications with cooldown protection.
+
+Required environment variables:
+
+```bash
+NEXT_PUBLIC_WEB_PUSH_VAPID_PUBLIC_KEY=...
+WEB_PUSH_VAPID_PRIVATE_KEY=...
+WEB_PUSH_VAPID_SUBJECT=mailto:admin@example.com
+PUSH_WORKER_TOKEN=...
+```
+
+Generate VAPID keys locally with:
+
+```bash
+npx web-push generate-vapid-keys
+```
+
+Run the checker from Vercel Cron or another scheduler:
+
+```bash
+curl -X POST https://your-domain.example/api/push/check-nearby \
+  -H "Authorization: Bearer $PUSH_WORKER_TOKEN"
+```
+
+For Vercel Cron, set `CRON_SECRET` instead of or in addition to `PUSH_WORKER_TOKEN`, and schedule `/api/push/check-nearby`. Browser PWAs cannot reliably read fresh background location while closed, so the server uses the last user position synced by the active web app.
 
 ## Main App Areas
 

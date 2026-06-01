@@ -3,7 +3,7 @@
 > **Judul proyek:** Sistem Monitoring dan Tracking Real-Time Armada Buggy Listrik Kampus UNDIP
 > **Nama aplikasi:** SIMOBI
 > **Konteks:** Smart Mobility Universitas Diponegoro
-> **Status dokumen:** Diperbarui sesuai kondisi repo saat ini, 19 Mei 2026
+> **Status dokumen:** Diperbarui sesuai kondisi repo saat ini, 1 Juni 2026
 > **Tujuan dokumen:** Ringkasan teknis yang siap dipakai sebagai konteks untuk penulisan BAB skripsi, diskusi dengan dosen pembimbing, atau ditempel ke AI lain.
 
 ---
@@ -470,12 +470,14 @@ Data yang disimpan mencakup:
 - Heading.
 - Altitude.
 - Level baterai.
-- Jumlah penumpang.
+- Jumlah penumpang (`passengers`).
 - Kapasitas.
 - Sumber data.
 - Waktu perekaman.
 
 Insert ke tabel ini dibatasi maksimal sekali setiap 10 detik per buggy agar database tidak terlalu berat.
+
+Perubahan terbaru: kolom `passengers` ditambahkan melalui migrasi `20260526062537_add_passengers_to_buggy_history.sql` untuk memungkinkan pelacakan historis jumlah penumpang per titik GPS.
 
 ### 8.7 `buggy_session_history`
 
@@ -484,17 +486,53 @@ Menyimpan ringkasan sesi perjalanan.
 Data yang disimpan mencakup:
 
 - Buggy ID.
+- ID numerik buggy.
 - Tanggal sesi.
+- Nomor sesi buggy pada tanggal tersebut.
 - Waktu mulai dan selesai.
 - Durasi perjalanan.
 - Jumlah titik GPS.
 - Total jarak.
-- Kecepatan rata-rata.
+- Kecepatan rata-rata dan maksimum.
 - Baterai awal dan akhir.
 - Estimasi baterai terpakai.
+- Rata-rata penumpang selama sesi (`passenger_avg`).
+- Puncak penumpang tertinggi selama sesi (`passenger_peak`).
+- Jumlah sampel pembacaan penumpang (`passenger_samples`).
 - Path perjalanan.
 
 Tabel ini digunakan oleh panel riwayat perjalanan dan statistik operasional admin.
+
+Perubahan terbaru: kolom `passenger_avg`, `passenger_peak`, dan `passenger_samples` ditambahkan melalui migrasi `20260526061902_add_passenger_metrics_to_buggy_sessions.sql` untuk mendukung analitik penumpang historis per sesi.
+
+### 8.8 `latest_buggy_telemetry`
+
+Menyimpan snapshot telemetry terbaru per buggy. Tabel ini dibuat khusus untuk mendukung `GET /api/buggy` agar data terbaru dapat dibaca dari database meskipun live store in-memory direset (misalnya saat Vercel serverless cold start).
+
+Fitur tabel:
+
+- Satu baris per buggy (unique constraint pada `buggy_id`).
+- Saat data baru masuk melalui `/api/gps-beacon`, baris untuk buggy tersebut di-upsert (update jika sudah ada, insert jika belum).
+- Row Level Security (RLS) diaktifkan.
+
+Data yang disimpan mencakup:
+
+- `id` UUID primary key.
+- `buggy_id` (unique, terhubung ke buggy aplikasi).
+- `buggy_numeric_id` ID numerik device.
+- `lat` dan `lng` posisi terbaru.
+- `speed_kmh` kecepatan terbaru.
+- `accuracy` akurasi GPS.
+- `heading` arah pergerakan.
+- `altitude` ketinggian.
+- `battery_level` level baterai 0-100.
+- `passengers` jumlah penumpang terbaru.
+- `gsm` data status modul GSM (disimpan sebagai JSONB).
+- `source` sumber data.
+- `recorded_at` waktu data perangkat direkam.
+- `updated_at` waktu baris terakhir diperbarui di database.
+
+Tabel ini dibuat melalui migrasi `20260526054636_create_latest_buggy_telemetry.sql`.
 
 ---
 
@@ -632,8 +670,9 @@ Panel statistik admin mengambil data dari sesi perjalanan. Statistik yang dihitu
 
 Catatan penting:
 
-- Metrik penumpang historis pada endpoint statistik saat ini belum dihitung dari sesi, sehingga ditandai sebagai unavailable.
-- Jumlah penumpang tetap dapat muncul pada data live buggy karena payload telemetry mendukung field `passengers` dan `capacity`.
+- Metrik penumpang historis kini tersedia melalui kolom `passenger_avg`, `passenger_peak`, dan `passenger_samples` pada tabel `buggy_session_history`.
+- Tabel `latest_buggy_telemetry` juga menyimpan field `passengers` terbaru yang digunakan untuk merender kondisi penumpang secara real-time pada dashboard.
+- Kapasitas buggy diambil dari data master `buggies.capacity`, bukan dari payload telemetry, untuk mencegah nilai stale device menimpa perubahan yang dilakukan dari admin panel.
 
 ---
 
@@ -790,8 +829,8 @@ Batasan yang sebaiknya dijelaskan secara jujur di skripsi:
 
 - Hardware final dapat digantikan simulator selama tahap pengujian.
 - MQTT bridge harus berjalan sebagai service terpisah.
-- Live store in-memory tidak menjadi satu-satunya sumber kebenaran pada deployment serverless; data terbaru juga dibaca dari Supabase history.
-- Statistik penumpang historis belum dihitung sebagai metrik permanen pada endpoint statistik.
+- Live store in-memory tidak menjadi satu-satunya sumber kebenaran pada deployment serverless; data terbaru dibaca dari tabel `latest_buggy_telemetry` di Supabase sebagai fallback.
+- Statistik penumpang historis kini sudah tersedia melalui kolom `passenger_avg`, `passenger_peak`, dan `passenger_samples` pada `buggy_session_history`; namun tampilan analitiknya di endpoint statistik masih dapat dikembangkan lebih lanjut.
 - Remote engine cut-off dan command queue masih cocok diposisikan sebagai rencana pengembangan, bukan fitur utama yang sudah selesai.
 - Akurasi ETA dan geofence bergantung pada kualitas data GPS, interval pengiriman, dan koneksi jaringan.
 
@@ -817,6 +856,6 @@ Pengembangan berikutnya yang dapat ditulis sebagai saran:
 
 SIMOBI adalah sistem monitoring real-time armada buggy listrik kampus UNDIP berbasis Next.js 16, React 19, TypeScript, Supabase PostgreSQL/Auth, Google Maps API, dan MQTT. Sistem memiliki tiga peran pengguna: pengguna umum, driver, dan admin. Pengguna umum dapat melihat peta buggy, halte, ETA, rute, detail buggy, dan favorit. Driver melihat dashboard terbatas sesuai buggy yang ditugaskan. Admin dapat mengelola buggy, halte, geofence, akun, notifikasi, statistik, dan riwayat perjalanan.
 
-Alur data utama adalah GPS tracker/simulator/hardware mengirim telemetry ke MQTT broker pada topic `buggy/{id}/data`. Broker production menggunakan Mosquitto pada folder sibling `simobi-mosquitto-broker`, dengan autentikasi username/password, ACL per device, persistence internal `mosquitto.db`, dan deployment long-running. MQTT bridge production berada pada folder sibling `mqtt-bridge-service`; worker ini subscribe ke `buggy/+/data`, menormalisasi payload, lalu meneruskan data ke endpoint protected `POST /api/gps-beacon`. Untuk data simulator `/gps-tracker`, terdapat service terpisah `mqtt-simulator-bridge-service` agar data testing tidak mengganggu pipeline production. Endpoint ingest memvalidasi `BUGGY_INGEST_TOKEN`, memperbarui live buggy store, menyimpan raw telemetry ke `buggy_history`, dan mengelola sesi perjalanan ke `buggy_session_history`. Frontend membaca data terbaru melalui `GET /api/buggy` dengan mode polling default setiap 1,5 detik atau alternatif SSE melalui `/api/buggy/stream`.
+Alur data utama adalah GPS tracker/simulator/hardware mengirim telemetry ke MQTT broker pada topic `buggy/{id}/data`. Broker production menggunakan Mosquitto pada folder sibling `simobi-mosquitto-broker`, dengan autentikasi username/password, ACL per device, persistence internal `mosquitto.db`, dan deployment long-running. MQTT bridge production berada pada folder sibling `mqtt-bridge-service`; worker ini subscribe ke `buggy/+/data`, menormalisasi payload, lalu meneruskan data ke endpoint protected `POST /api/gps-beacon`. Untuk data simulator `/gps-tracker`, terdapat service terpisah `mqtt-simulator-bridge-service` agar data testing tidak mengganggu pipeline production. Endpoint ingest memvalidasi `BUGGY_INGEST_TOKEN`, memperbarui live buggy store, menyimpan raw telemetry ke `buggy_history`, meng-upsert snapshot ke `latest_buggy_telemetry`, dan mengelola sesi perjalanan ke `buggy_session_history`. Frontend membaca data terbaru melalui `GET /api/buggy` dengan mode polling default setiap 1,5 detik atau alternatif SSE melalui `/api/buggy/stream`.
 
-Database utama terdiri dari `accounts`, `buggies`, `haltes`, `geofences`, `announcements`, `buggy_history`, dan `buggy_session_history`. Sistem menggunakan `proxy.ts` dan `requireAdmin()` untuk role-based access, sedangkan endpoint ingest dilindungi bearer token. Geofence saat ini berbasis center point dan radius. Aplikasi mendukung bahasa Indonesia dan Inggris melalui route `/id` dan `/en`. Rencana pengembangan berikutnya meliputi integrasi hardware final, command queue, ACK mechanism, alert geofence permanen, dan pengujian lapangan.
+Database utama terdiri dari `accounts`, `buggies`, `haltes`, `geofences`, `announcements`, `buggy_history`, `buggy_session_history`, dan `latest_buggy_telemetry`. Tabel `latest_buggy_telemetry` menyimpan satu baris snapshot telemetry terbaru per buggy untuk mendukung fallback saat live store in-memory direset pada serverless deployment. Tabel `buggy_history` kini memiliki kolom `passengers` untuk pelacakan historis penumpang per titik GPS. Tabel `buggy_session_history` memiliki kolom `passenger_avg`, `passenger_peak`, dan `passenger_samples` untuk analitik penumpang per sesi perjalanan. Sistem menggunakan `proxy.ts` dan `requireAdmin()` untuk role-based access, sedangkan endpoint ingest dilindungi bearer token. Geofence saat ini berbasis center point dan radius. Aplikasi mendukung bahasa Indonesia dan Inggris melalui route `/id` dan `/en`. Rencana pengembangan berikutnya meliputi integrasi hardware final, command queue, ACK mechanism, alert geofence permanen, dan pengujian lapangan.

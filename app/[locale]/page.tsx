@@ -175,6 +175,9 @@ export default function DashboardPage() {
       enabled: settings.browserNotificationEnabled,
       setEnabled: (next) => updateSetting("browserNotificationEnabled", next),
       addToast,
+      webPushEnabled: true,
+      userPosition,
+      nearbyAlertRadiusMeters: settings.nearbyAlertRadiusMeters,
     });
 
   const handleInfoWindowClose = useCallback(() => {
