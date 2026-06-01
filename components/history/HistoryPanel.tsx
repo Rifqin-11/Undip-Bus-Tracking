@@ -4,6 +4,10 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { Buggy } from "@/types/buggy";
 import type { BuggySession } from "@/types/buggy-session";
+import {
+  detectHistoryStopPoints,
+  type HistoryStopPoint,
+} from "@/lib/history/stop-points";
 import { SpinnerIcon } from "@/components/ui/Icons";
 import { SkeletonRow } from "@/components/ui/Skeleton";
 import { HistoryBuggyList } from "./HistoryBuggyList";
@@ -14,7 +18,10 @@ import { HistorySessionDetail } from "./HistorySessionDetail";
 
 type HistoryPanelProps = {
   buggies: Buggy[];
-  onShowPath: (path: [number, number][]) => void;
+  onShowPath: (
+    path: [number, number][],
+    stopPoints?: HistoryStopPoint[],
+  ) => void;
   readOnly?: boolean;
 };
 
@@ -177,8 +184,10 @@ export function HistoryPanel({
   const goToSessionDetail = (session: BuggySession) => {
     setSelectedSessionId(session.id);
     setViewMode("session-detail");
+    const stopPoints = detectHistoryStopPoints(session.path);
     onShowPath(
       session.path.map(([lat, lng]) => [lat, lng] as [number, number]),
+      stopPoints,
     );
   };
 

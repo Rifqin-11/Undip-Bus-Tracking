@@ -1,5 +1,6 @@
 import type { Buggy, HaltePoint } from "@/types/buggy";
 import type { Geofence } from "@/types/geofence";
+import type { HistoryStopPoint } from "@/lib/history/stop-points";
 
 export type LatLngLiteral = {
   lat: number;
@@ -120,4 +121,6 @@ export type MapCanvasProps = {
   focusHaltes?: boolean;
   /** GPS history trail path to render on the map as a coloured polyline */
   historyPath?: [number, number][];
+  /** Stop markers detected from a selected GPS history trail */
+  historyStopPoints?: HistoryStopPoint[];
 };

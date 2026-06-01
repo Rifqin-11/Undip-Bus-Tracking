@@ -62,3 +62,15 @@ export function buildPolylineEndpointIcon(maps: Pick<MapsApi, "SymbolPath">) {
     scale: 5.5,
   };
 }
+
+export function buildHistoryStopIcon(maps: Pick<MapsApi, "SymbolPath">) {
+  return {
+    path: maps.SymbolPath.CIRCLE,
+    fillColor: "#f59e0b",
+    fillOpacity: 1,
+    strokeColor: "#ffffff",
+    strokeOpacity: 1,
+    strokeWeight: 2.5,
+    scale: 7,
+  };
+}

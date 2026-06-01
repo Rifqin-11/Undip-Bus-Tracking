@@ -26,6 +26,7 @@ import {
   HISTORY_POLYLINE_OPTIONS,
   ROUTE_POLYLINE_OPTIONS,
   WALKING_POLYLINE_OPTIONS,
+  buildHistoryStopIcon,
   buildPolylineEndpointIcon,
 } from "@/components/map/MapPolyline";
 
@@ -150,6 +151,7 @@ export function MapCanvas({
   onDraftGeofenceChange,
   focusHaltes = false,
   historyPath = [],
+  historyStopPoints = [],
   selectedBuggyId,
   selectedHalteId,
   centerTarget,
@@ -177,6 +179,7 @@ export function MapCanvas({
   const walkingFromPolylineRef = useRef<PolylineHandle | null>(null);
   const routeEndpointMarkersRef = useRef<MarkerHandle[]>([]);
   const historyPolylineRef = useRef<PolylineHandle | null>(null);
+  const historyStopMarkersRef = useRef<MarkerHandle[]>([]);
   const userLocationMarkerRef = useRef<MarkerHandle | null>(null);
   const userLocationPulseRef = useRef<CircleHandle | null>(null);
   const userLocationPulseAnimationRef = useRef<number | null>(null);
@@ -328,6 +331,8 @@ export function MapCanvas({
       routeEndpointMarkersRef.current.forEach((marker) => marker.setMap(null));
       routeEndpointMarkersRef.current = [];
       historyPolylineRef.current?.setMap(null);
+      historyStopMarkersRef.current.forEach((marker) => marker.setMap(null));
+      historyStopMarkersRef.current = [];
       stopUserLocationPulse();
       userLocationMarkerRef.current?.setMap(null);
       userLocationPulseRef.current?.setMap(null);
@@ -452,6 +457,35 @@ export function MapCanvas({
           })
         : null;
   }, [historyPath, mapReady]);
+
+  useEffect(() => {
+    if (!mapReady || !mapInstanceRef.current || !mapsApiRef.current) return;
+
+    const map = mapInstanceRef.current;
+    const maps = mapsApiRef.current;
+    const stopIcon = buildHistoryStopIcon(maps);
+
+    historyStopMarkersRef.current.forEach((marker) => marker.setMap(null));
+    historyStopMarkersRef.current = historyStopPoints.map((point, index) => {
+      const durationText =
+        typeof point.durationSeconds === "number"
+          ? ` · ${Math.max(1, Math.round(point.durationSeconds / 60))} menit`
+          : "";
+
+      return new maps.Marker({
+        map,
+        position: { lat: point.lat, lng: point.lng },
+        title: `Titik berhenti ${index + 1}${durationText}`,
+        icon: stopIcon,
+        zIndex: 45,
+      });
+    });
+
+    return () => {
+      historyStopMarkersRef.current.forEach((marker) => marker.setMap(null));
+      historyStopMarkersRef.current = [];
+    };
+  }, [historyStopPoints, mapReady]);
 
   // ── Render current device/user location marker ───────────────────────────
 

@@ -20,6 +20,7 @@ Fokus utama sistem adalah:
 - Memberikan tampilan khusus untuk driver berdasarkan buggy yang ditugaskan.
 - Menerima data GPS dari simulator atau perangkat lapangan melalui MQTT bridge.
 - Menyimpan histori GPS dan sesi perjalanan ke Supabase PostgreSQL.
+- Mendukung Progressive Web App (PWA) dasar melalui manifest, ikon aplikasi, service worker, dan Web Push Notification.
 - Mendukung bahasa Indonesia dan Inggris melalui routing `/id` dan `/en`.
 
 Sistem ini bukan hanya aplikasi peta, tetapi juga dashboard operasional yang menggabungkan web application, IoT-style telemetry, database, autentikasi, otorisasi, dan visualisasi peta.
@@ -51,7 +52,7 @@ Fitur utama:
 - Detail buggy, termasuk kapasitas, penumpang, kecepatan, ETA, halte saat ini, dan halte berikutnya.
 - Pencarian rute dari lokasi pengguna menuju tujuan.
 - Rekomendasi halte terdekat.
-- Notifikasi browser ketika buggy mendekati halte.
+- Notifikasi browser dan Web Push ketika buggy mendekati halte terdekat pengguna.
 - Favorit buggy dan halte untuk pengguna yang sudah login.
 - Tampilan responsif dengan top bar, sidebar desktop, dan bottom navigation mobile.
 
@@ -108,6 +109,7 @@ Fitur utama:
 | Database | Supabase PostgreSQL |
 | Autentikasi | Supabase Auth dan `@supabase/ssr` |
 | Realtime telemetry | MQTT, MQTT bridge worker, protected GPS ingest API |
+| PWA dan push notification | Web App Manifest, Service Worker, Web Push API, VAPID, `web-push` |
 | Peta | Google Maps JavaScript API |
 | Internasionalisasi | i18next, react-i18next, routing `/id` dan `/en` |
 | Deployment model | Web app di Vercel, MQTT bridge sebagai worker/service terpisah |
@@ -151,6 +153,27 @@ Dashboard Web SIMOBI
 Google Maps UI
 ```
 
+Alur PWA Web Push berjalan paralel dengan alur monitoring:
+
+```text
+Browser Pengguna
+        |
+        v
+Service Worker + Push Subscription
+        |
+        v
+POST /api/push/subscribe
+        |
+        v
+notification_subscriptions
+        |
+        v
+POST /api/push/check-nearby
+        |
+        v
+Web Push Notification
+```
+
 Penjelasan arsitektur:
 
 1. Perangkat GPS, simulator, atau hardware buggy mengirim data ke broker MQTT.
@@ -159,6 +182,8 @@ Penjelasan arsitektur:
 4. Endpoint ingest memvalidasi token, memuat data master buggy/halte dari Supabase, memperbarui live store, dan menyimpan telemetry ke database.
 5. Frontend membaca data terbaru melalui `GET /api/buggy`.
 6. UI menampilkan posisi buggy pada Google Maps dan panel dashboard.
+7. Saat pengguna mengaktifkan notifikasi, browser membuat Web Push subscription melalui service worker dan menyimpannya ke tabel `notification_subscriptions`.
+8. Endpoint worker `/api/push/check-nearby` mengecek posisi buggy aktif terhadap halte terdekat dari posisi terakhir pengguna, lalu mengirim Web Push jika kondisi radius terpenuhi.
 
 Frontend tidak membaca data langsung dari MQTT broker. Semua data masuk melalui backend agar validasi, keamanan, persistence, dan format data tetap konsisten.
 
@@ -193,6 +218,29 @@ Mode feed:
 - `sse`: menggunakan `GET /api/buggy/stream` sebagai Server-Sent Events.
 
 Pada deployment serverless, data in-memory tidak selalu stabil. Karena itu `GET /api/buggy` juga menggabungkan snapshot live store dengan telemetry terbaru dari Supabase melalui `lib/supabase/latest-buggy-telemetry.ts`.
+
+### 6.3 Alur Notifikasi Buggy Mendekati Halte
+
+Sistem notifikasi buggy mendekati halte memiliki dua mode:
+
+1. **Foreground browser notification**, yaitu notifikasi yang muncul ketika halaman SIMOBI masih aktif dan JavaScript frontend berjalan.
+2. **PWA Web Push notification**, yaitu notifikasi yang dikirim melalui service worker dan Push API agar tetap dapat diterima ketika aplikasi web tidak sedang dibuka secara aktif, selama browser dan sistem operasi masih mengizinkan notifikasi.
+
+Alur Web Push:
+
+1. Pengguna mengaktifkan notifikasi pada pengaturan aplikasi.
+2. Browser meminta izin Notification API.
+3. Jika izin diberikan, service worker `/sw.js` didaftarkan.
+4. Browser membuat Push Subscription menggunakan VAPID public key.
+5. Frontend mengirim subscription, posisi terakhir pengguna, dan radius alert ke `POST /api/push/subscribe`.
+6. Backend menyimpan data ke tabel `notification_subscriptions`.
+7. Worker terjadwal atau cron memanggil `POST /api/push/check-nearby` dengan token `PUSH_WORKER_TOKEN` atau `CRON_SECRET`.
+8. Backend membaca buggy aktif, halte, dan subscription pengguna.
+9. Sistem mencari halte terdekat dari posisi terakhir pengguna dalam radius 500 meter.
+10. Jika buggy aktif berada dalam radius alert halte tersebut, backend mengirim Web Push Notification.
+11. Sistem menyimpan `last_notified_key` dan `last_notified_at` untuk mencegah spam notifikasi.
+
+Catatan penting: PWA web tidak dapat menjamin pembacaan lokasi pengguna secara real-time ketika aplikasi tertutup total. Karena itu, server menggunakan posisi terakhir yang berhasil disinkronkan saat aplikasi web aktif.
 
 ---
 
@@ -273,6 +321,7 @@ Histori perjalanan dan telemetry aplikasi tetap disimpan di Supabase, khususnya 
 
 - `buggy_history`
 - `buggy_session_history`
+- `latest_buggy_telemetry`
 
 Jadi, Mosquitto bertugas sebagai transport layer, sedangkan Supabase bertugas sebagai application database.
 
@@ -534,6 +583,35 @@ Data yang disimpan mencakup:
 
 Tabel ini dibuat melalui migrasi `20260526054636_create_latest_buggy_telemetry.sql`.
 
+### 8.9 `notification_subscriptions`
+
+Menyimpan data subscription Web Push untuk pengguna yang mengaktifkan notifikasi browser/PWA. Tabel ini digunakan oleh backend untuk mengirim notifikasi ketika buggy aktif mendekati halte terdekat dari posisi terakhir pengguna.
+
+Fitur tabel:
+
+- Satu endpoint push bersifat unique agar subscription browser tidak tersimpan ganda.
+- Menyimpan kunci publik push (`p256dh`) dan authentication secret (`auth`) yang diperlukan untuk Web Push.
+- Menyimpan posisi terakhir pengguna (`user_lat`, `user_lng`) sebagai dasar pencarian halte terdekat.
+- Menyimpan radius alert per subscription melalui `nearby_radius_meters`.
+- Menyimpan cooldown notifikasi melalui `last_notified_key` dan `last_notified_at`.
+- Row Level Security (RLS) diaktifkan, sedangkan operasi tulis/baca dilakukan melalui server route menggunakan Supabase service role.
+
+Data yang disimpan mencakup:
+
+- `id` UUID primary key.
+- `endpoint` URL endpoint Push API, unique per subscription.
+- `p256dh` public key subscription.
+- `auth` authentication secret subscription.
+- `user_id` optional, mengarah ke `auth.users` jika pengguna sedang login.
+- `user_agent` informasi browser/perangkat.
+- `user_lat` dan `user_lng` posisi terakhir pengguna.
+- `nearby_radius_meters` radius buggy dianggap mendekati halte.
+- `last_notified_key` kombinasi buggy dan halte terakhir yang diberi notifikasi.
+- `last_notified_at` waktu notifikasi terakhir.
+- `created_at` dan `updated_at`.
+
+Tabel ini dibuat melalui migrasi `20260601122722_create_notification_subscriptions.sql`.
+
 ---
 
 ## 9. Endpoint API
@@ -558,6 +636,9 @@ Tabel ini dibuat melalui migrasi `20260526054636_create_latest_buggy_telemetry.s
 | `GET` | `/api/admin/statistics` | Statistik operasional bulanan. |
 | `GET/POST` | `/api/admin/announcements` | Manajemen pengumuman admin. |
 | `GET` | `/api/auth/callback` | Callback Supabase Auth. |
+| `POST` | `/api/push/subscribe` | Menyimpan atau memperbarui Web Push subscription pengguna. |
+| `POST` | `/api/push/unsubscribe` | Menghapus Web Push subscription ketika pengguna menonaktifkan notifikasi. |
+| `GET/POST` | `/api/push/check-nearby` | Worker endpoint untuk mengecek buggy mendekati halte pengguna dan mengirim Web Push Notification. |
 
 ---
 
@@ -607,6 +688,17 @@ Endpoint yang membutuhkan token:
 
 Jika `BUGGY_INGEST_TOKEN` belum dikonfigurasi, endpoint akan fail-closed dengan status error agar sistem tidak menerima data telemetry secara terbuka.
 
+### 10.5 Web Push Token dan VAPID
+
+Fitur Web Push menggunakan VAPID key untuk mengirim notifikasi dari server ke browser. Konfigurasi environment yang digunakan:
+
+- `NEXT_PUBLIC_WEB_PUSH_VAPID_PUBLIC_KEY` untuk public key yang dipakai browser saat membuat subscription.
+- `WEB_PUSH_VAPID_PRIVATE_KEY` untuk private key yang dipakai server saat menandatangani pengiriman Web Push.
+- `WEB_PUSH_VAPID_SUBJECT` sebagai identitas pengirim, misalnya email admin sistem.
+- `PUSH_WORKER_TOKEN` atau `CRON_SECRET` untuk melindungi endpoint worker `/api/push/check-nearby`.
+
+Endpoint worker push bersifat fail-closed. Jika token tidak cocok atau tidak dikirim, endpoint membalas `401 Unauthorized`. Hal ini mencegah pihak luar memicu proses pengecekan dan pengiriman notifikasi secara bebas.
+
 ---
 
 ## 11. Komponen Frontend Penting
@@ -627,6 +719,7 @@ Jika `BUGGY_INGEST_TOKEN` belum dikonfigurasi, endpoint akan fail-closed dengan 
 | `hooks/useDirectionSearch.ts` | Pencarian rute. |
 | `hooks/useNearestHaltes.ts` | Rekomendasi halte terdekat. |
 | `hooks/useNearbyBusAlert.ts` | Notifikasi buggy mendekat. |
+| `hooks/useBrowserNotificationToggle.ts` | Mengelola izin Notification API, toggle notifikasi, dan sinkronisasi Web Push subscription. |
 | `hooks/useFavorites.ts` | Favorit halte dan buggy. |
 | `hooks/useUserRole.ts` | Membaca role user aktif. |
 
@@ -643,10 +736,14 @@ Jika `BUGGY_INGEST_TOKEN` belum dikonfigurasi, endpoint akan fail-closed dengan 
 | `lib/realtime/session-store.ts` | Mengelola sesi perjalanan dan finalisasi sesi. |
 | `lib/supabase/data-loader.ts` | Lazy bootstrap data buggy dan halte dari Supabase. |
 | `lib/supabase/latest-buggy-telemetry.ts` | Menggabungkan data terbaru dari history untuk frontend. |
+| `lib/push/client.ts` | Mendaftarkan service worker dan Web Push subscription dari sisi browser. |
+| `lib/push/web-push.ts` | Konfigurasi VAPID dan pengiriman Web Push dari server. |
+| `lib/push/nearby-alerts.ts` | Logika worker untuk mengecek buggy mendekati halte pengguna dan mengirim notifikasi. |
 | `lib/geofence-store.ts` | Operasi baca/tulis geofence ke Supabase. |
 | `lib/auth/admin-guard.ts` | Guard admin untuk route handler. |
 | `lib/auth/ingest-token.ts` | Validasi bearer token untuk endpoint ingest. |
 | `proxy.ts` | Routing locale, refresh session Supabase, dan proteksi route. |
+| `public/sw.js` | Service worker untuk menerima push event dan membuka aplikasi saat notifikasi diklik. |
 
 ---
 
@@ -698,6 +795,19 @@ PWA metadata tersedia melalui:
 - `app/manifest.ts`
 - `app/favicon.ico`
 - `public/logo.svg`
+- `public/icon-192.png`
+- `public/icon-512.png`
+
+Fitur PWA dan Web Push yang tersedia:
+
+- Manifest aplikasi dengan mode `standalone`.
+- Ikon aplikasi 192x192 dan 512x512.
+- Service worker pada `public/sw.js`.
+- Push event handler untuk menampilkan notifikasi melalui `showNotification`.
+- Notification click handler untuk membuka kembali aplikasi.
+- Subscription Web Push melalui endpoint `/api/push/subscribe`.
+- Unsubscribe melalui endpoint `/api/push/unsubscribe`.
+- Worker endpoint `/api/push/check-nearby` untuk mengecek kondisi buggy mendekati halte dan mengirim push.
 
 ---
 
@@ -718,7 +828,9 @@ Boundary penting:
 
 - Web app dan API: Next.js.
 - Database dan Auth: Supabase.
-- MQTT bridge: service worker terpisah.
+- MQTT bridge: worker/service terpisah untuk subscribe MQTT.
+- PWA service worker: file browser-side `public/sw.js` untuk Web Push, bukan MQTT bridge.
+- Push checker: endpoint server `/api/push/check-nearby` yang dapat dipanggil oleh Vercel Cron atau scheduler eksternal.
 - MQTT broker: service terpisah.
 - Simulator GPS: halaman `/gps-tracker` dan/atau bridge simulator.
 
@@ -771,6 +883,8 @@ Sub-bab yang relevan:
 - Next.js, React, dan TypeScript.
 - Supabase dan PostgreSQL.
 - Autentikasi dan otorisasi.
+- Progressive Web App.
+- Service Worker dan Web Push Notification.
 - Google Maps API.
 - Geofencing.
 - Dashboard monitoring.
@@ -806,6 +920,7 @@ Bahas:
 - Implementasi endpoint ingest GPS.
 - Implementasi MQTT bridge.
 - Implementasi live feed polling/SSE.
+- Implementasi PWA, service worker, dan Web Push Notification.
 - Implementasi histori perjalanan.
 - Implementasi admin dashboard.
 - Pengujian fungsi utama.
@@ -830,6 +945,8 @@ Batasan yang sebaiknya dijelaskan secara jujur di skripsi:
 - Hardware final dapat digantikan simulator selama tahap pengujian.
 - MQTT bridge harus berjalan sebagai service terpisah.
 - Live store in-memory tidak menjadi satu-satunya sumber kebenaran pada deployment serverless; data terbaru dibaca dari tabel `latest_buggy_telemetry` di Supabase sebagai fallback.
+- Notifikasi Web Push PWA memakai posisi terakhir pengguna yang berhasil disinkronkan saat aplikasi aktif. Browser web tidak menjamin pembacaan lokasi real-time ketika aplikasi tertutup total.
+- Endpoint `/api/push/check-nearby` perlu dipanggil secara berkala oleh scheduler seperti Vercel Cron atau worker eksternal agar push notification dapat dikirim otomatis.
 - Statistik penumpang historis kini sudah tersedia melalui kolom `passenger_avg`, `passenger_peak`, dan `passenger_samples` pada `buggy_session_history`; namun tampilan analitiknya di endpoint statistik masih dapat dikembangkan lebih lanjut.
 - Remote engine cut-off dan command queue masih cocok diposisikan sebagai rencana pengembangan, bukan fitur utama yang sudah selesai.
 - Akurasi ETA dan geofence bergantung pada kualitas data GPS, interval pengiriman, dan koneksi jaringan.
@@ -845,6 +962,8 @@ Pengembangan berikutnya yang dapat ditulis sebagai saran:
 - Command queue untuk perintah jarak jauh seperti engine cut-off.
 - ACK mechanism dari buggy ke server.
 - Alert geofence yang lebih formal dan tersimpan permanen.
+- Integrasi cron production untuk Web Push checker dengan interval yang disesuaikan kebutuhan operasional.
+- Peningkatan notifikasi menjadi preference per pengguna, misalnya radius, halte favorit, dan jam aktif notifikasi.
 - Perhitungan ETA yang lebih cerdas berdasarkan histori perjalanan.
 - Dashboard analitik penumpang historis.
 - Pengujian lapangan dengan beberapa unit buggy.
@@ -854,8 +973,8 @@ Pengembangan berikutnya yang dapat ditulis sebagai saran:
 
 ## 20. Ringkasan Singkat untuk Ditempel ke AI Lain
 
-SIMOBI adalah sistem monitoring real-time armada buggy listrik kampus UNDIP berbasis Next.js 16, React 19, TypeScript, Supabase PostgreSQL/Auth, Google Maps API, dan MQTT. Sistem memiliki tiga peran pengguna: pengguna umum, driver, dan admin. Pengguna umum dapat melihat peta buggy, halte, ETA, rute, detail buggy, dan favorit. Driver melihat dashboard terbatas sesuai buggy yang ditugaskan. Admin dapat mengelola buggy, halte, geofence, akun, notifikasi, statistik, dan riwayat perjalanan.
+SIMOBI adalah sistem monitoring real-time armada buggy listrik kampus UNDIP berbasis Next.js 16, React 19, TypeScript, Supabase PostgreSQL/Auth, Google Maps API, MQTT, dan PWA Web Push Notification. Sistem memiliki tiga peran pengguna: pengguna umum, driver, dan admin. Pengguna umum dapat melihat peta buggy, halte, ETA, rute, detail buggy, favorit, serta menerima notifikasi ketika buggy mendekati halte terdekat dari posisi terakhir pengguna. Driver melihat dashboard terbatas sesuai buggy yang ditugaskan. Admin dapat mengelola buggy, halte, geofence, akun, notifikasi, statistik, dan riwayat perjalanan.
 
-Alur data utama adalah GPS tracker/simulator/hardware mengirim telemetry ke MQTT broker pada topic `buggy/{id}/data`. Broker production menggunakan Mosquitto pada folder sibling `simobi-mosquitto-broker`, dengan autentikasi username/password, ACL per device, persistence internal `mosquitto.db`, dan deployment long-running. MQTT bridge production berada pada folder sibling `mqtt-bridge-service`; worker ini subscribe ke `buggy/+/data`, menormalisasi payload, lalu meneruskan data ke endpoint protected `POST /api/gps-beacon`. Untuk data simulator `/gps-tracker`, terdapat service terpisah `mqtt-simulator-bridge-service` agar data testing tidak mengganggu pipeline production. Endpoint ingest memvalidasi `BUGGY_INGEST_TOKEN`, memperbarui live buggy store, menyimpan raw telemetry ke `buggy_history`, meng-upsert snapshot ke `latest_buggy_telemetry`, dan mengelola sesi perjalanan ke `buggy_session_history`. Frontend membaca data terbaru melalui `GET /api/buggy` dengan mode polling default setiap 1,5 detik atau alternatif SSE melalui `/api/buggy/stream`.
+Alur data utama adalah GPS tracker/simulator/hardware mengirim telemetry ke MQTT broker pada topic `buggy/{id}/data`. Broker production menggunakan Mosquitto pada folder sibling `simobi-mosquitto-broker`, dengan autentikasi username/password, ACL per device, persistence internal `mosquitto.db`, dan deployment long-running. MQTT bridge production berada pada folder sibling `mqtt-bridge-service`; worker ini subscribe ke `buggy/+/data`, menormalisasi payload, lalu meneruskan data ke endpoint protected `POST /api/gps-beacon`. Untuk data simulator `/gps-tracker`, terdapat service terpisah `mqtt-simulator-bridge-service` agar data testing tidak mengganggu pipeline production. Endpoint ingest memvalidasi `BUGGY_INGEST_TOKEN`, memperbarui live buggy store, menyimpan raw telemetry ke `buggy_history`, meng-upsert snapshot ke `latest_buggy_telemetry`, dan mengelola sesi perjalanan ke `buggy_session_history`. Frontend membaca data terbaru melalui `GET /api/buggy` dengan mode polling default setiap 1,5 detik atau alternatif SSE melalui `/api/buggy/stream`. Untuk notifikasi PWA, browser mendaftarkan service worker `/sw.js`, menyimpan push subscription ke `notification_subscriptions`, lalu endpoint `/api/push/check-nearby` mengirim Web Push ketika buggy aktif mendekati halte terdekat pengguna.
 
-Database utama terdiri dari `accounts`, `buggies`, `haltes`, `geofences`, `announcements`, `buggy_history`, `buggy_session_history`, dan `latest_buggy_telemetry`. Tabel `latest_buggy_telemetry` menyimpan satu baris snapshot telemetry terbaru per buggy untuk mendukung fallback saat live store in-memory direset pada serverless deployment. Tabel `buggy_history` kini memiliki kolom `passengers` untuk pelacakan historis penumpang per titik GPS. Tabel `buggy_session_history` memiliki kolom `passenger_avg`, `passenger_peak`, dan `passenger_samples` untuk analitik penumpang per sesi perjalanan. Sistem menggunakan `proxy.ts` dan `requireAdmin()` untuk role-based access, sedangkan endpoint ingest dilindungi bearer token. Geofence saat ini berbasis center point dan radius. Aplikasi mendukung bahasa Indonesia dan Inggris melalui route `/id` dan `/en`. Rencana pengembangan berikutnya meliputi integrasi hardware final, command queue, ACK mechanism, alert geofence permanen, dan pengujian lapangan.
+Database utama terdiri dari `accounts`, `buggies`, `haltes`, `geofences`, `announcements`, `buggy_history`, `buggy_session_history`, `latest_buggy_telemetry`, dan `notification_subscriptions`. Tabel `latest_buggy_telemetry` menyimpan satu baris snapshot telemetry terbaru per buggy untuk mendukung fallback saat live store in-memory direset pada serverless deployment. Tabel `notification_subscriptions` menyimpan endpoint Web Push, key subscription, posisi terakhir pengguna, radius alert, dan cooldown notifikasi. Tabel `buggy_history` kini memiliki kolom `passengers` untuk pelacakan historis penumpang per titik GPS. Tabel `buggy_session_history` memiliki kolom `passenger_avg`, `passenger_peak`, dan `passenger_samples` untuk analitik penumpang per sesi perjalanan. Sistem menggunakan `proxy.ts` dan `requireAdmin()` untuk role-based access, sedangkan endpoint ingest dilindungi bearer token. Endpoint push checker dilindungi `PUSH_WORKER_TOKEN` atau `CRON_SECRET`. Geofence saat ini berbasis center point dan radius. Aplikasi mendukung bahasa Indonesia dan Inggris melalui route `/id` dan `/en`. Rencana pengembangan berikutnya meliputi integrasi hardware final, command queue, ACK mechanism, alert geofence permanen, notifikasi berbasis preferensi pengguna, dan pengujian lapangan.

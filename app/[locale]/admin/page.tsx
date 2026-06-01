@@ -49,6 +49,7 @@ import {
 } from "@/lib/buggy/assignment";
 import type { LatLngLiteral } from "@/types/map-canvas";
 import type { Geofence, GeofenceEvent } from "@/types/geofence";
+import type { HistoryStopPoint } from "@/lib/history/stop-points";
 import { useLocale } from "@/lib/i18n/client";
 import { localizePath } from "@/lib/i18n/routing";
 import { LogoutIcon, BellIcon } from "@/components/ui/Icons";
@@ -187,6 +188,9 @@ export default function DashboardPage() {
   const [geofenceEvents, setGeofenceEvents] = useState<GeofenceEvent[]>([]);
   const browserNotificationEnabled = settings.browserNotificationEnabled;
   const [historyPath, setHistoryPath] = useState<[number, number][]>([]);
+  const [historyStopPoints, setHistoryStopPoints] = useState<HistoryStopPoint[]>(
+    [],
+  );
   const [settingsAccountForm, setSettingsAccountForm] =
     useState<AccountFormMode | null>(null);
   const [activeViewHydrated, setActiveViewHydrated] = useState(false);
@@ -385,6 +389,7 @@ export default function DashboardPage() {
     setSettingsAccountForm(null);
     if (view !== "history") {
       setHistoryPath([]);
+      setHistoryStopPoints([]);
     }
     if (view !== "data-detail") {
       setSelectedAdminBuggyId(null);
@@ -806,6 +811,8 @@ export default function DashboardPage() {
   const mapDirectionPath =
     activeView === "buggy" ? (directionResult?.directionPath ?? []) : [];
   const mapHistoryPath = activeView === "history" ? historyPath : [];
+  const mapHistoryStopPoints =
+    activeView === "history" ? historyStopPoints : [];
 
   return (
     <main
@@ -838,6 +845,7 @@ export default function DashboardPage() {
         onHalteMarkerClick={handleHalteMarkerClick}
         focusHaltes={activeView === "halte"}
         historyPath={mapHistoryPath}
+        historyStopPoints={mapHistoryStopPoints}
       />
 
       <MobileTopBar
@@ -992,8 +1000,9 @@ export default function DashboardPage() {
         historyViewContent={
           <HistoryPanel
             buggies={driverFilteredBuggies}
-            onShowPath={(path) => {
+            onShowPath={(path, stopPoints = []) => {
               setHistoryPath(path);
+              setHistoryStopPoints(stopPoints);
             }}
             readOnly={!canManageDashboard}
           />
