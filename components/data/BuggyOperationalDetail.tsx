@@ -13,12 +13,11 @@ import {
 import {
   ChevronLeft,
   Edit2Icon,
-  BatteryMedium,
+  Clock,
   Gauge,
-  Route,
-  Zap,
   MapPin,
   Radio,
+  Users,
   Wifi,
 } from "lucide-react";
 import { AdminBuggyFormPanel } from "./AdminBuggyFormPanel";
@@ -142,6 +141,19 @@ export function BuggyOperationalDetail({
     Math.round((buggy.passengers / buggy.capacity) * 100),
     100,
   );
+  const safeOccupancyPct = Number.isFinite(occupancyPct) ? occupancyPct : 0;
+  const speedValue =
+    typeof buggy.speedKmh === "number" && Number.isFinite(buggy.speedKmh)
+      ? `${Math.max(0, Math.round(buggy.speedKmh))} ${t("speedUnit")}`
+      : "--";
+  const connectionStatusValue = buggy.connectionStatus
+    ? connectionTone.label
+    : "--";
+  const lastSeenValue =
+    typeof buggy.lastSeenSecondsAgo === "number" &&
+    Number.isFinite(buggy.lastSeenSecondsAgo)
+      ? formatLastSeen(buggy.lastSeenSecondsAgo)
+      : "--";
 
   if (isEditOpen && !readOnly) {
     return (
@@ -278,104 +290,86 @@ export function BuggyOperationalDetail({
           />
         </div>
 
-        {/* Prominent Battery Row */}
+        {/* Prominent Occupancy Row */}
         <div className="mb-3 rounded-2xl border border-slate-200/70 bg-white/80 p-3 shadow-sm">
           <div className="mb-1.5 flex items-center justify-between">
             <div className="flex items-center gap-1.5">
-              <BatteryMedium className="size-4 text-emerald-600" />
+              <Users className="size-4 text-emerald-600" />
               <span className="text-[12px] font-semibold text-slate-700">
-                {t("battery")}
+                {t("passengerLoad")}
               </span>
             </div>
             <span className="text-[13px] font-bold text-slate-900 tabular-nums">
-              85%
+              {safeOccupancyPct}%
             </span>
           </div>
           <div className="relative h-2 w-full overflow-hidden rounded-full bg-slate-100">
             <div
-              className="absolute inset-y-0 left-0 rounded-full bg-linear-to-r from-emerald-400 to-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.45)] transition-all"
-              style={{ width: "85%" }}
+              className={`absolute inset-y-0 left-0 rounded-full shadow-[0_0_8px_rgba(16,185,129,0.35)] transition-all ${
+                safeOccupancyPct >= 90
+                  ? "bg-linear-to-r from-rose-400 to-rose-500"
+                  : safeOccupancyPct >= 60
+                    ? "bg-linear-to-r from-amber-300 to-amber-400"
+                    : "bg-linear-to-r from-emerald-400 to-emerald-500"
+              }`}
+              style={{ width: `${safeOccupancyPct}%` }}
             />
           </div>
           <p className="mt-1.5 text-[10px] text-slate-400">
-            {t("estimatedRemainingDistance")}{" "}
-            <span className="font-semibold text-slate-600">120 km</span>
+            <span className="font-semibold text-slate-600">
+              {t("seatsFilled", {
+                passengers: buggy.passengers,
+                capacity: buggy.capacity,
+              })}
+            </span>
           </p>
         </div>
 
-        {/* 3 Stats — with icons */}
+        {/* 3 Stats — live operational telemetry */}
         <div className="grid grid-cols-3 gap-2">
-          <div className="rounded-2xl border border-slate-200/70 bg-white p-2.5 shadow-sm">
-            <div className="mb-1 flex items-center gap-1 text-slate-400">
-              <Route className="size-3" />
-              <p className="text-[10px] font-semibold uppercase tracking-wider">
-                {t("distance")}
-              </p>
-            </div>
-            <p className="text-[14px] font-bold text-slate-800 tabular-nums">
-              120
-              <span className="ml-0.5 text-[10px] font-semibold text-slate-400">
-                km
-              </span>
-            </p>
-          </div>
           <div className="rounded-2xl border border-slate-200/70 bg-white p-2.5 shadow-sm">
             <div className="mb-1 flex items-center gap-1 text-slate-400">
               <Gauge className="size-3" />
               <p className="text-[10px] font-semibold uppercase tracking-wider">
-                {t("consumption")}
+                {t("speed")}
               </p>
             </div>
-            <p className="text-[14px] font-bold text-slate-800 tabular-nums">
-              142
-              <span className="ml-0.5 text-[10px] font-semibold text-slate-400">
-                wh/km
-              </span>
+            <p
+              className="truncate text-[14px] font-bold text-slate-800 tabular-nums"
+              title={speedValue}
+            >
+              {speedValue}
             </p>
           </div>
           <div className="rounded-2xl border border-slate-200/70 bg-white p-2.5 shadow-sm">
             <div className="mb-1 flex items-center gap-1 text-slate-400">
-              <Zap className="size-3" />
+              <Radio className="size-3" />
               <p className="text-[10px] font-semibold uppercase tracking-wider">
-                {t("capacity")}
+                {t("connectionStatus")}
               </p>
             </div>
-            <p className="text-[14px] font-bold text-slate-800 tabular-nums">
-              35.5
-              <span className="ml-0.5 text-[10px] font-semibold text-slate-400">
-                kWh
-              </span>
+            <p
+              className={`truncate text-[14px] font-bold tabular-nums ${connectionTone.textClass}`}
+              title={connectionStatusValue}
+            >
+              {connectionStatusValue}
+            </p>
+          </div>
+          <div className="rounded-2xl border border-slate-200/70 bg-white p-2.5 shadow-sm">
+            <div className="mb-1 flex items-center gap-1 text-slate-400">
+              <Clock className="size-3" />
+              <p className="text-[10px] font-semibold uppercase tracking-wider">
+                {t("lastSeen")}
+              </p>
+            </div>
+            <p
+              className="truncate text-[14px] font-bold text-slate-800 tabular-nums"
+              title={lastSeenValue}
+            >
+              {lastSeenValue}
             </p>
           </div>
         </div>
-      </div>
-
-      {/* ── Occupancy ──────────────────────────────────────────────────── */}
-      <div className="rounded-3xl border border-slate-200/80 bg-white/70 p-3">
-        <div className="mb-2 flex items-center justify-between text-[12px]">
-          <span className="font-medium text-slate-500">
-            {t("occupancyLevel")}
-          </span>
-          <span className="font-semibold text-slate-800">{occupancyPct}%</span>
-        </div>
-        <div className="h-2.5 overflow-hidden rounded-full bg-slate-100">
-          <div
-            className={`h-full rounded-full transition-all ${
-              occupancyPct >= 90
-                ? "bg-rose-500"
-                : occupancyPct >= 60
-                  ? "bg-amber-400"
-                  : "bg-emerald-500"
-            }`}
-            style={{ width: `${occupancyPct}%` }}
-          />
-        </div>
-        <p className="mt-1.5 text-right text-[11px] text-slate-400">
-          {t("seatsFilled", {
-            passengers: buggy.passengers,
-            capacity: buggy.capacity,
-          })}
-        </p>
       </div>
 
       {/* ── Connectivity Cards ─────────────────────────────────────────── */}
