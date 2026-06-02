@@ -58,6 +58,7 @@ import { PenIcon } from "lucide-react";
 const GEOFENCE_DEFAULT_RADIUS_METERS = 100;
 const GEOFENCE_EVENT_LIMIT = 100;
 const GEOFENCE_EVENT_COOLDOWN_MS = 10_000;
+const OFFLINE_ALERT_MIN_SECONDS = 5 * 60;
 const ADMIN_ACTIVE_VIEW_STORAGE_KEY = "simobi.admin.activeView";
 const PERSISTED_ADMIN_VIEWS: PanelView[] = [
   "buggy",
@@ -331,6 +332,7 @@ export default function DashboardPage() {
 
   const geofenceMembershipRef = useRef<Map<string, boolean>>(new Map());
   const geofenceCooldownRef = useRef<Map<string, number>>(new Map());
+  const offlineAlertedBuggyIdsRef = useRef<Set<string>>(new Set());
 
   const handleLogout = useCallback(async () => {
     try {
@@ -684,6 +686,8 @@ export default function DashboardPage() {
 
   const emitGeofenceEvent = useCallback(
     (event: GeofenceEvent) => {
+      if (!settings.geofenceEventAlertsEnabled) return;
+
       setGeofenceEvents((prev) =>
         [event, ...prev].slice(0, GEOFENCE_EVENT_LIMIT),
       );
@@ -706,7 +710,12 @@ export default function DashboardPage() {
         });
       }
     },
-    [addToast, browserNotificationEnabled, locale],
+    [
+      addToast,
+      browserNotificationEnabled,
+      locale,
+      settings.geofenceEventAlertsEnabled,
+    ],
   );
 
   const geofenceStatuses = useMemo(() => {
@@ -783,6 +792,63 @@ export default function DashboardPage() {
 
     geofenceMembershipRef.current = nextMembership;
   }, [emitGeofenceEvent, geofences, liveBuggies]);
+
+  useEffect(() => {
+    if (!isAdminUser || !settings.offlineBuggyAlertsEnabled) {
+      offlineAlertedBuggyIdsRef.current.clear();
+      return;
+    }
+
+    liveBuggies.forEach((buggy) => {
+      const secondsAgo =
+        typeof buggy.lastSeenSecondsAgo === "number"
+          ? buggy.lastSeenSecondsAgo
+          : null;
+      const isOfflineTooLong =
+        buggy.connectionStatus === "offline" &&
+        secondsAgo !== null &&
+        secondsAgo >= OFFLINE_ALERT_MIN_SECONDS;
+
+      if (!isOfflineTooLong) {
+        offlineAlertedBuggyIdsRef.current.delete(buggy.id);
+        return;
+      }
+
+      if (offlineAlertedBuggyIdsRef.current.has(buggy.id)) return;
+
+      offlineAlertedBuggyIdsRef.current.add(buggy.id);
+      const minutesAgo = Math.max(1, Math.floor(secondsAgo / 60));
+
+      addToast({
+        tone: "warning",
+        title: t("offlineBuggyAlertTitle", { buggyName: buggy.name }),
+        description: t("offlineBuggyAlertDescription", { minutes: minutesAgo }),
+        duration: 7000,
+      });
+
+      if (
+        browserNotificationEnabled &&
+        typeof window !== "undefined" &&
+        "Notification" in window &&
+        Notification.permission === "granted"
+      ) {
+        new Notification(t("offlineBuggyNotificationTitle"), {
+          body: t("offlineBuggyNotificationBody", {
+            buggyName: buggy.name,
+            minutes: minutesAgo,
+          }),
+          tag: `offline-${buggy.id}`,
+        });
+      }
+    });
+  }, [
+    addToast,
+    browserNotificationEnabled,
+    isAdminUser,
+    liveBuggies,
+    settings.offlineBuggyAlertsEnabled,
+    t,
+  ]);
 
   const accountMenuItems = useMemo<AccountMenuItem[]>(
     () => [
@@ -913,6 +979,7 @@ export default function DashboardPage() {
           setToInput(val);
           setDirectionResult(null);
         }}
+        getLatestUserPosition={getLatestUserPosition}
         onSubmit={runDirectionSearch}
         showOriginField={searchStep === "origin"}
         onBackToDestination={resetToDestination}

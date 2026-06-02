@@ -53,7 +53,7 @@ export function useUserPosition() {
           resolve(latest);
         },
         () => resolve(userPosition),
-        { enableHighAccuracy: true, timeout: 8000, maximumAge: 15_000 },
+        { enableHighAccuracy: false, timeout: 12_000, maximumAge: 60_000 },
       );
     });
   }, [userPosition]);

@@ -15,6 +15,7 @@ type LiveSearchBarProps = {
   toValue: string;
   onFromChange: (value: string) => void;
   onToChange: (value: string) => void;
+  getLatestUserPosition?: () => Promise<{ lat: number; lng: number } | null>;
   onSubmit: () => void;
   showOriginField: boolean;
   onBackToDestination: () => void;
@@ -28,6 +29,7 @@ export function LiveSearchBar({
   toValue,
   onFromChange,
   onToChange,
+  getLatestUserPosition,
   onSubmit,
   showOriginField,
   onBackToDestination,
@@ -41,6 +43,7 @@ export function LiveSearchBar({
   const [locationState, setLocationState] = useState<
     "idle" | "loading" | "done" | "error"
   >("idle");
+  const [locationErrorLabel, setLocationErrorLabel] = useState("");
   const wrapperRef = useRef<HTMLFormElement>(null);
 
   const currentInput = focusedField === "from" ? fromValue : toValue;
@@ -54,29 +57,68 @@ export function LiveSearchBar({
   // Show dropdown whenever a field is focused (even when input is empty)
   const showDropdown = isFocused;
 
-  const handleUseMyLocation = useCallback(() => {
-    if (!navigator.geolocation) {
+  const handleUseMyLocation = useCallback(async () => {
+    if (typeof window === "undefined" || !navigator.geolocation) {
       setLocationState("error");
+      setLocationErrorLabel(t("locationUnsupported"));
       return;
     }
+
     setLocationState("loading");
-    navigator.geolocation.getCurrentPosition(
-      (pos) => {
-        const { latitude, longitude } = pos.coords;
-        const locationString = `${latitude.toFixed(6)}, ${longitude.toFixed(6)}`;
-        if (focusedField === "from") {
-          onFromChange(locationString);
-        } else {
-          onToChange(locationString);
-        }
-        setLocationState("done");
-        setIsFocused(false);
-        setFocusedField(null);
-      },
-      () => setLocationState("error"),
-      { enableHighAccuracy: true, timeout: 8000 },
-    );
-  }, [focusedField, onFromChange, onToChange]);
+    setLocationErrorLabel("");
+
+    try {
+      const position =
+        (await getLatestUserPosition?.()) ??
+        (await new Promise<{ lat: number; lng: number } | null>((resolve) => {
+          navigator.geolocation.getCurrentPosition(
+            (pos) =>
+              resolve({
+                lat: pos.coords.latitude,
+                lng: pos.coords.longitude,
+              }),
+            (error) => {
+              if (error.code === error.PERMISSION_DENIED) {
+                setLocationErrorLabel(t("locationPermissionDenied"));
+              } else if (error.code === error.TIMEOUT) {
+                setLocationErrorLabel(t("locationTimeout"));
+              } else {
+                setLocationErrorLabel(t("locationUnavailable"));
+              }
+              resolve(null);
+            },
+            { enableHighAccuracy: false, timeout: 12_000, maximumAge: 60_000 },
+          );
+        }));
+
+      if (!position) {
+        setLocationState("error");
+        setLocationErrorLabel((current) => current || t("locationUnavailable"));
+        return;
+      }
+
+      const locationString = `${position.lat.toFixed(6)}, ${position.lng.toFixed(6)}`;
+      const targetField = focusedField ?? (showOriginField ? "from" : "to");
+      if (targetField === "from") {
+        onFromChange(locationString);
+      } else {
+        onToChange(locationString);
+      }
+      setLocationState("done");
+      setIsFocused(false);
+      setFocusedField(null);
+    } catch {
+      setLocationState("error");
+      setLocationErrorLabel(t("locationUnavailable"));
+    }
+  }, [
+    focusedField,
+    getLatestUserPosition,
+    onFromChange,
+    onToChange,
+    showOriginField,
+    t,
+  ]);
 
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
@@ -206,7 +248,7 @@ export function LiveSearchBar({
                 {locationState === "loading"
                   ? t("gettingLocation")
                   : locationState === "error"
-                    ? t("locationError")
+                    ? locationErrorLabel || t("locationError")
                     : t("useMyLocation")}
               </p>
             </div>

@@ -6,6 +6,8 @@ export type MapStyle = "standard" | "satellite" | "terrain";
 
 export type AdminSettings = {
   browserNotificationEnabled: boolean;
+  geofenceEventAlertsEnabled: boolean;
+  offlineBuggyAlertsEnabled: boolean;
   openPanelOnDashboard: boolean;
   compactAdminPanels: boolean;
   mapStyle: MapStyle;
@@ -15,6 +17,8 @@ export type AdminSettings = {
 
 export const DEFAULT_ADMIN_SETTINGS: AdminSettings = {
   browserNotificationEnabled: false,
+  geofenceEventAlertsEnabled: true,
+  offlineBuggyAlertsEnabled: true,
   openPanelOnDashboard: true,
   compactAdminPanels: false,
   mapStyle: "standard",

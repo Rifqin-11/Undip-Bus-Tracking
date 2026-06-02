@@ -8,8 +8,7 @@ import {
   detectHistoryStopPoints,
   type HistoryStopPoint,
 } from "@/lib/history/stop-points";
-import { SpinnerIcon } from "@/components/ui/Icons";
-import { SkeletonRow } from "@/components/ui/Skeleton";
+import { Skeleton } from "@/components/ui/Skeleton";
 import { HistoryDateBuggyList } from "./HistoryDateBuggyList";
 import { HistorySessionList } from "./HistorySessionList";
 import { HistorySessionDetail } from "./HistorySessionDetail";
@@ -63,6 +62,79 @@ function getTodayDateInputValue(): string {
   const now = new Date();
   const local = new Date(now.getTime() - now.getTimezoneOffset() * 60_000);
   return local.toISOString().slice(0, 10);
+}
+
+function HistoryCalendarSkeleton() {
+  return (
+    <section className="space-y-3">
+      <div className="overflow-hidden rounded-[28px] border border-slate-200/80 bg-white shadow-[0_18px_45px_rgba(15,23,42,0.08)]">
+        <div className="border-b border-slate-100 p-4">
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0 space-y-2">
+              <div className="flex items-center gap-2">
+                <Skeleton className="h-3.5 w-3.5 rounded-md" />
+                <Skeleton className="h-2.5 w-28" />
+              </div>
+              <Skeleton className="h-6 w-40" />
+              <Skeleton className="h-3 w-56 max-w-full" />
+            </div>
+            <Skeleton className="h-6 w-14 rounded-full" />
+          </div>
+
+          <div className="mt-4 rounded-[24px] border border-slate-200 bg-slate-50/80 p-2.5">
+            <div className="mb-3 flex items-center justify-between gap-2 px-1">
+              <Skeleton className="h-8 w-8 rounded-full" />
+              <div className="space-y-1.5">
+                <Skeleton className="mx-auto h-3.5 w-24" />
+                <Skeleton className="mx-auto h-2.5 w-16" />
+              </div>
+              <Skeleton className="h-8 w-8 rounded-full" />
+            </div>
+
+            <div className="grid grid-cols-7 gap-1">
+              {Array.from({ length: 7 }).map((_, index) => (
+                <Skeleton key={`weekday-${index}`} className="mx-auto h-2.5 w-5" />
+              ))}
+              {Array.from({ length: 35 }).map((_, index) => (
+                <Skeleton key={`day-${index}`} className="h-10 rounded-2xl" />
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div className="rounded-[28px] border border-slate-200/80 bg-white/85 p-3 shadow-[0_14px_35px_rgba(15,23,42,0.06)]">
+        <div className="mb-3 flex items-center justify-between gap-2 px-1">
+          <div className="space-y-1.5">
+            <Skeleton className="h-3.5 w-36" />
+            <Skeleton className="h-2.5 w-20" />
+          </div>
+          <Skeleton className="h-6 w-20 rounded-full" />
+        </div>
+
+        <div className="space-y-2">
+          {Array.from({ length: 3 }).map((_, index) => (
+            <div
+              key={index}
+              className="rounded-[22px] border border-slate-200/80 bg-white p-2.5"
+            >
+              <div className="flex items-center justify-between gap-2.5">
+                <div className="flex min-w-0 flex-1 items-center gap-3">
+                  <Skeleton className="h-[52px] w-[70px] shrink-0 rounded-2xl" />
+                  <div className="min-w-0 flex-1 space-y-2">
+                    <Skeleton className="h-4 w-28" />
+                    <Skeleton className="h-2.5 w-20" />
+                  </div>
+                </div>
+                <Skeleton className="h-9 w-9 shrink-0 rounded-full" />
+              </div>
+              <Skeleton className="mt-2.5 h-9 rounded-2xl" />
+            </div>
+          ))}
+        </div>
+      </div>
+    </section>
+  );
 }
 
 // ── Component ─────────────────────────────────────────────────────────────────
@@ -269,19 +341,7 @@ export function HistoryPanel({
   // ── Loading / error ────────────────────────────────────────────────────────
 
   if (loading) {
-    return (
-      <div className="rounded-3xl border border-slate-200/80 bg-white/70 p-3">
-        <div className="mb-3 flex items-center gap-2 px-1 text-[11px] font-semibold text-slate-400">
-          <SpinnerIcon className="h-3 w-3 animate-spin text-slate-400" />
-          {t("loadingSessions")}
-        </div>
-        <div className="space-y-2">
-          {Array.from({ length: 4 }).map((_, idx) => (
-            <SkeletonRow key={idx} />
-          ))}
-        </div>
-      </div>
-    );
+    return <HistoryCalendarSkeleton />;
   }
 
   if (error) {

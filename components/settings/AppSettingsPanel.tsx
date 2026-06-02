@@ -14,11 +14,13 @@ import {
   LogIn,
   LogOut,
   Map as MapIcon,
+  MapPinned,
   RotateCcw,
   Radar,
   ShieldCheck,
   UserCog,
   Users,
+  WifiOff,
 } from "lucide-react";
 import {
   AccountFormPanel,
@@ -402,6 +404,62 @@ export function AppSettingsPanel({
               onClick={() => void handleToggleNotification()}
               label={t("browserNotification")}
             />
+          </div>
+        ) : null}
+
+        {isAdmin ? (
+          <div className="space-y-2">
+            <div className={settingCardClass}>
+              <div className="flex min-w-0 items-center gap-3">
+                <span className="grid size-10 shrink-0 place-items-center rounded-2xl bg-emerald-50 text-emerald-600">
+                  <MapPinned className="h-5 w-5" />
+                </span>
+                <div className="min-w-0">
+                  <p className="text-[13px] font-black text-slate-900">
+                    {t("geofenceEventAlerts")}
+                  </p>
+                  <p className="text-[11px] font-semibold text-slate-400">
+                    {t("geofenceEventAlertsDescription")}
+                  </p>
+                </div>
+              </div>
+              <ToggleSwitch
+                checked={settings.geofenceEventAlertsEnabled}
+                onClick={() =>
+                  onUpdateSetting(
+                    "geofenceEventAlertsEnabled",
+                    !settings.geofenceEventAlertsEnabled,
+                  )
+                }
+                label={t("geofenceEventAlerts")}
+              />
+            </div>
+
+            <div className={settingCardClass}>
+              <div className="flex min-w-0 items-center gap-3">
+                <span className="grid size-10 shrink-0 place-items-center rounded-2xl bg-rose-50 text-rose-600">
+                  <WifiOff className="h-5 w-5" />
+                </span>
+                <div className="min-w-0">
+                  <p className="text-[13px] font-black text-slate-900">
+                    {t("offlineBuggyAlerts")}
+                  </p>
+                  <p className="text-[11px] font-semibold text-slate-400">
+                    {t("offlineBuggyAlertsDescription")}
+                  </p>
+                </div>
+              </div>
+              <ToggleSwitch
+                checked={settings.offlineBuggyAlertsEnabled}
+                onClick={() =>
+                  onUpdateSetting(
+                    "offlineBuggyAlertsEnabled",
+                    !settings.offlineBuggyAlertsEnabled,
+                  )
+                }
+                label={t("offlineBuggyAlerts")}
+              />
+            </div>
           </div>
         ) : null}
 
