@@ -10,7 +10,7 @@ import {
 } from "@/lib/history/stop-points";
 import { SpinnerIcon } from "@/components/ui/Icons";
 import { SkeletonRow } from "@/components/ui/Skeleton";
-import { HistoryBuggyList } from "./HistoryBuggyList";
+import { HistoryDateBuggyList } from "./HistoryDateBuggyList";
 import { HistorySessionList } from "./HistorySessionList";
 import { HistorySessionDetail } from "./HistorySessionDetail";
 
@@ -59,6 +59,12 @@ function getSessionLastActivityMs(session: BuggySession): number {
   return Number.isNaN(startedAtMs) ? 0 : startedAtMs;
 }
 
+function getTodayDateInputValue(): string {
+  const now = new Date();
+  const local = new Date(now.getTime() - now.getTimezoneOffset() * 60_000);
+  return local.toISOString().slice(0, 10);
+}
+
 // ── Component ─────────────────────────────────────────────────────────────────
 
 export function HistoryPanel({
@@ -73,12 +79,14 @@ export function HistoryPanel({
   const [error, setError] = useState<string | null>(null);
 
   const [viewMode, setViewMode] = useState<ViewMode>("buggy-list");
+  const [selectedDate, setSelectedDate] = useState(getTodayDateInputValue);
   const [selectedBuggyId, setSelectedBuggyId] = useState<string | null>(null);
   const [selectedSessionId, setSelectedSessionId] = useState<string | null>(
     null,
   );
 
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const hasInitializedDateRef = useRef(false);
 
   // ── Data fetching ──────────────────────────────────────────────────────────
 
@@ -136,7 +144,7 @@ export function HistoryPanel({
 
   const sessionsByBuggy = useMemo(() => {
     const map = new Map<string, BuggySession[]>();
-    for (const s of sessions) {
+    for (const s of sessions.filter((session) => session.sessionDate === selectedDate)) {
       const norm = normalizeBuggyId(s.buggyId);
       const arr = map.get(norm) ?? [];
       arr.push(s);
@@ -149,7 +157,59 @@ export function HistoryPanel({
       ),
     );
     return map;
+  }, [selectedDate, sessions]);
+
+  const availableDates = useMemo(() => {
+    const dates = Array.from(
+      new Set(
+        sessions
+          .map((session) => session.sessionDate)
+          .filter((date): date is string => Boolean(date)),
+      ),
+    );
+
+    return dates.sort((a, b) => b.localeCompare(a));
   }, [sessions]);
+
+  useEffect(() => {
+    if (hasInitializedDateRef.current) return;
+    if (availableDates.length === 0) return;
+
+    hasInitializedDateRef.current = true;
+    if (!availableDates.includes(selectedDate)) {
+      setSelectedDate(availableDates[0]);
+    }
+  }, [availableDates, selectedDate]);
+
+  const activeBuggySummaries = useMemo(
+    () =>
+      buggyOptions
+        .map((buggy) => ({
+          ...buggy,
+          sessions: sessionsByBuggy.get(buggy.norm) ?? [],
+        }))
+        .filter((buggy) => buggy.sessions.length > 0),
+    [buggyOptions, sessionsByBuggy],
+  );
+
+  const dailySummary = useMemo(() => {
+    const sessionsForDate = activeBuggySummaries.flatMap(
+      (buggy) => buggy.sessions,
+    );
+
+    return {
+      activeBuggyCount: activeBuggySummaries.length,
+      sessionCount: sessionsForDate.length,
+      totalDistanceKm: sessionsForDate.reduce(
+        (total, session) => total + (session.totalDistanceKm ?? 0),
+        0,
+      ),
+      totalDurationMinutes: sessionsForDate.reduce(
+        (total, session) => total + (session.durationMinutes ?? 0),
+        0,
+      ),
+    };
+  }, [activeBuggySummaries]);
 
   const selectedBuggySessions = useMemo(() => {
     if (!selectedBuggyId) return [];
@@ -178,6 +238,15 @@ export function HistoryPanel({
     setSelectedBuggyId(buggyId);
     setSelectedSessionId(null);
     setViewMode("session-list");
+    onShowPath([]);
+  };
+
+  const handleDateChange = (date: string) => {
+    if (!date) return;
+    setSelectedDate(date);
+    setSelectedBuggyId(null);
+    setSelectedSessionId(null);
+    setViewMode("buggy-list");
     onShowPath([]);
   };
 
@@ -251,6 +320,7 @@ export function HistoryPanel({
     return (
       <HistorySessionList
         selectedBuggy={selectedBuggy}
+        selectedDate={selectedDate}
         selectedBuggySessions={selectedBuggySessions}
         refreshing={refreshing}
         onRefresh={() => void load(true)}
@@ -261,11 +331,13 @@ export function HistoryPanel({
   }
 
   return (
-    <HistoryBuggyList
-      buggyOptions={buggyOptions}
-      sessionsByBuggy={sessionsByBuggy}
+    <HistoryDateBuggyList
+      selectedDate={selectedDate}
+      availableDates={availableDates}
+      activeBuggySummaries={activeBuggySummaries}
+      dailySummary={dailySummary}
       refreshing={refreshing}
-      onRefresh={() => void load(true)}
+      onDateChange={handleDateChange}
       onSelectBuggy={goToSessionList}
     />
   );

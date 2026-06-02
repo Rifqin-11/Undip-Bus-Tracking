@@ -31,6 +31,13 @@ export function isBuggyRealtimeReachable(buggy: Buggy): boolean {
   );
 }
 
+export function isBuggyOffline(buggy: Buggy): boolean {
+  return (
+    buggy.connectionStatus === "offline" ||
+    (buggy.connectionStatus === undefined && !buggy.isActive)
+  );
+}
+
 export function getBuggyConnectionLabel(
   status: BuggyConnectionStatus | undefined,
 ) {

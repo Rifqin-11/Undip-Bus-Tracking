@@ -1,46 +1,73 @@
 import { haversineMeters } from "@/lib/transit/buggy-route-utils";
+import { HALTE_LOCATIONS } from "@/lib/transit/buggy-data";
+import type { HaltePoint } from "@/types/buggy";
 
 export type HistoryPathPoint = [number, number, number?];
 
 export type HistoryStopPoint = {
+  halteId: string;
+  halteName: string;
   lat: number;
   lng: number;
   startedAtMs?: number;
   endedAtMs?: number;
   durationSeconds?: number;
   pointCount: number;
+  distanceMeters?: number;
 };
 
-const STOP_CLUSTER_RADIUS_METERS = 12;
-const STOP_MIN_DURATION_MS = 30_000;
-const STOP_MIN_POINTS = 3;
+const HALTE_STOP_RADIUS_METERS = 45;
 
 function getTimestampMs(point: HistoryPathPoint): number | null {
   const value = point[2];
   return typeof value === "number" && Number.isFinite(value) ? value : null;
 }
 
-function toStopPoint(cluster: HistoryPathPoint[]): HistoryStopPoint | null {
-  if (cluster.length < STOP_MIN_POINTS) return null;
+type HalteMatchedPoint = {
+  point: HistoryPathPoint;
+  halte: HaltePoint;
+  distanceMeters: number;
+};
+
+function findNearestHalteStop(
+  point: HistoryPathPoint,
+  haltes: HaltePoint[],
+): HalteMatchedPoint | null {
+  let nearest: HalteMatchedPoint | null = null;
+
+  for (const halte of haltes) {
+    const distanceMeters = haversineMeters(
+      { lat: point[0], lng: point[1] },
+      { lat: halte.lat, lng: halte.lng },
+    );
+
+    if (distanceMeters > HALTE_STOP_RADIUS_METERS) continue;
+    if (nearest && nearest.distanceMeters <= distanceMeters) continue;
+
+    nearest = { point, halte, distanceMeters };
+  }
+
+  return nearest;
+}
+
+function toStopPoint(cluster: HalteMatchedPoint[]): HistoryStopPoint | null {
+  const first = cluster[0];
+  if (!first) return null;
 
   const timestamps = cluster
-    .map(getTimestampMs)
+    .map((entry) => getTimestampMs(entry.point))
     .filter((value): value is number => value !== null)
     .sort((a, b) => a - b);
 
-  if (timestamps.length >= 2) {
-    const durationMs = timestamps[timestamps.length - 1] - timestamps[0];
-    if (durationMs < STOP_MIN_DURATION_MS) return null;
-  }
-
-  const lat =
-    cluster.reduce((sum, point) => sum + point[0], 0) / cluster.length;
-  const lng =
-    cluster.reduce((sum, point) => sum + point[1], 0) / cluster.length;
+  const averageDistanceMeters =
+    cluster.reduce((sum, entry) => sum + entry.distanceMeters, 0) /
+    cluster.length;
 
   return {
-    lat,
-    lng,
+    halteId: first.halte.id,
+    halteName: first.halte.name,
+    lat: first.halte.lat,
+    lng: first.halte.lng,
     startedAtMs: timestamps[0],
     endedAtMs: timestamps[timestamps.length - 1],
     durationSeconds:
@@ -48,14 +75,16 @@ function toStopPoint(cluster: HistoryPathPoint[]): HistoryStopPoint | null {
         ? Math.round((timestamps[timestamps.length - 1] - timestamps[0]) / 1000)
         : undefined,
     pointCount: cluster.length,
+    distanceMeters: Math.round(averageDistanceMeters),
   };
 }
 
 export function detectHistoryStopPoints(
   path: HistoryPathPoint[],
+  haltes: HaltePoint[] = HALTE_LOCATIONS,
 ): HistoryStopPoint[] {
   const stops: HistoryStopPoint[] = [];
-  let cluster: HistoryPathPoint[] = [];
+  let cluster: HalteMatchedPoint[] = [];
 
   const flushCluster = () => {
     const stop = toStopPoint(cluster);
@@ -64,24 +93,25 @@ export function detectHistoryStopPoints(
   };
 
   for (const point of path) {
+    const match = findNearestHalteStop(point, haltes);
+    if (!match) {
+      flushCluster();
+      continue;
+    }
+
     if (cluster.length === 0) {
-      cluster = [point];
+      cluster = [match];
       continue;
     }
 
     const anchor = cluster[0];
-    const distanceFromAnchor = haversineMeters(
-      { lat: anchor[0], lng: anchor[1] },
-      { lat: point[0], lng: point[1] },
-    );
-
-    if (distanceFromAnchor <= STOP_CLUSTER_RADIUS_METERS) {
-      cluster.push(point);
+    if (anchor.halte.id === match.halte.id) {
+      cluster.push(match);
       continue;
     }
 
     flushCluster();
-    cluster = [point];
+    cluster = [match];
   }
 
   flushCluster();

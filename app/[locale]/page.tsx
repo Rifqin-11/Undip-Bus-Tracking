@@ -30,6 +30,7 @@ import type { PanelView } from "@/types/buggy";
 import { useLocale } from "@/lib/i18n/client";
 import { localizePath } from "@/lib/i18n/routing";
 import { createClient } from "@/lib/supabase/client";
+import { isBuggyOffline } from "@/lib/buggy/connection-status";
 
 const HALTE_FALLBACK_POSITION = {
   lat: HALTE_LOCATIONS[0].lat,
@@ -44,7 +45,13 @@ export default function DashboardPage() {
   const { t: tNav } = useTranslation("navigation");
   const realtimeFeed = useBuggyLiveFeed();
   const { settings, updateSetting, resetSettings } = useAdminSettings();
-  const { userProfile, loading: userLoading, isAuthenticated } = useUserRole();
+  const {
+    userProfile,
+    loading: userLoading,
+    isAuthenticated,
+    isAdmin,
+    isDriver,
+  } = useUserRole();
   const {
     favoriteBuggies,
     favoriteHaltes,
@@ -57,6 +64,10 @@ export default function DashboardPage() {
     () => realtimeFeed.liveBuggies ?? [],
     [realtimeFeed.liveBuggies],
   );
+  const visibleBuggies = useMemo(() => {
+    if (isAdmin || isDriver) return liveBuggies;
+    return liveBuggies.filter((buggy) => !isBuggyOffline(buggy));
+  }, [isAdmin, isDriver, liveBuggies]);
 
   const [activeView, setActiveView] = useState<PanelView>("buggy");
   const [panelOpen, setPanelOpen] = useState(settings.openPanelOnDashboard);
@@ -73,7 +84,7 @@ export default function DashboardPage() {
   const nearestHalteRecommendations = useNearestHaltes({
     haltes: HALTE_LOCATIONS,
     userPosition,
-    fallback: liveBuggies[0]?.position ?? HALTE_FALLBACK_POSITION,
+    fallback: visibleBuggies[0]?.position ?? HALTE_FALLBACK_POSITION,
   });
 
   const openAuthModal = useCallback(
@@ -122,7 +133,7 @@ export default function DashboardPage() {
     runRecommendedHalteDirection,
     resetToDestination,
   } = useDirectionSearch({
-    liveBuggies,
+    liveBuggies: visibleBuggies,
     haltes: HALTE_LOCATIONS,
     routePath: OFFICIAL_ROUTE_PATH,
     getLatestUserPosition,
@@ -217,7 +228,7 @@ export default function DashboardPage() {
 
   // ── Nearby bus alert ──────────────────────────────────────────────────────
   useNearbyBusAlert({
-    buggies: liveBuggies,
+    buggies: visibleBuggies,
     userPosition,
     thresholdMeters: settings.nearbyAlertRadiusMeters,
     onAlert: ({ busName, halteName, distanceMeters }) => {
@@ -242,7 +253,7 @@ export default function DashboardPage() {
   });
 
   // Map data
-  const mapBuggies = activeView === "halte" ? [] : liveBuggies;
+  const mapBuggies = activeView === "halte" ? [] : visibleBuggies;
   const mapRoutePath = activeView === "buggy" ? OFFICIAL_ROUTE_PATH : [];
   const mapDirectionPath =
     activeView === "buggy" ? (directionResult?.directionPath ?? []) : [];
@@ -340,7 +351,7 @@ export default function DashboardPage() {
       />
 
       <BuggyList
-        buggies={liveBuggies}
+        buggies={visibleBuggies}
         panelOpen={panelOpen}
         activeView={activeView}
         onClose={() => setPanelOpen(false)}

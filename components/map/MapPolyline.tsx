@@ -63,14 +63,30 @@ export function buildPolylineEndpointIcon(maps: Pick<MapsApi, "SymbolPath">) {
   };
 }
 
-export function buildHistoryStopIcon(maps: Pick<MapsApi, "SymbolPath">) {
+export function buildHistoryStopIcon(
+  maps: Pick<MapsApi, "Point" | "Size">,
+  label: string,
+) {
+  const safeLabel = label
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+  const width = Math.max(54, safeLabel.length * 7 + 18);
+  const center = width / 2;
+  const svg = `
+    <svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="46" viewBox="0 0 ${width} 46">
+      <rect x="2" y="1" width="${width - 4}" height="22" rx="11" fill="#ffffff" stroke="#dbeafe" stroke-width="1.5"/>
+      <text x="${center}" y="16" text-anchor="middle" font-family="Inter, Arial, sans-serif" font-size="11" font-weight="700" fill="#0f1a3b">${safeLabel}</text>
+      <line x1="${center}" y1="24" x2="${center}" y2="30" stroke="#93c5fd" stroke-width="2" stroke-linecap="round"/>
+      <circle cx="${center}" cy="36" r="7" fill="#2563eb" stroke="#ffffff" stroke-width="3"/>
+    </svg>
+  `.trim();
+
   return {
-    path: maps.SymbolPath.CIRCLE,
-    fillColor: "#f59e0b",
-    fillOpacity: 1,
-    strokeColor: "#ffffff",
-    strokeOpacity: 1,
-    strokeWeight: 2.5,
-    scale: 7,
+    url: `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(svg)}`,
+    size: new maps.Size(width, 46),
+    scaledSize: new maps.Size(width, 46),
+    anchor: new maps.Point(center, 36),
   };
 }

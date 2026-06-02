@@ -5,6 +5,7 @@ import { ChevronLeftIcon, TrashIcon } from "@/components/ui/Icons";
 import { DeleteConfirmModal } from "@/components/ui/DeleteConfirmModal";
 import { fmtDate, fmtTime, fmtTimestamp, fmtDuration } from "@/lib/utils/format-time";
 import { getErrorMessage } from "@/lib/utils/error-message";
+import { detectHistoryStopPoints } from "@/lib/history/stop-points";
 import type { Buggy } from "@/types/buggy";
 import type { BuggySession } from "@/types/buggy-session";
 
@@ -52,6 +53,7 @@ export function HistorySessionDetail({
   const { t: tCommon } = useTranslation("common");
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const halteStopPoints = detectHistoryStopPoints(s.path);
 
   async function handleDelete() {
     setIsDeleting(true);
@@ -313,6 +315,48 @@ export function HistorySessionDetail({
           </div>
         ))}
       </div>
+
+      {halteStopPoints.length > 0 && (
+        <div className="rounded-3xl border border-slate-200/80 bg-white/70 p-3">
+          <p className="mb-3 text-[10px] font-semibold uppercase tracking-widest text-slate-400">
+            Stop Halte
+          </p>
+          <div className="space-y-0">
+            {halteStopPoints.map((stop, index) => {
+              const isLast = index === halteStopPoints.length - 1;
+              const timeValue = stop.startedAtMs ?? stop.endedAtMs;
+
+              return (
+                <div
+                  key={`${stop.halteId}-${index}-${timeValue ?? "no-time"}`}
+                  className="grid grid-cols-[52px_20px_1fr] gap-2"
+                >
+                  <span className="pt-0.5 text-[10px] font-semibold tabular-nums text-slate-500">
+                    {typeof timeValue === "number" ? fmtTimestamp(timeValue) : "--:--"}
+                  </span>
+                  <span className="relative flex justify-center">
+                    <span className="mt-1.5 h-3 w-3 rounded-full border-2 border-white bg-blue-600 shadow-sm" />
+                    {!isLast && (
+                      <span className="absolute top-5 h-[calc(100%-10px)] w-px bg-slate-200" />
+                    )}
+                  </span>
+                  <div className={`pb-3 ${isLast ? "" : "border-b border-slate-100"}`}>
+                    <p className="text-[12px] font-bold text-slate-800">
+                      {stop.halteName}
+                    </p>
+                    <p className="mt-0.5 text-[10px] text-slate-400">
+                      {stop.pointCount} {t("point")}
+                      {typeof stop.distanceMeters === "number"
+                        ? ` · ${stop.distanceMeters} m dari halte`
+                        : ""}
+                    </p>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       {/* Jalur GPS */}
       {s.path.length > 0 && (

@@ -6,6 +6,7 @@ import type { BuggySession } from "@/types/buggy-session";
 
 type HistorySessionListProps = {
   selectedBuggy: Buggy;
+  selectedDate: string;
   selectedBuggySessions: BuggySession[];
   refreshing: boolean;
   onRefresh: () => void;
@@ -15,6 +16,7 @@ type HistorySessionListProps = {
 
 export function HistorySessionList({
   selectedBuggy,
+  selectedDate,
   selectedBuggySessions,
   refreshing,
   onRefresh,
@@ -65,7 +67,7 @@ export function HistorySessionList({
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.setAttribute("href", url);
-    link.setAttribute("download", `History_${selectedBuggy.code.replace(/\s+/g, '_')}_${new Date().toISOString().slice(0,10)}.csv`);
+    link.setAttribute("download", `History_${selectedBuggy.code.replace(/\s+/g, '_')}_${selectedDate}.csv`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -86,7 +88,7 @@ export function HistorySessionList({
           </button>
           <div className="min-w-0 flex-1">
             <p className="text-[10px] font-semibold uppercase tracking-widest text-slate-400">
-              {t("sessionHistory")}
+              {fmtDate(selectedDate)}
             </p>
             <div className="flex items-center gap-2">
               <span className="rounded-lg bg-[#0f1a3b] px-2 py-0.5 text-[11px] font-bold text-white">
@@ -121,7 +123,10 @@ export function HistorySessionList({
       {/* Jumlah sesi */}
       <div className="rounded-3xl border border-slate-200/80 bg-white/70 p-3">
         <p className="text-[12px] text-slate-500">
-          {t("sessionFound", { count: selectedBuggySessions.length })}
+          {t("sessionFoundOnDate", {
+            count: selectedBuggySessions.length,
+            date: fmtDate(selectedDate),
+          })}
         </p>
       </div>
 

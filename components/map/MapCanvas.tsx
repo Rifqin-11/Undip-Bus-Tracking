@@ -134,6 +134,15 @@ function getHalteIconSize(zoom: number, isSelected: boolean) {
   return isSelected ? baseSize + 4 : baseSize;
 }
 
+function formatHistoryStopTime(value: number | undefined, locale: Locale) {
+  if (typeof value !== "number" || !Number.isFinite(value)) return "--:--";
+  return new Date(value).toLocaleTimeString(locale === "en" ? "en-US" : "id-ID", {
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  });
+}
+
 export function MapCanvas({
   buggies,
   haltes,
@@ -463,20 +472,23 @@ export function MapCanvas({
 
     const map = mapInstanceRef.current;
     const maps = mapsApiRef.current;
-    const stopIcon = buildHistoryStopIcon(maps);
 
     historyStopMarkersRef.current.forEach((marker) => marker.setMap(null));
-    historyStopMarkersRef.current = historyStopPoints.map((point, index) => {
+    historyStopMarkersRef.current = historyStopPoints.map((point) => {
       const durationText =
         typeof point.durationSeconds === "number"
           ? ` · ${Math.max(1, Math.round(point.durationSeconds / 60))} menit`
           : "";
+      const timeLabel = formatHistoryStopTime(
+        point.startedAtMs ?? point.endedAtMs,
+        locale,
+      );
 
       return new maps.Marker({
         map,
         position: { lat: point.lat, lng: point.lng },
-        title: `Titik berhenti ${index + 1}${durationText}`,
-        icon: stopIcon,
+        title: `${point.halteName} · ${timeLabel}${durationText}`,
+        icon: buildHistoryStopIcon(maps, timeLabel),
         zIndex: 45,
       });
     });
@@ -485,7 +497,7 @@ export function MapCanvas({
       historyStopMarkersRef.current.forEach((marker) => marker.setMap(null));
       historyStopMarkersRef.current = [];
     };
-  }, [historyStopPoints, mapReady]);
+  }, [historyStopPoints, locale, mapReady]);
 
   // ── Render current device/user location marker ───────────────────────────
 
