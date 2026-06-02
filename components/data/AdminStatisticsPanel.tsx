@@ -646,42 +646,44 @@ export function AdminStatisticsPanel({ buggies }: AdminStatisticsPanelProps) {
 
   return (
     <section className="space-y-3">
-      <div className="rounded-3xl border border-slate-200/80 bg-white/70 p-4 lg:p-5">
+      <div className="space-y-3">
         {/* Header */}
-        <div className="mb-4 flex items-start justify-between gap-3">
-          <div className="min-w-0 flex-1">
-            <h2 className="truncate text-[18px] font-bold tracking-tight text-[#0f1a3b]">
-              {t("operationalStatistics")}
-            </h2>
-            <p className="text-[11px] font-medium text-slate-500">
-              {t("operationalStatisticsSummary")}
-            </p>
-          </div>
-          <div className="relative flex items-center gap-1.5 rounded-full border border-slate-200 bg-white px-3 py-1.5 text-[11px] font-bold text-[#0f1a3b] shadow-sm">
-            <select
-              value={selectedMonth}
-              onChange={(e) => setSelectedMonth(e.target.value)}
-              className="appearance-none bg-transparent outline-none pr-4 font-bold cursor-pointer"
-            >
-              {monthOptions.map((opt) => (
-                <option key={opt.value} value={opt.value}>
-                  {opt.label}
-                </option>
-              ))}
-            </select>
-            <CalendarDays className="absolute right-3 top-1/2 -translate-y-1/2 h-3 w-3 text-slate-500 pointer-events-none" />
+        <div className="rounded-[24px] border border-slate-200/80 bg-white/80 p-3.5 shadow-[0_10px_28px_rgba(15,23,42,0.04)]">
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0 flex-1">
+              <h2 className="truncate text-[18px] font-bold tracking-tight text-[#0f1a3b]">
+                {t("operationalStatistics")}
+              </h2>
+              <p className="mt-0.5 text-[11px] font-medium leading-relaxed text-slate-500">
+                {t("operationalStatisticsSummary")}
+              </p>
+            </div>
+            <div className="relative flex shrink-0 items-center gap-1.5 rounded-full border border-slate-200 bg-slate-50 px-3 py-1.5 text-[11px] font-bold text-[#0f1a3b]">
+              <select
+                value={selectedMonth}
+                onChange={(e) => setSelectedMonth(e.target.value)}
+                className="appearance-none bg-transparent outline-none pr-4 font-bold cursor-pointer"
+              >
+                {monthOptions.map((opt) => (
+                  <option key={opt.value} value={opt.value}>
+                    {opt.label}
+                  </option>
+                ))}
+              </select>
+              <CalendarDays className="absolute right-3 top-1/2 -translate-y-1/2 h-3 w-3 text-slate-500 pointer-events-none" />
+            </div>
           </div>
         </div>
 
-        <div className="mb-3 grid grid-cols-3 gap-2">
-          <div className="rounded-[18px] border border-emerald-100 bg-emerald-50/70 p-3 shadow-[0_8px_20px_rgba(15,23,42,0.02)]">
-            <div className="mb-2 flex items-center gap-1.5 text-emerald-600">
-              <Activity className="h-4 w-4 shrink-0" />
-              <p className="min-w-0 text-[9px] font-black uppercase tracking-widest">
+        <div className="grid grid-cols-3 overflow-hidden rounded-[22px] border border-slate-200/80 bg-white/85 shadow-[0_10px_28px_rgba(15,23,42,0.04)]">
+          <div className="border-r border-slate-100 p-3">
+            <div className="mb-2 flex items-center gap-1.5 text-slate-500">
+              <span className="h-2 w-2 rounded-full bg-emerald-500" />
+              <p className="min-w-0 text-[9px] font-bold uppercase tracking-widest">
                 {t("activeVehicles")}
               </p>
             </div>
-            <p className="text-[24px] font-black leading-none text-black">
+            <p className="text-[23px] font-black leading-none text-[#0f1a3b]">
               <AnimatedStatNumber
                 value={movingBuggies.length}
                 formatter={(value) => Math.round(value).toLocaleString(localeTag)}
@@ -689,14 +691,14 @@ export function AdminStatisticsPanel({ buggies }: AdminStatisticsPanelProps) {
             </p>
           </div>
 
-          <div className="rounded-[18px] border border-amber-100 bg-amber-50/70 p-3 shadow-[0_8px_20px_rgba(15,23,42,0.02)]">
-            <div className="mb-2 flex items-center gap-1.5 text-amber-600">
-              <Clock className="h-4 w-4 shrink-0" />
-              <p className="min-w-0 text-[9px] font-black uppercase tracking-widest">
+          <div className="border-r border-slate-100 p-3">
+            <div className="mb-2 flex items-center gap-1.5 text-slate-500">
+              <span className="h-2 w-2 rounded-full bg-amber-500" />
+              <p className="min-w-0 text-[9px] font-bold uppercase tracking-widest">
                 {t("idleVehicles")}
               </p>
             </div>
-            <p className="text-[24px] font-black leading-none text-black">
+            <p className="text-[23px] font-black leading-none text-[#0f1a3b]">
               <AnimatedStatNumber
                 value={idleBuggies.length}
                 formatter={(value) => Math.round(value).toLocaleString(localeTag)}
@@ -704,14 +706,14 @@ export function AdminStatisticsPanel({ buggies }: AdminStatisticsPanelProps) {
             </p>
           </div>
 
-          <div className="rounded-[18px] border border-red-200 bg-red-50 p-3 shadow-[0_8px_20px_rgba(15,23,42,0.02)]">
-            <div className="mb-2 flex items-center gap-1.5 text-red-500">
-              <Bus className="h-4 w-4 shrink-0" />
-              <p className="min-w-0 text-[9px] font-black uppercase tracking-widest">
+          <div className="p-3">
+            <div className="mb-2 flex items-center gap-1.5 text-slate-500">
+              <span className="h-2 w-2 rounded-full bg-rose-500" />
+              <p className="min-w-0 text-[9px] font-bold uppercase tracking-widest">
                 {t("stoppedVehicles")}
               </p>
             </div>
-            <p className="text-[24px] font-black leading-none text-black">
+            <p className="text-[23px] font-black leading-none text-[#0f1a3b]">
               <AnimatedStatNumber
                 value={stoppedBuggies.length}
                 formatter={(value) => Math.round(value).toLocaleString(localeTag)}
@@ -721,7 +723,7 @@ export function AdminStatisticsPanel({ buggies }: AdminStatisticsPanelProps) {
         </div>
 
         {/* Top Card: Penumpang */}
-        <div className="relative mb-3 flex items-center justify-between rounded-[20px] border border-slate-100 bg-white p-4 shadow-[0_8px_20px_rgba(15,23,42,0.02)] overflow-hidden">
+        <div className="relative flex items-center justify-between overflow-hidden rounded-[24px] border border-slate-200/80 bg-white/85 p-4 shadow-[0_10px_28px_rgba(15,23,42,0.04)]">
           {/* Abstract BG Pattern */}
           <div className="absolute right-0 top-0 h-full w-1/2 opacity-[0.03] pointer-events-none">
             <div className="absolute -right-4 -top-4 h-24 w-24 rounded-full border-[12px] border-slate-900" />
@@ -775,7 +777,7 @@ export function AdminStatisticsPanel({ buggies }: AdminStatisticsPanelProps) {
           </div>
         </div>
 
-        <div className="rounded-[20px] border border-slate-100 bg-white p-3.5 shadow-[0_8px_20px_rgba(15,23,42,0.02)] mb-3">
+        <div className="rounded-[24px] border border-slate-200/80 bg-white/85 p-3.5 shadow-[0_10px_28px_rgba(15,23,42,0.04)]">
           <div className="mb-3 flex items-start justify-between gap-3">
             <div className="min-w-0">
               <div className="mb-1 flex items-center gap-1.5">
@@ -807,7 +809,7 @@ export function AdminStatisticsPanel({ buggies }: AdminStatisticsPanelProps) {
         </div>
 
         {/* Grid Bawah: Statistik Operasional */}
-        <div className="overflow-hidden rounded-[20px] border border-slate-100 bg-white shadow-[0_8px_20px_rgba(15,23,42,0.02)] mb-3">
+        <div className="overflow-hidden rounded-[24px] border border-slate-200/80 bg-white/85 shadow-[0_10px_28px_rgba(15,23,42,0.04)]">
           <div className="grid grid-cols-2 border-b border-slate-100">
             <div className="border-r border-slate-100 p-3.5">
               <div className="mb-2 flex items-center gap-1.5">
@@ -914,7 +916,7 @@ export function AdminStatisticsPanel({ buggies }: AdminStatisticsPanelProps) {
           </div>
         </div>
 
-        <div className="rounded-[20px] border border-slate-100 bg-white p-3.5 shadow-[0_8px_20px_rgba(15,23,42,0.02)] mb-3">
+        <div className="rounded-[24px] border border-slate-200/80 bg-white/85 p-3.5 shadow-[0_10px_28px_rgba(15,23,42,0.04)]">
           <div className="mb-3 flex items-start justify-between gap-3">
             <div className="min-w-0">
               <div className="mb-1 flex items-center gap-1.5">
@@ -959,7 +961,7 @@ export function AdminStatisticsPanel({ buggies }: AdminStatisticsPanelProps) {
           <SmoothAreaChart data={delayTrend.data} color="#f59e0b" />
         </div>
 
-        <div className="mt-3 overflow-hidden rounded-[20px] border border-slate-100 bg-white shadow-[0_8px_20px_rgba(15,23,42,0.02)]">
+        <div className="overflow-hidden rounded-[24px] border border-slate-200/80 bg-white/85 shadow-[0_10px_28px_rgba(15,23,42,0.04)]">
           <div className="grid grid-cols-2 border-b border-slate-100">
             <StatTile
               icon={<Bus className="h-4 w-4" />}
@@ -1046,7 +1048,7 @@ export function AdminStatisticsPanel({ buggies }: AdminStatisticsPanelProps) {
 
         {/* Trend Chart */}
         {isLoadingSessions ? (
-          <div className="mt-3 rounded-[16px] bg-slate-50/80 p-3.5">
+          <div className="rounded-[22px] border border-slate-200/70 bg-white/85 p-3.5">
             <div className="mb-3 flex items-center justify-between gap-2">
               <Skeleton className="h-2.5 w-40" />
               <Skeleton className="h-5 w-16 rounded-full" />
@@ -1055,7 +1057,7 @@ export function AdminStatisticsPanel({ buggies }: AdminStatisticsPanelProps) {
           </div>
         ) : null}
         {!isLoadingSessions && filteredSessions.length > 0 && (
-          <div className="mt-3 rounded-[16px] bg-slate-50/80 p-3.5">
+          <div className="rounded-[22px] border border-slate-200/70 bg-white/85 p-3.5">
             <div className="mb-3 flex items-center justify-between gap-2">
               <p className="text-[9px] font-bold uppercase tracking-widest text-slate-500">
                 {t("dailyTripActivity")}
@@ -1082,9 +1084,9 @@ export function AdminStatisticsPanel({ buggies }: AdminStatisticsPanelProps) {
           </div>
         )}
 
-        <div className="mt-3 grid gap-3">
+        <div className="grid gap-3">
           <div className="grid gap-3 sm:grid-cols-2">
-            <div className="rounded-[20px] border border-slate-100 bg-white p-3.5 shadow-[0_8px_20px_rgba(15,23,42,0.02)]">
+            <div className="rounded-[24px] border border-slate-200/80 bg-white/85 p-3.5 shadow-[0_10px_28px_rgba(15,23,42,0.04)]">
               <div className="mb-3 flex items-start justify-between gap-2">
                 <div>
                   <div className="mb-1 flex items-center gap-1.5">
@@ -1113,7 +1115,7 @@ export function AdminStatisticsPanel({ buggies }: AdminStatisticsPanelProps) {
               ) : null}
             </div>
 
-            <div className="rounded-[20px] border border-slate-100 bg-white p-3.5 shadow-[0_8px_20px_rgba(15,23,42,0.02)]">
+            <div className="rounded-[24px] border border-slate-200/80 bg-white/85 p-3.5 shadow-[0_10px_28px_rgba(15,23,42,0.04)]">
               <div className="mb-3 flex items-start justify-between gap-2">
                 <div>
                   <div className="mb-1 flex items-center gap-1.5">
@@ -1142,7 +1144,7 @@ export function AdminStatisticsPanel({ buggies }: AdminStatisticsPanelProps) {
           </div>
         </div>
 
-        <div className="mt-3 grid grid-cols-3 gap-2 rounded-[20px] border border-slate-100 bg-slate-50/80 p-3">
+        <div className="grid grid-cols-3 gap-2 rounded-[24px] border border-slate-200/80 bg-white/85 p-3 shadow-[0_10px_28px_rgba(15,23,42,0.04)]">
           <div>
             <p className="text-[9px] font-bold uppercase tracking-widest text-slate-400">
               {t("distancePerTrip")}
@@ -1197,7 +1199,7 @@ export function AdminStatisticsPanel({ buggies }: AdminStatisticsPanelProps) {
         </div>
 
         {/* Footer info */}
-        <p className="mt-4 text-center text-[10px] leading-relaxed text-slate-400">
+        <p className="px-2 text-center text-[10px] leading-relaxed text-slate-400">
           {t("monthlyStatsFootnote")}
         </p>
       </div>
