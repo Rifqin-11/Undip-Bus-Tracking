@@ -1,7 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { requireAdmin } from "@/lib/auth/admin-guard";
-import { createAdminClient, getBuggySessionTableName, getBuggyHistoryTableName } from "@/lib/supabase/server";
+import {
+  createAdminClient,
+  createClient,
+  getBuggySessionTableName,
+  getBuggyHistoryTableName,
+} from "@/lib/supabase/server";
 import {
   saveSessionPointsToDb,
   buildSessionSummary,
@@ -19,6 +23,139 @@ export const dynamic = "force-dynamic";
 
 const HISTORY_PAGE_SIZE = 1_000;
 const MAX_RAW_HISTORY_ROWS = 50_000;
+
+type HistoryAccessContext = {
+  role: "Admin" | "Driver";
+  buggyIdFilters: string[] | null;
+};
+
+function normalizeAssignmentKey(value: string | null | undefined) {
+  return (value ?? "").trim().toLowerCase().replace(/[\s_]/g, "-");
+}
+
+function extractAssignmentNumericId(value: string | null | undefined) {
+  const normalized = normalizeAssignmentKey(value);
+  const match =
+    normalized.match(/^buggy-?0*(\d+)$/) ??
+    normalized.match(/^b0*(\d+)$/) ??
+    normalized.match(/^0*(\d+)$/);
+
+  if (!match) return null;
+
+  const numericId = Number.parseInt(match[1], 10);
+  return Number.isFinite(numericId) ? numericId : null;
+}
+
+function addBuggyAliases(target: Set<string>, value: string | number | null | undefined) {
+  if (value === null || value === undefined) return;
+  const raw = String(value).trim();
+  if (!raw) return;
+
+  target.add(raw);
+
+  const normalized = normalizeAssignmentKey(raw);
+  if (normalized) target.add(normalized);
+
+  const numericId = extractAssignmentNumericId(raw);
+  if (numericId !== null) {
+    target.add(String(numericId));
+    target.add(`buggy-${numericId}`);
+    target.add(`b${String(numericId).padStart(2, "0")}`);
+  }
+}
+
+async function getHistoryAccessContext(
+  adminSupabase: SupabaseClient,
+): Promise<HistoryAccessContext | NextResponse> {
+  let userSupabase: Awaited<ReturnType<typeof createClient>>;
+
+  try {
+    userSupabase = await createClient();
+  } catch {
+    return NextResponse.json(
+      { message: "Authentication required." },
+      { status: 401 },
+    );
+  }
+
+  const {
+    data: { user },
+  } = await userSupabase.auth.getUser();
+
+  if (!user) {
+    return NextResponse.json(
+      { message: "Authentication required." },
+      { status: 401 },
+    );
+  }
+
+  const { data: account, error } = await userSupabase
+    .from("accounts")
+    .select("role, buggy_id")
+    .eq("id", user.id)
+    .maybeSingle();
+
+  if (error || !account) {
+    return NextResponse.json(
+      { message: "Account profile not found." },
+      { status: 403 },
+    );
+  }
+
+  if (account.role === "Admin") {
+    return { role: "Admin", buggyIdFilters: null };
+  }
+
+  if (account.role !== "Driver") {
+    return NextResponse.json(
+      { message: "Admin or driver access required." },
+      { status: 403 },
+    );
+  }
+
+  const assignedBuggyId =
+    typeof account.buggy_id === "string" ? account.buggy_id : "";
+  const assignedKey = normalizeAssignmentKey(assignedBuggyId);
+  const assignedNumericId = extractAssignmentNumericId(assignedBuggyId);
+  const filters = new Set<string>();
+  addBuggyAliases(filters, assignedBuggyId);
+
+  const { data: buggies } = await adminSupabase
+    .from("buggies")
+    .select("id, code, name, numeric_id");
+
+  if (Array.isArray(buggies)) {
+    for (const buggy of buggies as Array<{
+      id: string | null;
+      code: string | null;
+      name: string | null;
+      numeric_id: number | null;
+    }>) {
+      const values = [buggy.id, buggy.code, buggy.name]
+        .filter((value): value is string => Boolean(value))
+        .map(normalizeAssignmentKey);
+      const numericMatches =
+        assignedNumericId !== null &&
+        typeof buggy.numeric_id === "number" &&
+        buggy.numeric_id === assignedNumericId;
+
+      if (values.includes(assignedKey) || numericMatches) {
+        addBuggyAliases(filters, buggy.id);
+        addBuggyAliases(filters, buggy.code);
+        addBuggyAliases(filters, buggy.name);
+        addBuggyAliases(filters, buggy.numeric_id);
+      }
+    }
+  }
+
+  return { role: "Driver", buggyIdFilters: Array.from(filters) };
+}
+
+function filterIncludesBuggyId(filters: string[], buggyId: string) {
+  const requested = new Set<string>();
+  addBuggyAliases(requested, buggyId);
+  return Array.from(requested).some((value) => filters.includes(value));
+}
 
 // ── Row mapper ────────────────────────────────────────────────────────────────
 
@@ -65,6 +202,7 @@ function mapRow(row: Record<string, unknown>): BuggySession | null {
     passengerPeak: asNum(row.passenger_peak),
     passengerSamples: Number(row.passenger_samples ?? 0),
     path: sanitizedPath as [number, number, number?][],
+    sourceSessionIds: [String(row.id)],
   };
 }
 
@@ -208,6 +346,9 @@ function mergeSessionsByOperationalBucket(
       passengerSamples,
       path: mergedPath as [number, number, number?][],
       isOngoing: ordered.some((session) => session.isOngoing),
+      sourceSessionIds: ordered.flatMap((session) =>
+        session.sourceSessionIds?.length ? session.sourceSessionIds : [session.id],
+      ),
     };
   });
 }
@@ -215,7 +356,7 @@ function mergeSessionsByOperationalBucket(
 async function fetchRecentHistoryRows(
   supabase: SupabaseClient,
   sinceIso: string,
-  buggyIdFilter: string,
+  buggyIdFilters: string[],
 ): Promise<Record<string, unknown>[]> {
   const rows: Record<string, unknown>[] = [];
   const tableName = getBuggyHistoryTableName();
@@ -232,8 +373,10 @@ async function fetchRecentHistoryRows(
       .order("recorded_at", { ascending: true })
       .range(offset, offset + HISTORY_PAGE_SIZE - 1);
 
-    if (buggyIdFilter) {
-      query = query.eq("buggy_id", buggyIdFilter);
+    if (buggyIdFilters.length === 1) {
+      query = query.eq("buggy_id", buggyIdFilters[0]);
+    } else if (buggyIdFilters.length > 1) {
+      query = query.in("buggy_id", buggyIdFilters);
     }
 
     const { data, error } = await query;
@@ -253,17 +396,31 @@ async function fetchRecentHistoryRows(
 // ── GET /api/buggy-sessions ───────────────────────────────────────────────────
 
 export async function GET(request: NextRequest) {
-  const adminGuard = await requireAdmin();
-  if (!adminGuard.authorized) return adminGuard.response;
-
   const supabase = createAdminClient();
   if (!supabase) {
     return NextResponse.json({ error: "Supabase not configured" }, { status: 500 });
   }
 
+  const access = await getHistoryAccessContext(supabase);
+  if (access instanceof NextResponse) return access;
+
   const params = request.nextUrl.searchParams;
   const buggyIdFilter = params.get("buggyId") ?? "";
-  const limit = Math.min(Math.max(Number.parseInt(params.get("limit") ?? "100", 10), 1), 500);
+  const limit = Math.min(Math.max(Number.parseInt(params.get("limit") ?? "100", 10), 1), 5000);
+  const buggyIdFilters =
+    access.buggyIdFilters === null
+      ? buggyIdFilter
+        ? [buggyIdFilter]
+        : []
+      : buggyIdFilter
+        ? filterIncludesBuggyId(access.buggyIdFilters, buggyIdFilter)
+          ? access.buggyIdFilters
+          : []
+        : access.buggyIdFilters;
+
+  if (access.role === "Driver" && buggyIdFilters.length === 0) {
+    return NextResponse.json({ sessions: [], count: 0 });
+  }
 
   // Background Cleanup: Auto-hapus data mentah GPS (buggy_history) yang usianya lebih dari 7 hari.
   // Dilakukan tanpa blocking thread (fire-and-forget) agar dashboard tetap kencang.
@@ -278,8 +435,10 @@ export async function GET(request: NextRequest) {
     .order("started_at", { ascending: false })
     .limit(limit);
 
-  if (buggyIdFilter) {
-    query = query.eq("buggy_id", buggyIdFilter);
+  if (buggyIdFilters.length === 1) {
+    query = query.eq("buggy_id", buggyIdFilters[0]);
+  } else if (buggyIdFilters.length > 1) {
+    query = query.in("buggy_id", buggyIdFilters);
   }
 
   const { data, error } = await query;
@@ -306,7 +465,7 @@ export async function GET(request: NextRequest) {
   
   let rawPoints: Record<string, unknown>[] = [];
   try {
-    rawPoints = await fetchRecentHistoryRows(supabase, yesterday, buggyIdFilter);
+    rawPoints = await fetchRecentHistoryRows(supabase, yesterday, buggyIdFilters);
   } catch (error) {
     return NextResponse.json(
       {

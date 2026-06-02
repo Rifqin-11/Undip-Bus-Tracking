@@ -148,7 +148,14 @@ export async function proxy(request: NextRequest) {
       );
     }
 
-    if ((isAdminApi || isHistoryApi) && role !== "Admin") {
+    if (isAdminApi && role !== "Admin") {
+      return NextResponse.json(
+        { message: "Admin access required." },
+        { status: 403 },
+      );
+    }
+
+    if (isHistoryApi && role !== "Admin" && role !== "Driver") {
       return NextResponse.json(
         { message: "Admin access required." },
         { status: 403 },

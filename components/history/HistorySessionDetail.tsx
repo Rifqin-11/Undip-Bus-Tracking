@@ -63,9 +63,11 @@ export function HistorySessionDetail({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           id: s.id,
+          sourceSessionIds: s.sourceSessionIds,
           buggyId: s.buggyId,
           startedAt: s.startedAt,
           endedAt: s.endedAt,
+          path: s.path,
         }),
       });
 

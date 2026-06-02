@@ -14,11 +14,9 @@ import {
   LogIn,
   LogOut,
   Map as MapIcon,
-  PanelRightOpen,
   RotateCcw,
   Radar,
   ShieldCheck,
-  SlidersHorizontal,
   UserCog,
   Users,
 } from "lucide-react";
@@ -407,32 +405,6 @@ export function AppSettingsPanel({
           </div>
         ) : null}
 
-        {/* <div className={settingCardClass}>
-          <div className="flex min-w-0 items-center gap-3">
-            <span className="grid size-10 shrink-0 place-items-center rounded-2xl bg-blue-50 text-blue-600">
-              <PanelRightOpen className="h-5 w-5" />
-            </span>
-            <div className="min-w-0">
-              <p className="text-[13px] font-black text-slate-900">
-                {t("openPanel")}
-              </p>
-              <p className="text-[11px] font-semibold text-slate-400">
-                {isDashboardMode ? t("operatorDashboard") : t("mainDashboard")}
-              </p>
-            </div>
-          </div>
-          <ToggleSwitch
-            checked={settings.openPanelOnDashboard}
-            onClick={() =>
-              onUpdateSetting(
-                "openPanelOnDashboard",
-                !settings.openPanelOnDashboard,
-              )
-            }
-            label={t("openPanelAutomatically")}
-          />
-        </div> */}
-
         {/* Nearby alert radius ── chip selector (hanya untuk user login) */}
         {userProfile ? (
           <div className="rounded-[20px] border border-slate-200/80 bg-white px-3.5 py-3 shadow-[0_8px_24px_rgba(15,23,42,0.05)]">
@@ -524,34 +496,6 @@ export function AppSettingsPanel({
             })}
           </div>
         </div>
-
-        {/* {isAdmin ? (
-          <div className={settingCardClass}>
-            <div className="flex min-w-0 items-center gap-3">
-              <span className="grid size-10 shrink-0 place-items-center rounded-2xl bg-violet-50 text-violet-600">
-                <SlidersHorizontal className="h-5 w-5" />
-              </span>
-              <div className="min-w-0">
-                <p className="text-[13px] font-black text-slate-900">
-                  {t("compactMode")}
-                </p>
-                <p className="text-[11px] font-semibold text-slate-400">
-                  {t("compactModeDescription")}
-                </p>
-              </div>
-            </div>
-            <ToggleSwitch
-              checked={settings.compactAdminPanels}
-              onClick={() =>
-                onUpdateSetting(
-                  "compactAdminPanels",
-                  !settings.compactAdminPanels,
-                )
-              }
-              label={t("compactAdminPanelMode")}
-            />
-          </div>
-        ) : null} */}
 
         {/* Reset preferensi (2-step confirm, auto-revert 4s) */}
         {onResetSettings ? (

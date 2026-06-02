@@ -30,7 +30,7 @@ export function Skeleton({ className = "", style, ...rest }: SkeletonProps) {
 
 /**
  * Baris skeleton untuk daftar list-style (avatar + 2 baris teks + chevron).
- * Pas dipakai di NotificationSection, HistoryBuggyList, AccountManagementPanel, GeofenceManager.
+ * Pas dipakai di NotificationSection, AccountManagementPanel, GeofenceManager.
  */
 export function SkeletonRow({
   showLeading = true,

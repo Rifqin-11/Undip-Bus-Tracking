@@ -9,7 +9,6 @@ import {
   MapPinIcon,
   NavigationIcon,
 } from "@/components/ui/Icons";
-import LiquidGlass from "liquid-glass-react";
 
 type LiveSearchBarProps = {
   fromValue: string;

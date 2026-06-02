@@ -54,7 +54,6 @@ import { useLocale } from "@/lib/i18n/client";
 import { localizePath } from "@/lib/i18n/routing";
 import { LogoutIcon, BellIcon } from "@/components/ui/Icons";
 import { PenIcon } from "lucide-react";
-import LiquidGlass from "liquid-glass-react";
 
 const GEOFENCE_DEFAULT_RADIUS_METERS = 100;
 const GEOFENCE_EVENT_LIMIT = 100;

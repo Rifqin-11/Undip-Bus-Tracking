@@ -1,11 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requireAdmin } from "@/lib/auth/admin-guard";
 import {
   mapBuggyHistoryRow,
   sortHistoryNewestFirst,
 } from "@/lib/supabase/buggy-history";
 import {
   createAdminClient,
+  createClient,
   getBuggyHistoryTableName,
 } from "@/lib/supabase/server";
 import type { BuggyHistoryEntry } from "@/types/buggy-history";
@@ -26,10 +26,130 @@ function normalizeBuggyFilter(value: string): string {
   return text;
 }
 
-export async function GET(request: NextRequest) {
-  const adminGuard = await requireAdmin();
-  if (!adminGuard.authorized) return adminGuard.response;
+function normalizeAssignmentKey(value: string | null | undefined) {
+  return (value ?? "").trim().toLowerCase().replace(/[\s_]/g, "-");
+}
 
+function extractAssignmentNumericId(value: string | null | undefined) {
+  const normalized = normalizeAssignmentKey(value);
+  const match =
+    normalized.match(/^buggy-?0*(\d+)$/) ??
+    normalized.match(/^b0*(\d+)$/) ??
+    normalized.match(/^0*(\d+)$/);
+
+  if (!match) return null;
+
+  const numericId = Number.parseInt(match[1], 10);
+  return Number.isFinite(numericId) ? numericId : null;
+}
+
+function addBuggyAliases(target: Set<string>, value: string | number | null | undefined) {
+  if (value === null || value === undefined) return;
+  const raw = String(value).trim();
+  if (!raw) return;
+
+  target.add(raw);
+  target.add(normalizeAssignmentKey(raw));
+
+  const numericId = extractAssignmentNumericId(raw);
+  if (numericId !== null) {
+    target.add(String(numericId));
+    target.add(`buggy-${numericId}`);
+    target.add(`b${String(numericId).padStart(2, "0")}`);
+  }
+}
+
+async function resolveHistoryBuggyFilters() {
+  let userSupabase: Awaited<ReturnType<typeof createClient>>;
+
+  try {
+    userSupabase = await createClient();
+  } catch {
+    return NextResponse.json(
+      { message: "Authentication required." },
+      { status: 401 },
+    );
+  }
+
+  const {
+    data: { user },
+  } = await userSupabase.auth.getUser();
+
+  if (!user) {
+    return NextResponse.json(
+      { message: "Authentication required." },
+      { status: 401 },
+    );
+  }
+
+  const { data: account, error } = await userSupabase
+    .from("accounts")
+    .select("role, buggy_id")
+    .eq("id", user.id)
+    .maybeSingle();
+
+  if (error || !account) {
+    return NextResponse.json(
+      { message: "Account profile not found." },
+      { status: 403 },
+    );
+  }
+
+  if (account.role === "Admin") return null;
+
+  if (account.role !== "Driver") {
+    return NextResponse.json(
+      { message: "Admin or driver access required." },
+      { status: 403 },
+    );
+  }
+
+  const assignedBuggyId =
+    typeof account.buggy_id === "string" ? account.buggy_id : "";
+  const assignedKey = normalizeAssignmentKey(assignedBuggyId);
+  const assignedNumericId = extractAssignmentNumericId(assignedBuggyId);
+  const filters = new Set<string>();
+  addBuggyAliases(filters, assignedBuggyId);
+
+  const adminSupabase = createAdminClient();
+  const { data: buggies } = adminSupabase
+    ? await adminSupabase.from("buggies").select("id, code, name, numeric_id")
+    : { data: [] };
+
+  if (Array.isArray(buggies)) {
+    for (const buggy of buggies as Array<{
+      id: string | null;
+      code: string | null;
+      name: string | null;
+      numeric_id: number | null;
+    }>) {
+      const values = [buggy.id, buggy.code, buggy.name]
+        .filter((value): value is string => Boolean(value))
+        .map(normalizeAssignmentKey);
+      const numericMatches =
+        assignedNumericId !== null &&
+        typeof buggy.numeric_id === "number" &&
+        buggy.numeric_id === assignedNumericId;
+
+      if (values.includes(assignedKey) || numericMatches) {
+        addBuggyAliases(filters, buggy.id);
+        addBuggyAliases(filters, buggy.code);
+        addBuggyAliases(filters, buggy.name);
+        addBuggyAliases(filters, buggy.numeric_id);
+      }
+    }
+  }
+
+  return Array.from(filters);
+}
+
+function filterAllowsBuggyId(filters: string[], buggyId: string) {
+  const aliases = new Set<string>();
+  addBuggyAliases(aliases, buggyId);
+  return Array.from(aliases).some((alias) => filters.includes(alias));
+}
+
+export async function GET(request: NextRequest) {
   const supabase = createAdminClient();
   if (!supabase) {
     return NextResponse.json(
@@ -41,6 +161,9 @@ export async function GET(request: NextRequest) {
     );
   }
 
+  const allowedBuggyIds = await resolveHistoryBuggyFilters();
+  if (allowedBuggyIds instanceof NextResponse) return allowedBuggyIds;
+
   const query = request.nextUrl.searchParams;
   const limitRaw = Number.parseInt(query.get("limit") ?? "200", 10);
   const limit = Number.isFinite(limitRaw)
@@ -48,12 +171,39 @@ export async function GET(request: NextRequest) {
     : 200;
 
   const buggyIdFilter = normalizeBuggyFilter(query.get("buggyId") ?? "");
+  const queryBuggyIds =
+    allowedBuggyIds === null
+      ? buggyIdFilter
+        ? [buggyIdFilter]
+        : []
+      : buggyIdFilter
+        ? filterAllowsBuggyId(allowedBuggyIds, buggyIdFilter)
+          ? allowedBuggyIds
+          : []
+        : allowedBuggyIds;
+
+  if (allowedBuggyIds !== null && queryBuggyIds.length === 0) {
+    return NextResponse.json({
+      entries: [],
+      count: 0,
+      table: getBuggyHistoryTableName(),
+    });
+  }
+
   const tableName = getBuggyHistoryTableName();
 
-  const { data, error } = await supabase
+  let historyQuery = supabase
     .from(tableName)
     .select("*")
     .limit(limit);
+
+  if (queryBuggyIds.length === 1) {
+    historyQuery = historyQuery.eq("buggy_id", queryBuggyIds[0]);
+  } else if (queryBuggyIds.length > 1) {
+    historyQuery = historyQuery.in("buggy_id", queryBuggyIds);
+  }
+
+  const { data, error } = await historyQuery;
 
   if (error) {
     return NextResponse.json(

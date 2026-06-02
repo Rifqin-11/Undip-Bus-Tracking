@@ -12,6 +12,16 @@ type CreateGeofenceInput = {
   radiusMeters: number;
 };
 
+type UpdateGeofenceInput = {
+  name?: string;
+  center?: {
+    lat: number;
+    lng: number;
+  };
+  radiusMeters?: number;
+  enabled?: boolean;
+};
+
 function isFiniteNumber(v: unknown): v is number {
   return typeof v === "number" && Number.isFinite(v);
 }
@@ -90,15 +100,58 @@ export async function createGeofence(input: CreateGeofenceInput): Promise<Geofen
 }
 
 export async function patchGeofenceEnabled(id: string, enabled: boolean): Promise<Geofence | null> {
+  return updateGeofenceById(id, { enabled });
+}
+
+export async function updateGeofenceById(
+  id: string,
+  input: UpdateGeofenceInput,
+): Promise<Geofence | null> {
   const supabase = createAdminClient();
   if (!supabase) return null;
 
+  const patch: Record<string, unknown> = {};
+
+  if (typeof input.name === "string") {
+    const name = input.name.trim();
+    if (!name) throw new Error("Nama geofence wajib diisi.");
+    patch.name = name;
+  }
+
+  if (input.center) {
+    if (
+      !isFiniteNumber(input.center.lat) ||
+      !isFiniteNumber(input.center.lng) ||
+      !isValidLatLng(input.center.lat, input.center.lng)
+    ) {
+      throw new Error("Koordinat geofence tidak valid.");
+    }
+    patch.center_lat = input.center.lat;
+    patch.center_lng = input.center.lng;
+  }
+
+  if (input.radiusMeters !== undefined) {
+    if (!isFiniteNumber(input.radiusMeters) || input.radiusMeters <= 0) {
+      throw new Error("Radius geofence harus lebih dari 0.");
+    }
+    patch.radius_meters = input.radiusMeters;
+  }
+
+  if (input.enabled !== undefined) {
+    if (typeof input.enabled !== "boolean") {
+      throw new Error("Field `enabled` wajib boolean.");
+    }
+    patch.enabled = input.enabled;
+  }
+
+  if (Object.keys(patch).length === 0) return null;
+
   const { data, error } = await supabase
     .from("geofences")
-    .update({ enabled })
+    .update(patch)
     .eq("id", id)
     .select()
-    .single();
+    .maybeSingle();
 
   if (error || !data) return null;
   return mapSupabaseToGeofence(data);
@@ -108,10 +161,11 @@ export async function deleteGeofenceById(id: string): Promise<boolean> {
   const supabase = createAdminClient();
   if (!supabase) return false;
 
-  const { error } = await supabase
+  const { data, error } = await supabase
     .from("geofences")
     .delete()
-    .eq("id", id);
+    .eq("id", id)
+    .select("id");
 
-  return !error;
+  return !error && Array.isArray(data) && data.length > 0;
 }

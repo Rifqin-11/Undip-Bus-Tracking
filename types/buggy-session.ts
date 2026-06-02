@@ -26,4 +26,6 @@ export type BuggySession = {
   path: [number, number, number?][];
   /** True when the session is currently in progress (not yet finalized) */
   isOngoing?: boolean;
+  /** IDs of persisted session rows represented by a merged display session. */
+  sourceSessionIds?: string[];
 };
