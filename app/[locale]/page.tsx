@@ -342,6 +342,7 @@ export default function DashboardPage() {
           setToInput(val);
           setDirectionResult(null);
         }}
+        userPosition={userPosition}
         getLatestUserPosition={getLatestUserPosition}
         onSubmit={runDirectionSearch}
         showOriginField={searchStep === "origin"}

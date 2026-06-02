@@ -38,6 +38,10 @@ function ensureGoogleMaps(): boolean {
   );
 }
 
+function isMyLocationLabel(value: string, label: string) {
+  return normalize(value) === normalize(label);
+}
+
 /** State + handler untuk pencarian rute (origin/destination) berbasis Google Maps. */
 export function useDirectionSearch(opts: UseDirectionSearchOptions) {
   const { t } = useTranslation("dashboard");
@@ -81,6 +85,7 @@ export function useDirectionSearch(opts: UseDirectionSearchOptions) {
       }
 
       const mapsService = GoogleMapsService.fromWindow();
+      const myLocationLabel = t("useMyLocation");
 
       // ── Resolve origin ─────────────────────────────────────────────────
       let originHalte = findHalteByQuery(fromInput, haltes);
@@ -88,7 +93,7 @@ export function useDirectionSearch(opts: UseDirectionSearchOptions) {
       let originPos: LatLng;
 
       const effectiveFrom = normalize(fromInput);
-      if (!effectiveFrom) {
+      if (!effectiveFrom || isMyLocationLabel(fromInput, myLocationLabel)) {
         const currentPos = await getLatestUserPosition();
         if (!currentPos) {
           alert("Aktifkan izin lokasi atau ketik lokasi asal Anda.");
@@ -145,7 +150,28 @@ export function useDirectionSearch(opts: UseDirectionSearchOptions) {
       let walkingFromHalte: DirectionResult["walkingFromHalte"];
       let destPos: LatLng;
 
-      if (!destHalte) {
+      if (isMyLocationLabel(toInput, myLocationLabel)) {
+        const currentPos = await getLatestUserPosition();
+        if (!currentPos) {
+          alert("Aktifkan izin lokasi atau ketik lokasi tujuan Anda.");
+          return;
+        }
+        destPos = currentPos;
+        destHalte = mapsService.findNearestHalte(currentPos, haltes);
+        if (!destHalte) return;
+        const walk = await mapsService.getWalkingDirections(
+          { lat: destHalte.lat, lng: destHalte.lng },
+          currentPos,
+        );
+        if (walk) {
+          walkingFromHalte = {
+            destinationHalteName: destHalte.name,
+            distance: walk.totalDistance,
+            duration: walk.totalDuration,
+            path: walk.decodedPath,
+          };
+        }
+      } else if (!destHalte) {
         const geocoded = await mapsService.geocodePlace(toInput);
         if (!geocoded) {
           alert(

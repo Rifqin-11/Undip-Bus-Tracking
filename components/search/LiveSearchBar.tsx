@@ -15,6 +15,7 @@ type LiveSearchBarProps = {
   toValue: string;
   onFromChange: (value: string) => void;
   onToChange: (value: string) => void;
+  userPosition?: { lat: number; lng: number } | null;
   getLatestUserPosition?: () => Promise<{ lat: number; lng: number } | null>;
   onSubmit: () => void;
   showOriginField: boolean;
@@ -29,6 +30,7 @@ export function LiveSearchBar({
   toValue,
   onFromChange,
   onToChange,
+  userPosition,
   getLatestUserPosition,
   onSubmit,
   showOriginField,
@@ -58,6 +60,23 @@ export function LiveSearchBar({
   const showDropdown = isFocused;
 
   const handleUseMyLocation = useCallback(async () => {
+    const targetField = focusedField ?? (showOriginField ? "from" : "to");
+    const applyMyLocationLabel = () => {
+      if (targetField === "from") {
+        onFromChange(t("useMyLocation"));
+      } else {
+        onToChange(t("useMyLocation"));
+      }
+      setLocationState("done");
+      setIsFocused(false);
+      setFocusedField(null);
+    };
+
+    if (userPosition) {
+      applyMyLocationLabel();
+      return;
+    }
+
     if (typeof window === "undefined" || !navigator.geolocation) {
       setLocationState("error");
       setLocationErrorLabel(t("locationUnsupported"));
@@ -97,16 +116,7 @@ export function LiveSearchBar({
         return;
       }
 
-      const locationString = `${position.lat.toFixed(6)}, ${position.lng.toFixed(6)}`;
-      const targetField = focusedField ?? (showOriginField ? "from" : "to");
-      if (targetField === "from") {
-        onFromChange(locationString);
-      } else {
-        onToChange(locationString);
-      }
-      setLocationState("done");
-      setIsFocused(false);
-      setFocusedField(null);
+      applyMyLocationLabel();
     } catch {
       setLocationState("error");
       setLocationErrorLabel(t("locationUnavailable"));
@@ -118,6 +128,7 @@ export function LiveSearchBar({
     onToChange,
     showOriginField,
     t,
+    userPosition,
   ]);
 
   useEffect(() => {

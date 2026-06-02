@@ -3,7 +3,7 @@
 > **Judul proyek:** Sistem Monitoring dan Tracking Real-Time Armada Buggy Listrik Kampus UNDIP
 > **Nama aplikasi:** SIMOBI
 > **Konteks:** Smart Mobility Universitas Diponegoro
-> **Status dokumen:** Diperbarui sesuai kondisi repo saat ini, 1 Juni 2026
+> **Status dokumen:** Diperbarui sesuai kondisi repo saat ini, 2 Juni 2026
 > **Tujuan dokumen:** Ringkasan teknis yang siap dipakai sebagai konteks untuk penulisan BAB skripsi, diskusi dengan dosen pembimbing, atau ditempel ke AI lain.
 
 ---
@@ -33,7 +33,7 @@ Sistem ini bukan hanya aplikasi peta, tetapi juga dashboard operasional yang men
 | Peran | Akses dan Fungsi |
 | --- | --- |
 | Pengguna umum | Melihat peta buggy, halte, rute, ETA, detail buggy, rekomendasi halte terdekat, dan fitur favorit jika sudah login. |
-| Driver | Melihat dashboard terbatas sesuai buggy yang ditugaskan. Driver tidak mendapat akses penuh seperti admin. |
+| Driver | Melihat dashboard terbatas sesuai buggy yang ditugaskan, termasuk statistik dan riwayat perjalanan khusus buggy tersebut. Driver tidak mendapat akses penuh seperti admin. |
 | Admin | Mengelola buggy, halte, geofence, akun, notifikasi, statistik operasional, dan riwayat perjalanan. |
 
 Pembagian peran dilakukan melalui Supabase Auth dan tabel `accounts`. Role yang dipakai pada aplikasi adalah `Admin`, `Driver`, dan `Pengguna umum`.
@@ -69,11 +69,13 @@ Fitur utama:
 - Penambahan dan pengelolaan buggy.
 - Data halte dan pengelolaan halte.
 - Manajemen geofence berbasis titik pusat dan radius.
-- Log event geofence.
-- Riwayat sesi perjalanan buggy.
+- Log event geofence, termasuk deteksi buggy masuk dan keluar area.
+- Riwayat sesi perjalanan buggy berbasis kalender tanggal, dengan daftar buggy aktif pada tanggal yang dipilih.
+- Detail sesi perjalanan yang menampilkan path GPS, titik berhenti di area halte, dan marker waktu pada peta.
 - Manajemen akun admin dan driver.
 - Manajemen notifikasi atau pengumuman.
-- Pengaturan aplikasi, bahasa, tampilan peta, notifikasi browser, dan akun.
+- Pengaturan aplikasi, bahasa, tampilan peta, notifikasi browser, alert geofence, alert buggy offline terlalu lama, dan akun.
+- Detail operasional buggy yang menampilkan muatan penumpang, kecepatan, status koneksi, last seen, serta status GSM/MQTT jika tersedia.
 
 ### 3.3 Dashboard Driver
 
@@ -83,6 +85,7 @@ Fitur utama:
 
 - Monitoring buggy yang ditugaskan.
 - Informasi posisi dan status operasional.
+- Statistik dan riwayat perjalanan untuk buggy yang ditugaskan.
 - Tampilan yang tidak memberikan akses penuh ke pengelolaan admin.
 
 ### 3.4 GPS Tracker Simulator
@@ -267,6 +270,27 @@ Alur Web Push:
 Catatan penting: PWA web tidak dapat menjamin pembacaan lokasi pengguna secara real-time ketika aplikasi tertutup total. Karena itu, server menggunakan posisi terakhir yang berhasil disinkronkan saat aplikasi web aktif.
 
 Buggy dengan status `Connection lost` atau `Offline` tidak digunakan sebagai dasar pengiriman notifikasi mendekati halte karena posisi tersebut berpotensi sudah tidak aktual.
+
+### 6.5 Alert Operasional Admin
+
+Selain notifikasi buggy mendekati halte untuk pengguna umum, dashboard admin memiliki alert operasional yang berjalan saat halaman dashboard aktif.
+
+Alert yang tersedia:
+
+- **Buggy masuk atau keluar geofence**, yaitu event yang dihitung dari posisi buggy terhadap geofence aktif berbasis radius.
+- **Buggy offline terlalu lama**, yaitu peringatan ketika buggy berstatus `Offline` dan tidak mengirim telemetry lebih dari 5 menit.
+
+Preferensi alert tersebut tersedia pada App Settings admin dan disimpan di local storage perangkat. Master switch notifikasi browser tetap bergantung pada izin Notification API browser, sedangkan toggle alert granular mengatur apakah event operasional ditampilkan pada dashboard.
+
+Event geofence saat ini digunakan sebagai in-app event log dan browser notification ketika izin tersedia. Penyimpanan permanen event geofence ke database masih dapat dikembangkan lebih lanjut apabila dibutuhkan audit operasional jangka panjang.
+
+### 6.6 Alur Riwayat Sesi Perjalanan
+
+Panel riwayat sesi perjalanan menampilkan data berbasis tanggal. Pengguna memilih tanggal melalui tampilan kalender; tanggal yang memiliki sesi ditandai dengan indikator titik. Setelah tanggal dipilih, sistem menampilkan buggy yang aktif pada tanggal tersebut.
+
+Pada detail sesi, path GPS ditampilkan pada peta. Sistem juga mendeteksi titik berhenti berdasarkan kedekatan titik GPS terhadap lokasi halte. Titik berhenti tersebut divisualisasikan sebagai marker pada peta dengan label waktu, sehingga admin atau driver dapat melihat konteks pergerakan buggy terhadap halte.
+
+Penghapusan sesi perjalanan dilakukan lebih presisi dengan memanfaatkan ID sesi tersimpan atau `sourceSessionIds` pada sesi yang digabung, serta timestamp path GPS. Mekanisme ini mengurangi risiko penghapusan data sesi lain yang waktunya berdekatan dibanding pendekatan time-window yang terlalu longgar.
 
 ---
 
@@ -525,7 +549,7 @@ Field penting:
 - `enabled`
 - `created_at`
 
-Admin dapat menambahkan, mengaktifkan, menonaktifkan, dan menghapus geofence.
+Admin dapat menambahkan, mengedit, mengaktifkan, menonaktifkan, dan menghapus geofence. Proses edit mendukung perubahan nama zona, titik pusat, dan radius. Proses delete memvalidasi keberadaan ID geofence sehingga API tidak memberikan status berhasil ketika data yang dimaksud tidak ditemukan.
 
 ### 8.5 `announcements`
 
@@ -576,7 +600,7 @@ Data yang disimpan mencakup:
 - Jumlah sampel pembacaan penumpang (`passenger_samples`).
 - Path perjalanan.
 
-Tabel ini digunakan oleh panel riwayat perjalanan dan statistik operasional admin.
+Tabel ini digunakan oleh panel riwayat perjalanan dan statistik operasional. Admin dapat melihat seluruh data sesi, sedangkan driver hanya dapat melihat sesi dari buggy yang ditugaskan.
 
 Perubahan terbaru: kolom `passenger_avg`, `passenger_peak`, dan `passenger_samples` ditambahkan melalui migrasi `20260526061902_add_passenger_metrics_to_buggy_sessions.sql` untuk mendukung analitik penumpang historis per sesi.
 
@@ -649,9 +673,9 @@ Tabel ini dibuat melalui migrasi `20260601122722_create_notification_subscriptio
 | `GET` | `/api/buggy/stream` | Alternatif live feed menggunakan SSE. |
 | `POST` | `/api/gps-beacon` | Ingest data GPS dari MQTT bridge atau simulator. |
 | `POST` | `/api/buggy/ingest` | Ingest snapshot atau telemetry legacy. |
-| `GET` | `/api/buggy-history` | Mengambil histori GPS, hanya untuk admin. |
-| `GET` | `/api/buggy-sessions` | Mengambil riwayat sesi perjalanan, hanya untuk admin. |
-| `POST` | `/api/buggy-sessions/delete` | Menghapus sesi perjalanan, hanya untuk admin. |
+| `GET` | `/api/buggy-history` | Mengambil histori GPS. Admin melihat seluruh data, driver hanya data buggy yang ditugaskan. |
+| `GET` | `/api/buggy-sessions` | Mengambil riwayat sesi perjalanan. Admin melihat seluruh data, driver hanya data buggy yang ditugaskan. |
+| `POST` | `/api/buggy-sessions/delete` | Menghapus sesi perjalanan secara presisi berdasarkan ID/session source dan timestamp path, hanya untuk admin. |
 | `GET/POST` | `/api/haltes` | Membaca dan menambah halte. |
 | `GET/PATCH/DELETE` | `/api/haltes/[id]` | Mengelola detail halte. |
 | `GET/POST` | `/api/geofences` | Membaca dan menambah geofence. |
@@ -697,12 +721,15 @@ Aturan akses penting:
 - User yang belum login diarahkan ke halaman login.
 - User umum tidak boleh masuk ke admin atau driver page.
 - `/gps-tracker` hanya dapat diakses admin.
-- API admin dan history hanya dapat diakses admin.
+- API admin hanya dapat diakses admin.
+- API history dapat diakses admin dan driver, tetapi driver hanya menerima data buggy yang ditugaskan melalui filter server-side.
 - API geofence untuk method selain `GET` hanya dapat diakses admin.
 
 ### 10.3 Admin Guard
 
 `lib/auth/admin-guard.ts` menyediakan fungsi `requireAdmin()`. Fungsi ini mengecek Supabase session, lalu membaca `accounts.role`. Jika user belum login, API membalas `401`. Jika bukan admin, API membalas `403`.
+
+Untuk endpoint history yang juga dibuka bagi driver, route handler melakukan pengecekan session dan role secara eksplisit. Jika role adalah `Driver`, sistem membaca `accounts.buggy_id`, mencocokkannya dengan alias buggy seperti UUID, kode, nama, ID numerik, `buggy-N`, atau `bNN`, lalu membatasi query Supabase hanya pada buggy tersebut.
 
 ### 10.4 Ingest Token
 
@@ -794,6 +821,7 @@ Panel statistik admin mengambil data dari sesi perjalanan. Statistik yang dihitu
 
 Catatan penting:
 
+- Pada detail operasional buggy, metrik baterai tidak dijadikan indikator utama karena data baterai perangkat belum digunakan secara konsisten. Tampilan utama diganti menjadi muatan penumpang, kecepatan, status koneksi, dan last seen.
 - Metrik penumpang historis kini tersedia melalui kolom `passenger_avg`, `passenger_peak`, dan `passenger_samples` pada tabel `buggy_session_history`.
 - Tabel `latest_buggy_telemetry` juga menyimpan field `passengers` terbaru yang digunakan untuk merender kondisi penumpang secara real-time pada dashboard.
 - Kapasitas buggy diambil dari data master `buggies.capacity`, bukan dari payload telemetry, untuk mencegah nilai stale device menimpa perubahan yang dilakukan dari admin panel.
@@ -976,6 +1004,8 @@ Batasan yang sebaiknya dijelaskan secara jujur di skripsi:
 - Notifikasi Web Push PWA memakai posisi terakhir pengguna yang berhasil disinkronkan saat aplikasi aktif. Browser web tidak menjamin pembacaan lokasi real-time ketika aplikasi tertutup total.
 - Endpoint `/api/push/check-nearby` perlu dipanggil secara berkala oleh scheduler seperti Vercel Cron atau worker eksternal agar push notification dapat dikirim otomatis.
 - Statistik penumpang historis kini sudah tersedia melalui kolom `passenger_avg`, `passenger_peak`, dan `passenger_samples` pada `buggy_session_history`; namun tampilan analitiknya di endpoint statistik masih dapat dikembangkan lebih lanjut.
+- Alert geofence dan alert buggy offline terlalu lama sudah tersedia pada dashboard admin, tetapi event geofence belum disimpan permanen sebagai tabel audit terpisah.
+- Data baterai masih dapat diterima pada payload telemetry, tetapi belum dijadikan indikator utama pada detail operasional karena belum menjadi data yang digunakan secara konsisten.
 - Remote engine cut-off dan command queue masih cocok diposisikan sebagai rencana pengembangan, bukan fitur utama yang sudah selesai.
 - Akurasi ETA dan geofence bergantung pada kualitas data GPS, interval pengiriman, dan koneksi jaringan.
 
@@ -989,9 +1019,9 @@ Pengembangan berikutnya yang dapat ditulis sebagai saran:
 - Peningkatan konfigurasi broker production ke TLS penuh jika perangkat dan hosting sudah mendukung.
 - Command queue untuk perintah jarak jauh seperti engine cut-off.
 - ACK mechanism dari buggy ke server.
-- Alert geofence yang lebih formal dan tersimpan permanen.
+- Penyimpanan permanen event geofence dan alert operasional sebagai audit log.
 - Integrasi cron production untuk Web Push checker dengan interval yang disesuaikan kebutuhan operasional.
-- Peningkatan notifikasi menjadi preference per pengguna, misalnya radius, halte favorit, dan jam aktif notifikasi.
+- Peningkatan notifikasi menjadi preference per pengguna yang lebih lengkap, misalnya radius, halte favorit, jam aktif notifikasi, dan sinkronisasi preferensi ke database.
 - Perhitungan ETA yang lebih cerdas berdasarkan histori perjalanan.
 - Dashboard analitik penumpang historis.
 - Pengujian lapangan dengan beberapa unit buggy.
@@ -1001,8 +1031,8 @@ Pengembangan berikutnya yang dapat ditulis sebagai saran:
 
 ## 20. Ringkasan Singkat untuk Ditempel ke AI Lain
 
-SIMOBI adalah sistem monitoring real-time armada buggy listrik kampus UNDIP berbasis Next.js 16, React 19, TypeScript, Supabase PostgreSQL/Auth, Google Maps API, MQTT, dan PWA Web Push Notification. Sistem memiliki tiga peran pengguna: pengguna umum, driver, dan admin. Pengguna umum dapat melihat peta buggy, halte, ETA, rute, detail buggy, status koneksi, posisi terakhir buggy, favorit, serta menerima notifikasi ketika buggy mendekati halte terdekat dari posisi terakhir pengguna. Driver melihat dashboard terbatas sesuai buggy yang ditugaskan. Admin dapat mengelola buggy, halte, geofence, akun, notifikasi, statistik, dan riwayat perjalanan.
+SIMOBI adalah sistem monitoring real-time armada buggy listrik kampus UNDIP berbasis Next.js 16, React 19, TypeScript, Supabase PostgreSQL/Auth, Google Maps API, MQTT, dan PWA Web Push Notification. Sistem memiliki tiga peran pengguna: pengguna umum, driver, dan admin. Pengguna umum dapat melihat peta buggy, halte, ETA, rute, detail buggy, status koneksi, posisi terakhir buggy, favorit, serta menerima notifikasi ketika buggy mendekati halte terdekat dari posisi terakhir pengguna. Driver melihat dashboard terbatas sesuai buggy yang ditugaskan, termasuk statistik dan riwayat sesi untuk buggy tersebut. Admin dapat mengelola buggy, halte, geofence, akun, notifikasi, statistik, riwayat perjalanan, alert geofence, dan alert buggy offline terlalu lama.
 
 Alur data utama adalah GPS tracker/simulator/hardware mengirim telemetry ke MQTT broker pada topic `buggy/{id}/data`. Broker production menggunakan Mosquitto pada folder sibling `simobi-mosquitto-broker`, dengan autentikasi username/password, ACL per device, persistence internal `mosquitto.db`, dan deployment long-running. MQTT bridge production berada pada folder sibling `mqtt-bridge-service`; worker ini subscribe ke `buggy/+/data`, menormalisasi payload, lalu meneruskan data ke endpoint protected `POST /api/gps-beacon`. Untuk data simulator `/gps-tracker`, terdapat service terpisah `mqtt-simulator-bridge-service` agar data testing tidak mengganggu pipeline production. Endpoint ingest memvalidasi `BUGGY_INGEST_TOKEN`, memperbarui live buggy store, menyimpan raw telemetry ke `buggy_history`, meng-upsert snapshot ke `latest_buggy_telemetry`, dan mengelola sesi perjalanan ke `buggy_session_history`. Setiap snapshot terbaru menyimpan `received_at` sebagai waktu server menerima telemetry. Field ini digunakan untuk menghitung status koneksi `Online`, `Signal unstable`, `Connection lost`, atau `Offline`, sehingga dashboard tetap dapat menampilkan last known location ketika sinyal SIM800 melemah. Frontend membaca data terbaru melalui `GET /api/buggy` dengan mode polling default setiap 1,5 detik atau alternatif SSE melalui `/api/buggy/stream`. Untuk notifikasi PWA, browser mendaftarkan service worker `/sw.js`, menyimpan push subscription ke `notification_subscriptions`, lalu endpoint `/api/push/check-nearby` mengirim Web Push ketika buggy dengan status `Online` atau `Signal unstable` mendekati halte terdekat pengguna.
 
-Database utama terdiri dari `accounts`, `buggies`, `haltes`, `geofences`, `announcements`, `buggy_history`, `buggy_session_history`, `latest_buggy_telemetry`, dan `notification_subscriptions`. Tabel `latest_buggy_telemetry` menyimpan satu baris snapshot telemetry terbaru per buggy untuk mendukung fallback saat live store in-memory direset pada serverless deployment, termasuk kolom `received_at` untuk menentukan kesegaran data. Tabel `notification_subscriptions` menyimpan endpoint Web Push, key subscription, posisi terakhir pengguna, radius alert, dan cooldown notifikasi. Tabel `buggy_history` kini memiliki kolom `passengers` untuk pelacakan historis penumpang per titik GPS. Tabel `buggy_session_history` memiliki kolom `passenger_avg`, `passenger_peak`, dan `passenger_samples` untuk analitik penumpang per sesi perjalanan. Sistem menggunakan `proxy.ts` dan `requireAdmin()` untuk role-based access, sedangkan endpoint ingest dilindungi bearer token. Endpoint push checker dilindungi `PUSH_WORKER_TOKEN` atau `CRON_SECRET`. Geofence saat ini berbasis center point dan radius. Aplikasi mendukung bahasa Indonesia dan Inggris melalui route `/id` dan `/en`. Rencana pengembangan berikutnya meliputi integrasi hardware final, command queue, ACK mechanism, alert geofence permanen, notifikasi berbasis preferensi pengguna, dan pengujian lapangan.
+Database utama terdiri dari `accounts`, `buggies`, `haltes`, `geofences`, `announcements`, `buggy_history`, `buggy_session_history`, `latest_buggy_telemetry`, dan `notification_subscriptions`. Tabel `latest_buggy_telemetry` menyimpan satu baris snapshot telemetry terbaru per buggy untuk mendukung fallback saat live store in-memory direset pada serverless deployment, termasuk kolom `received_at` untuk menentukan kesegaran data. Tabel `notification_subscriptions` menyimpan endpoint Web Push, key subscription, posisi terakhir pengguna, radius alert, dan cooldown notifikasi. Tabel `buggy_history` kini memiliki kolom `passengers` untuk pelacakan historis penumpang per titik GPS. Tabel `buggy_session_history` memiliki kolom `passenger_avg`, `passenger_peak`, dan `passenger_samples` untuk analitik penumpang per sesi perjalanan. Sistem menggunakan `proxy.ts`, `requireAdmin()`, dan filter role server-side untuk role-based access; endpoint history dapat diakses admin dan driver, tetapi driver hanya menerima data buggy yang ditugaskan. Endpoint ingest dilindungi bearer token, sedangkan endpoint push checker dilindungi `PUSH_WORKER_TOKEN` atau `CRON_SECRET`. Geofence saat ini berbasis center point dan radius serta dapat diedit atau dihapus melalui dashboard admin. Aplikasi mendukung bahasa Indonesia dan Inggris melalui route `/id` dan `/en`. Rencana pengembangan berikutnya meliputi integrasi hardware final, command queue, ACK mechanism, penyimpanan permanen event geofence, notifikasi berbasis preferensi pengguna yang tersinkron ke database, dan pengujian lapangan.
