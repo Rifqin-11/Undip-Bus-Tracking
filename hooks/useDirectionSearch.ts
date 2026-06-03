@@ -10,6 +10,7 @@ import {
   getRouteBetweenHaltes,
   normalize,
 } from "@/lib/transit/route-search";
+import { isBuggyRealtimeReachable } from "@/lib/buggy/connection-status";
 import type { Buggy, HaltePoint } from "@/types/buggy";
 import type { LatLng } from "@/hooks/useUserPosition";
 import type { DirectionResult } from "@/components/panel/DirectionPanel";
@@ -218,7 +219,8 @@ export function useDirectionSearch(opts: UseDirectionSearchOptions) {
         routePath,
       );
 
-      const nearest = findNearestBuggyToHalte(liveBuggies, originHalte!);
+      const reachableBuggies = liveBuggies.filter(isBuggyRealtimeReachable);
+      const nearest = findNearestBuggyToHalte(reachableBuggies, originHalte!);
       if (requireNearestBuggy && !nearest) return;
 
       const result: DirectionResult = {
@@ -310,7 +312,8 @@ export function useDirectionSearch(opts: UseDirectionSearchOptions) {
           routePath,
         );
 
-        const nearest = liveBuggies.reduce<Buggy | null>((best, buggy) => {
+        const reachableBuggies = liveBuggies.filter(isBuggyRealtimeReachable);
+        const nearest = reachableBuggies.reduce<Buggy | null>((best, buggy) => {
           if (!best) return buggy;
           return cartesianDistance(buggy.position, originHalte) <
             cartesianDistance(best.position, originHalte)
