@@ -244,7 +244,6 @@ export default function DashboardPage() {
     haltes: HALTE_LOCATIONS,
     routePath: OFFICIAL_ROUTE_PATH,
     getLatestUserPosition,
-    requireNearestBuggy: true,
     onSearchComplete: (_result, nearest) => {
       if (nearest) {
         setSelectedBuggyId(nearest.id);

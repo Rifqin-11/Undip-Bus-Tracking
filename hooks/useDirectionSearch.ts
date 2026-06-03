@@ -29,8 +29,6 @@ type UseDirectionSearchOptions = {
     result: DirectionResult,
     nearestBuggy: Buggy | null,
   ) => void;
-  /** Set true untuk membatalkan jika tidak ada buggy aktif (perilaku admin lama). */
-  requireNearestBuggy?: boolean;
 };
 
 function ensureGoogleMaps(): boolean {
@@ -53,7 +51,6 @@ export function useDirectionSearch(opts: UseDirectionSearchOptions) {
     getLatestUserPosition,
     requireAuth,
     onSearchComplete,
-    requireNearestBuggy = false,
   } = opts;
 
   const [searchStep, setSearchStep] = useState<SearchStep>("destination");
@@ -221,7 +218,6 @@ export function useDirectionSearch(opts: UseDirectionSearchOptions) {
 
       const reachableBuggies = liveBuggies.filter(isBuggyRealtimeReachable);
       const nearest = findNearestBuggyToHalte(reachableBuggies, originHalte!);
-      if (requireNearestBuggy && !nearest) return;
 
       const result: DirectionResult = {
         originName: fromInput,
@@ -253,7 +249,6 @@ export function useDirectionSearch(opts: UseDirectionSearchOptions) {
     routePath,
     liveBuggies,
     getLatestUserPosition,
-    requireNearestBuggy,
     onSearchComplete,
     t,
   ]);

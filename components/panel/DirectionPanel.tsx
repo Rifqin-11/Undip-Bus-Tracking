@@ -5,6 +5,7 @@ import {
   XIcon,
 } from "@/components/ui/Icons";
 import type { Buggy } from "@/types/buggy";
+import { useTranslation } from "react-i18next";
 
 export type DirectionResult = {
   originName: string;
@@ -36,6 +37,8 @@ type DirectionPanelProps = {
 };
 
 export function DirectionPanel({ result, onClose }: DirectionPanelProps) {
+  const { t } = useTranslation("dashboard");
+
   return (
     <div className="shrink-0 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
       <div className="flex items-center justify-between border-b border-slate-200 px-3 py-2.5">
@@ -63,6 +66,13 @@ export function DirectionPanel({ result, onClose }: DirectionPanelProps) {
       </div>
 
       <div className="space-y-2.5 px-3 py-3">
+        {!result.nearestBuggyId && (
+          <div className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-[11px] leading-relaxed text-amber-800">
+            <p className="font-bold">{t("noActiveBuggyTitle")}</p>
+            <p className="mt-0.5">{t("noActiveBuggyDescription")}</p>
+          </div>
+        )}
+
         <div className="flex items-center gap-2 rounded-lg border border-blue-100 bg-blue-50 px-2.5 py-2">
           <div className="h-2.5 w-2.5 shrink-0 rounded-full bg-blue-500" />
           <p className="truncate text-[11px] font-medium text-slate-700">

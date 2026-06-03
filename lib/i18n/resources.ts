@@ -135,6 +135,9 @@ export const resources = {
       changeDestination: "Ubah tujuan",
       searchRoute: "Cari rute",
       searchDestination: "Cari tujuan",
+      noActiveBuggyTitle: "Saat ini tidak ada buggy yang aktif",
+      noActiveBuggyDescription:
+        "Rute tetap ditampilkan sebagai panduan halte, tetapi belum ada armada online yang dapat direkomendasikan.",
       useMyLocation: "Lokasi Saya",
       gettingLocation: "Mendapatkan lokasi...",
       locationError: "Gagal mendapatkan lokasi",
@@ -718,6 +721,9 @@ export const resources = {
       changeDestination: "Change destination",
       searchRoute: "Search route",
       searchDestination: "Search destination",
+      noActiveBuggyTitle: "No active buggy right now",
+      noActiveBuggyDescription:
+        "The route is still shown as stop guidance, but no online fleet can be recommended yet.",
       useMyLocation: "My Location",
       gettingLocation: "Getting location...",
       locationError: "Failed to get location",
