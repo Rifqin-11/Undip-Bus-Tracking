@@ -42,6 +42,13 @@ function toIsoTimestamp(value: string | number | null | undefined) {
   return date.toISOString();
 }
 
+function toDisplayTimestamp(value: string | number | null | undefined) {
+  if (value === null || value === undefined || value === "") return "";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "";
+  return fmtTimestamp(date.toISOString());
+}
+
 export function HistorySessionDetail({
   selectedBuggy,
   selectedSession: s,
@@ -91,6 +98,13 @@ export function HistorySessionDetail({
       : `${t("session")} ${s.sessionNumber}`;
     const statusLabel = s.isOngoing ? t("ongoing") : t("completed");
     const gpsPointCount = s.path.length;
+    const stopSummary = halteStopPoints
+      .map((stop, index) => {
+        const timeValue = stop.startedAtMs ?? stop.endedAtMs;
+        const timeLabel = toDisplayTimestamp(timeValue);
+        return `${index + 1}. ${stop.halteName}${timeLabel ? ` (${timeLabel})` : ""}`;
+      })
+      .join(" | ");
     const baseSessionValues = [
       selectedBuggy.code,
       selectedBuggy.name,
@@ -131,16 +145,30 @@ export function HistorySessionDetail({
       t("csvBatteryEnd"),
       t("csvBatteryUsage"),
       t("csvGpsPointCount"),
+      t("csvStopHaltes"),
       t("csvPointIndex"),
       t("csvPointTime"),
       t("csvLatitude"),
       t("csvLongitude"),
+      t("csvStopHalteName"),
+      t("csvStopStartedAt"),
+      t("csvStopEndedAt"),
+      t("csvStopDurationSeconds"),
+      t("csvStopPointCount"),
+      t("csvStopDistanceMeters"),
     ];
 
     const summaryRow = [
       1,
       t("csvSummary"),
       ...baseSessionValues,
+      stopSummary,
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
       "",
       "",
       "",
@@ -151,16 +179,41 @@ export function HistorySessionDetail({
       idx + 2,
       t("csvGpsPoint"),
       ...baseSessionValues,
+      "",
       idx + 1,
       toIsoTimestamp(tsMs ?? s.startedAt),
       lat,
       lng,
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+    ]);
+
+    const stopRows = halteStopPoints.map((stop, idx) => [
+      routeRows.length + idx + 2,
+      t("csvStopHalte"),
+      ...baseSessionValues,
+      stopSummary,
+      "",
+      "",
+      stop.lat,
+      stop.lng,
+      stop.halteName,
+      toIsoTimestamp(stop.startedAtMs),
+      toIsoTimestamp(stop.endedAtMs),
+      stop.durationSeconds ?? "",
+      stop.pointCount,
+      stop.distanceMeters ?? "",
     ]);
 
     const csvContent = [
       headers,
       summaryRow,
       ...routeRows,
+      ...stopRows,
     ]
       .map((row) => row.map(escapeCsvValue).join(","))
       .join("\n");

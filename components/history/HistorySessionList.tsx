@@ -1,6 +1,7 @@
 import { ChevronLeftIcon } from "@/components/ui/Icons";
 import { useTranslation } from "react-i18next";
 import { fmtDate, fmtTime, fmtDuration } from "@/lib/utils/format-time";
+import { detectHistoryStopPoints } from "@/lib/history/stop-points";
 import type { Buggy } from "@/types/buggy";
 import type { BuggySession } from "@/types/buggy-session";
 
@@ -13,6 +14,30 @@ type HistorySessionListProps = {
   onBack: () => void;
   onSelectSession: (session: BuggySession) => void;
 };
+
+type CsvValue = string | number | null | undefined;
+
+function escapeCsvValue(value: CsvValue) {
+  const text = value === null || value === undefined ? "" : String(value);
+  if (/[",\n\r]/.test(text)) {
+    return `"${text.replace(/"/g, '""')}"`;
+  }
+  return text;
+}
+
+function formatSessionStops(session: BuggySession) {
+  const stops = detectHistoryStopPoints(session.path);
+  if (stops.length === 0) return "";
+
+  return stops
+    .map((stop, index) => {
+      const timeValue = stop.startedAtMs ?? stop.endedAtMs;
+      const timeLabel =
+        typeof timeValue === "number" ? fmtTime(new Date(timeValue).toISOString()) : "--:--";
+      return `${index + 1}. ${stop.halteName} (${timeLabel})`;
+    })
+    .join(" | ");
+}
 
 export function HistorySessionList({
   selectedBuggy,
@@ -40,7 +65,8 @@ export function HistorySessionList({
       t("csvPeakPassengers"),
       t("csvPassengerSamples"),
       t("csvBatteryStart"),
-      t("csvBatteryEnd")
+      t("csvBatteryEnd"),
+      t("csvStopHaltes"),
     ];
 
     const rows = selectedBuggySessions.map(s => [
@@ -55,12 +81,13 @@ export function HistorySessionList({
       s.passengerPeak || "",
       s.passengerSamples || "",
       s.batteryStart || "",
-      s.batteryEnd || ""
+      s.batteryEnd || "",
+      formatSessionStops(s),
     ]);
 
     const csvContent = [
-      headers.join(","),
-      ...rows.map(row => row.join(","))
+      headers.map(escapeCsvValue).join(","),
+      ...rows.map(row => row.map(escapeCsvValue).join(","))
     ].join("\n");
 
     const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
