@@ -135,6 +135,20 @@ export const resources = {
       changeDestination: "Ubah tujuan",
       searchRoute: "Cari rute",
       searchDestination: "Cari tujuan",
+      tripRoute: "Rute Perjalanan",
+      closeRoute: "Tutup rute",
+      walk: "Jalan kaki",
+      walkToStop: "Berjalan ke {{stop}}",
+      walkFromStop: "Berjalan dari {{stop}}",
+      buggyTrip: "Perjalanan buggy",
+      recommendedBuggy: "Rekomendasi buggy",
+      activeBuggy: "Aktif",
+      routeStopsCount: "{{count}} halte",
+      showStopList: "Lihat daftar halte",
+      routeGuidanceWithFleet:
+        "Naik {{buggy}} lalu turun di {{endStop}}.",
+      routeGuidanceOnly:
+        "Tunggu buggy di {{startStop}}, lalu turun di {{endStop}}.",
       noActiveBuggyTitle: "Saat ini tidak ada buggy yang aktif",
       noActiveBuggyDescription:
         "Rute tetap ditampilkan sebagai panduan halte, tetapi belum ada armada online yang dapat direkomendasikan.",
@@ -721,6 +735,20 @@ export const resources = {
       changeDestination: "Change destination",
       searchRoute: "Search route",
       searchDestination: "Search destination",
+      tripRoute: "Trip Route",
+      closeRoute: "Close route",
+      walk: "Walk",
+      walkToStop: "Walk to {{stop}}",
+      walkFromStop: "Walk from {{stop}}",
+      buggyTrip: "Buggy trip",
+      recommendedBuggy: "Recommended buggy",
+      activeBuggy: "Active",
+      routeStopsCount: "{{count}} stops",
+      showStopList: "Show stop list",
+      routeGuidanceWithFleet:
+        "Take {{buggy}} and get off at {{endStop}}.",
+      routeGuidanceOnly:
+        "Wait for a buggy at {{startStop}}, then get off at {{endStop}}.",
       noActiveBuggyTitle: "No active buggy right now",
       noActiveBuggyDescription:
         "The route is still shown as stop guidance, but no online fleet can be recommended yet.",
