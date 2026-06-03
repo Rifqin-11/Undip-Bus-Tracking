@@ -24,6 +24,7 @@ import {
 } from "@/lib/buggy/gps-quality";
 import {
   normalizeDevicesId,
+  recordSeenDevice,
   resolveActiveDeviceAssignment,
 } from "@/lib/buggy/device-assignment";
 
@@ -154,6 +155,17 @@ export async function POST(request: NextRequest) {
   let identitySource: "device_assignment" | "legacy_buggy_id" = "legacy_buggy_id";
 
   if (incomingDevicesId) {
+    await recordSeenDevice(incomingDevicesId, {
+      lat: typeof lat === "number" ? lat : null,
+      lng: typeof lng === "number" ? lng : null,
+      speed: typeof speed === "number" ? speed : null,
+      speedKmh: typeof speedKmh === "number" ? speedKmh : null,
+      passengers: typeof passengers === "number" ? passengers : null,
+      gpsValid: typeof b.gpsValid === "boolean" ? b.gpsValid : null,
+      topic: typeof bodyRecord.topic === "string" ? bodyRecord.topic : null,
+      receivedAt: new Date().toISOString(),
+    });
+
     const { assignment, error } =
       await resolveActiveDeviceAssignment(incomingDevicesId);
 
@@ -204,6 +216,8 @@ export async function POST(request: NextRequest) {
     );
   }
 
+  const supabase = createAdminClient();
+
   // ── Session: handle end FIRST (no GPS data needed) ───────────────────────
   if (sessionEnd === true) {
     // Deaktivasi buggy langsung di live store agar monitoring tampil offline seketika
@@ -217,6 +231,35 @@ export async function POST(request: NextRequest) {
       buggyNumericId: numericBuggyId,
       identitySource,
     });
+  }
+
+  if (supabase) {
+    const { data: buggyVisibility, error: visibilityError } = await supabase
+      .from("buggies")
+      .select("is_active")
+      .eq("id", resolvedBuggyId)
+      .maybeSingle();
+
+    if (visibilityError) {
+      return NextResponse.json(
+        {
+          error: "Gagal membaca status hide fleet.",
+          detail: visibilityError.message,
+        },
+        { status: 500 },
+      );
+    }
+
+    if (buggyVisibility?.is_active === false) {
+      return NextResponse.json(
+        {
+          error: "Fleet sedang di-hide, payload GPS tidak diterapkan ke live map.",
+          devicesId: incomingDevicesId,
+          buggyId: resolvedBuggyId,
+        },
+        { status: 409 },
+      );
+    }
   }
 
   const normalizedGsm = normalizeGsmStatus(gsm);
@@ -258,7 +301,6 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const supabase = createAdminClient();
   const receivedAt = new Date().toISOString();
   const telemetryRow = {
     buggy_id: resolvedBuggyId,

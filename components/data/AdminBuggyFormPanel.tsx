@@ -199,21 +199,21 @@ export function AdminBuggyFormPanel({
             <div className="flex items-center justify-between rounded-xl border border-slate-200 bg-white px-3 py-3">
               <div>
                 <p className="text-[13px] font-semibold text-slate-700">
-                  {t("fleetStatus")}
+                  {t("hideFleet")}
                 </p>
                 <p className="text-[11px] text-slate-400">
-                  {isActive ? t("fleetActive") : t("fleetInactive")}
+                  {isActive ? t("fleetVisible") : t("fleetHidden")}
                 </p>
               </div>
               <button
                 type="button"
                 role="switch"
-                aria-checked={isActive}
+                aria-checked={!isActive}
                 onClick={() => setIsActive((v) => !v)}
-                className={`relative h-7 w-12 rounded-full transition-colors duration-200 ${isActive ? "bg-emerald-500" : "bg-slate-300"}`}
+                className={`relative h-7 w-12 rounded-full transition-colors duration-200 ${isActive ? "bg-slate-300" : "bg-[#0f1a3b]"}`}
               >
                 <span
-                  className={`absolute top-0.5 left-0.5 h-6 w-6 rounded-full bg-white shadow-sm transition-transform duration-200 ${isActive ? "translate-x-5" : "translate-x-0"}`}
+                  className={`absolute top-0.5 left-0.5 h-6 w-6 rounded-full bg-white shadow-sm transition-transform duration-200 ${isActive ? "translate-x-0" : "translate-x-5"}`}
                 />
               </button>
             </div>

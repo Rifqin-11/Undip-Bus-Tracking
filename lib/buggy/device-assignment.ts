@@ -1,6 +1,7 @@
 import {
   createAdminClient,
   getDeviceAssignmentsTableName,
+  getDeviceRegistryTableName,
 } from "@/lib/supabase/server";
 
 type BuggyJoinRow = {
@@ -101,4 +102,30 @@ export async function resolveActiveDeviceAssignment(
     assignment: row ? mapDeviceAssignmentRow(row) : null,
     error: null,
   };
+}
+
+export async function recordSeenDevice(
+  devicesId: string,
+  payload?: Record<string, unknown>,
+): Promise<void> {
+  const supabase = createAdminClient();
+  const normalizedDevicesId = normalizeDevicesId(devicesId);
+  if (!supabase || !normalizedDevicesId) return;
+
+  const now = new Date().toISOString();
+  const { error } = await supabase
+    .from(getDeviceRegistryTableName())
+    .upsert(
+      {
+        devices_id: normalizedDevicesId,
+        last_seen_at: now,
+        last_payload: payload ?? null,
+        updated_at: now,
+      },
+      { onConflict: "devices_id" },
+    );
+
+  if (error) {
+    console.warn("[device-registry] Failed to record seen device:", error.message);
+  }
 }

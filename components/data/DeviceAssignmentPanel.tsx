@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Cpu, Pencil, PlusIcon, Power, RefreshCw, Save, X } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import type { Buggy } from "@/types/buggy";
-import type { DeviceAssignment } from "@/types/device-assignment";
+import type { DeviceAssignment, DeviceOption } from "@/types/device-assignment";
 import { getErrorMessage } from "@/lib/utils/error-message";
 import { formatLastSeen } from "@/lib/buggy/connection-status";
 
@@ -59,6 +59,7 @@ export function DeviceAssignmentPanel({
 }: DeviceAssignmentPanelProps) {
   const { t } = useTranslation("admin");
   const [assignments, setAssignments] = useState<DeviceAssignment[]>([]);
+  const [deviceOptions, setDeviceOptions] = useState<DeviceOption[]>([]);
   const [form, setForm] = useState<FormState>(EMPTY_FORM);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -83,15 +84,19 @@ export function DeviceAssignmentPanel({
   const assignableDeviceOptions = useMemo(
     () =>
       selectedBuggy
-        ? assignments.filter(
-            (assignment) =>
+        ? deviceOptions.filter(
+            (option) =>
               !(
-                assignment.isActive &&
-                assignment.buggyId === selectedBuggy.id
+                option.source === "assignment" &&
+                option.isActive &&
+                option.buggyId === selectedBuggy.id
               ),
           )
-        : assignments,
-    [assignments, selectedBuggy],
+        : assignments.map((assignment) => ({
+            ...assignment,
+            source: "assignment" as const,
+          })),
+    [assignments, deviceOptions, selectedBuggy],
   );
 
   const loadAssignments = async () => {
@@ -109,8 +114,19 @@ export function DeviceAssignmentPanel({
       }
       const data = (await res.json()) as {
         assignments?: DeviceAssignment[];
+        deviceOptions?: DeviceOption[];
       };
       setAssignments(Array.isArray(data.assignments) ? data.assignments : []);
+      setDeviceOptions(
+        Array.isArray(data.deviceOptions)
+          ? data.deviceOptions
+          : Array.isArray(data.assignments)
+            ? data.assignments.map((assignment) => ({
+                ...assignment,
+                source: "assignment" as const,
+              }))
+            : [],
+      );
     } catch (err) {
       setError(getErrorMessage(err, t("failedLoadDeviceAssignments")));
     } finally {
@@ -152,15 +168,20 @@ export function DeviceAssignmentPanel({
   const handleSubmit = async () => {
     if (readOnly) return;
 
-    const selectedExistingAssignment = selectedBuggy
-      ? assignments.find((assignment) => assignment.id === form.id)
+    const selectedDeviceOption = selectedBuggy
+      ? deviceOptions.find((option) => option.id === form.id)
       : null;
-    const devicesId = selectedExistingAssignment
-      ? selectedExistingAssignment.devicesId
-      : form.devicesId.trim();
+    const selectedExistingAssignment =
+      selectedDeviceOption?.source === "assignment"
+        ? selectedDeviceOption
+        : null;
+    const devicesId = selectedDeviceOption
+      ? selectedDeviceOption.devicesId
+      : null;
+    const resolvedDevicesId = devicesId ?? form.devicesId.trim();
     const targetBuggyId = selectedBuggy?.id ?? form.buggyId;
 
-    if (!devicesId || !targetBuggyId) {
+    if (!resolvedDevicesId || !targetBuggyId) {
       setError(t("deviceAssignmentRequired"));
       return;
     }
@@ -171,15 +192,21 @@ export function DeviceAssignmentPanel({
       const endpoint = selectedExistingAssignment
         ? `/api/admin/device-assignments/${selectedExistingAssignment.id}`
         : form.id
+        && !selectedBuggy
         ? `/api/admin/device-assignments/${form.id}`
         : "/api/admin/device-assignments";
       const res = await fetch(endpoint, {
-        method: selectedExistingAssignment || form.id ? "PUT" : "POST",
+        method:
+          selectedExistingAssignment || (form.id && !selectedBuggy)
+            ? "PUT"
+            : "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          devicesId,
+          devicesId: resolvedDevicesId,
           label:
-            selectedExistingAssignment?.label ?? (form.label.trim() || null),
+            selectedDeviceOption?.label ??
+            selectedExistingAssignment?.label ??
+            (form.label.trim() || null),
           buggyId: targetBuggyId,
           isActive: selectedBuggy ? true : form.isActive,
         }),
@@ -374,13 +401,13 @@ export function DeviceAssignmentPanel({
                 <select
                   value={form.id ?? ""}
                   onChange={(event) => {
-                    const assignment = assignments.find(
+                    const option = deviceOptions.find(
                       (item) => item.id === event.target.value,
                     );
                     setForm({
-                      id: assignment?.id ?? null,
-                      devicesId: assignment?.devicesId ?? "",
-                      label: assignment?.label ?? "",
+                      id: option?.id ?? null,
+                      devicesId: option?.devicesId ?? "",
+                      label: option?.label ?? "",
                       buggyId: selectedBuggy.id,
                       isActive: true,
                     });
@@ -388,10 +415,12 @@ export function DeviceAssignmentPanel({
                   className="w-full rounded-2xl border border-slate-200 bg-white px-3 py-2 text-[12px] font-semibold text-slate-900 outline-none transition focus:border-[#0f1a3b]"
                 >
                   <option value="">{t("chooseExistingDevice")}</option>
-                  {assignableDeviceOptions.map((assignment) => (
-                    <option key={assignment.id} value={assignment.id}>
-                      {assignment.devicesId} -{" "}
-                      {assignment.buggyCode ?? t("inactive")}
+                  {assignableDeviceOptions.map((option) => (
+                    <option key={option.id} value={option.id}>
+                      {option.devicesId} -{" "}
+                      {option.source === "registry"
+                        ? t("unassignedDevice")
+                        : option.buggyCode ?? t("inactive")}
                     </option>
                   ))}
                 </select>

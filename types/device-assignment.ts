@@ -13,3 +13,7 @@ export type DeviceAssignment = {
   speedKmh: number | null;
   passengers: number | null;
 };
+
+export type DeviceOption = DeviceAssignment & {
+  source: "assignment" | "registry";
+};

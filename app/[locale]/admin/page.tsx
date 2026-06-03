@@ -139,10 +139,29 @@ export default function DashboardPage() {
   // localBuggies: fallback instan setelah add/delete; realtime feed tetap prioritas
   // supaya marker selalu mengikuti posisi telemetry terakhir dari /api/buggy.
   const [localBuggies, setLocalBuggies] = useState<Buggy[] | null>(null);
+  const [adminFleetBuggies, setAdminFleetBuggies] = useState<Buggy[]>([]);
   const liveBuggies = useMemo(
     () => realtimeFeed.liveBuggies ?? localBuggies ?? [],
     [localBuggies, realtimeFeed.liveBuggies],
   );
+
+  const loadAdminFleetBuggies = useCallback(async () => {
+    if (!isAdminUser) {
+      setAdminFleetBuggies([]);
+      return;
+    }
+
+    try {
+      const res = await fetch("/api/admin/buggies", { cache: "no-store" });
+      if (!res.ok) return;
+      const payload = (await res.json()) as { buggies?: Buggy[] };
+      setAdminFleetBuggies(
+        Array.isArray(payload.buggies) ? payload.buggies : [],
+      );
+    } catch {
+      // Live feed remains the source for operational views.
+    }
+  }, [isAdminUser]);
 
   /** Fetch daftar buggy terbaru dari server dan simpan ke localBuggies */
   const handleBuggyMutated = useCallback(async () => {
@@ -155,7 +174,8 @@ export default function DashboardPage() {
     } catch {
       // ignore — SSE akan sync dalam 1 detik
     }
-  }, []);
+    await loadAdminFleetBuggies();
+  }, [loadAdminFleetBuggies]);
 
   const [activeView, setActiveView] = useState<PanelView>("buggy");
   const [panelOpen, setPanelOpen] = useState(
@@ -209,15 +229,22 @@ export default function DashboardPage() {
 
   const canManageDashboard = isAdminUser;
   const visibleBuggies = driverFilteredBuggies;
+  const dataManagementBuggies = canManageDashboard
+    ? adminFleetBuggies
+    : driverFilteredBuggies;
+
+  useEffect(() => {
+    void loadAdminFleetBuggies();
+  }, [loadAdminFleetBuggies]);
 
   const selectedAdminBuggy = useMemo(() => {
     if (!selectedAdminBuggyId) return null;
     return (
-      liveBuggies.find((buggy) => buggy.id === selectedAdminBuggyId) ??
+      dataManagementBuggies.find((buggy) => buggy.id === selectedAdminBuggyId) ??
       visibleBuggies[0] ??
       null
     );
-  }, [liveBuggies, selectedAdminBuggyId, visibleBuggies]);
+  }, [dataManagementBuggies, selectedAdminBuggyId, visibleBuggies]);
 
   const { userPosition, getLatestUserPosition } = useUserPosition();
   const { toasts, addToast, dismissToast } = useToastStack();
@@ -1009,7 +1036,7 @@ export default function DashboardPage() {
         showApnStatus={isAdminUser || isDriverUser}
         dataViewContent={
           <AdminDataSection
-            buggies={driverFilteredBuggies}
+            buggies={dataManagementBuggies}
             realtimeConnected={realtimeFeed.connected}
             realtimeSource={realtimeFeed.source}
             geofences={geofences}
@@ -1059,13 +1086,14 @@ export default function DashboardPage() {
                 setActiveView("data");
                 void handleBuggyMutated();
               }}
+              onSaved={() => void handleBuggyMutated()}
               readOnly={!canManageDashboard}
             />
           ) : null
         }
         historyViewContent={
           <HistoryPanel
-            buggies={driverFilteredBuggies}
+            buggies={visibleBuggies}
             onShowPath={(path, stopPoints = []) => {
               setHistoryPath(path);
               setHistoryStopPoints(stopPoints);

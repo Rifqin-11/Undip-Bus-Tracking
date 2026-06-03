@@ -14,6 +14,7 @@ type BuggyMasterRow = {
   name: string;
   capacity: number | null;
   numeric_id: number | null;
+  is_active: boolean | null;
 };
 
 function resolveCrowdLevel(passengers: number, capacity: number): CrowdLevel {
@@ -29,7 +30,7 @@ async function overlayBuggyMasterData(buggies: Buggy[]): Promise<Buggy[]> {
 
   const { data, error } = await supabase
     .from("buggies")
-    .select("id, code, name, capacity, numeric_id");
+    .select("id, code, name, capacity, numeric_id, is_active");
 
   if (error || !data) {
     if (error) {
@@ -39,15 +40,16 @@ async function overlayBuggyMasterData(buggies: Buggy[]): Promise<Buggy[]> {
   }
 
   const rows = data as BuggyMasterRow[];
-  const byId = new Map(rows.map((row) => [row.id, row]));
+  const visibleRows = rows.filter((row) => row.is_active !== false);
+  const byId = new Map(visibleRows.map((row) => [row.id, row]));
   const byNumericId = new Map(
-    rows
+    visibleRows
       .filter((row) => typeof row.numeric_id === "number")
       .map((row) => [row.numeric_id as number, row]),
   );
-  const byCode = new Map(rows.map((row) => [row.code, row]));
+  const byCode = new Map(visibleRows.map((row) => [row.code, row]));
 
-  return buggies.map((buggy) => {
+  return buggies.flatMap((buggy) => {
     const row =
       byId.get(buggy.id) ??
       (typeof buggy.numericId === "number"
@@ -55,7 +57,7 @@ async function overlayBuggyMasterData(buggies: Buggy[]): Promise<Buggy[]> {
         : undefined) ??
       byCode.get(buggy.code);
 
-    if (!row) return buggy;
+    if (!row) return [];
 
     const capacity =
       typeof row.capacity === "number" && Number.isFinite(row.capacity)
@@ -63,7 +65,7 @@ async function overlayBuggyMasterData(buggies: Buggy[]): Promise<Buggy[]> {
         : buggy.capacity;
     const passengers = Math.max(0, Math.min(buggy.passengers, capacity));
 
-    return {
+    return [{
       ...buggy,
       numericId: row.numeric_id ?? buggy.numericId,
       code: row.code,
@@ -71,7 +73,7 @@ async function overlayBuggyMasterData(buggies: Buggy[]): Promise<Buggy[]> {
       capacity,
       passengers,
       crowdLevel: resolveCrowdLevel(passengers, capacity),
-    };
+    }];
   });
 }
 

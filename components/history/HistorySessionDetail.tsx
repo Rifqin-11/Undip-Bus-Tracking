@@ -56,7 +56,7 @@ export function HistorySessionDetail({
   onDeleteSuccess,
   readOnly = false,
 }: HistorySessionDetailProps) {
-  const { t } = useTranslation("history");
+  const { t, i18n } = useTranslation("history");
   const { t: tCommon } = useTranslation("common");
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -77,6 +77,15 @@ export function HistorySessionDetail({
           path: s.path,
         }),
       });
+
+      if (res.status === 401 || res.status === 403) {
+        const locale = i18n.language?.startsWith("en") ? "en" : "id";
+        const next = `${window.location.pathname}${window.location.search}${window.location.hash}`;
+        window.location.assign(
+          `/${locale}/login?next=${encodeURIComponent(next)}`,
+        );
+        return;
+      }
 
       if (!res.ok) {
         const payload = await res.json();

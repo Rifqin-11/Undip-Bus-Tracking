@@ -144,7 +144,7 @@ export function HistoryPanel({
   onShowPath,
   readOnly = false,
 }: HistoryPanelProps) {
-  const { t } = useTranslation("history");
+  const { t, i18n } = useTranslation("history");
   const [sessions, setSessions] = useState<BuggySession[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -162,6 +162,15 @@ export function HistoryPanel({
 
   // ── Data fetching ──────────────────────────────────────────────────────────
 
+  const redirectToLogin = useCallback(() => {
+    if (typeof window === "undefined") return;
+    const locale = i18n.language?.startsWith("en") ? "en" : "id";
+    const next = `${window.location.pathname}${window.location.search}${window.location.hash}`;
+    window.location.assign(
+      `/${locale}/login?next=${encodeURIComponent(next)}`,
+    );
+  }, [i18n.language]);
+
   const load = useCallback(async (silent = false) => {
     if (silent) setRefreshing(true);
     else setLoading(true);
@@ -170,6 +179,10 @@ export function HistoryPanel({
       const res = await fetch("/api/buggy-sessions?limit=200", {
         cache: "no-store",
       });
+      if (res.status === 401 || res.status === 403) {
+        redirectToLogin();
+        return;
+      }
       const payload = (await res.json()) as Partial<BuggySessionApiResponse>;
       if (!res.ok)
         throw new Error(
@@ -188,7 +201,7 @@ export function HistoryPanel({
       setLoading(false);
       setRefreshing(false);
     }
-  }, [t]);
+  }, [redirectToLogin, t]);
 
   useEffect(() => {
     void load();

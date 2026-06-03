@@ -6,6 +6,72 @@ import { getHalteLocations } from "@/lib/transit/halte-runtime";
 import { bootstrapFromDatabase } from "@/lib/supabase/data-loader";
 import { CENTER_UNDIP } from "@/lib/transit/buggy-data";
 import { getErrorMessage } from "@/lib/utils/error-message";
+import type { Buggy } from "@/types/buggy";
+
+type BuggyRow = {
+  id: string;
+  code: string;
+  name: string;
+  capacity: number;
+  is_active: boolean;
+  numeric_id: number | null;
+};
+
+function mapBuggyRow(row: BuggyRow): Buggy {
+  const lat = CENTER_UNDIP[0];
+  const lng = CENTER_UNDIP[1];
+
+  return {
+    id: row.id,
+    numericId: row.numeric_id ?? undefined,
+    code: row.code,
+    name: row.name,
+    isActive: row.is_active,
+    routeLabel: "Rute Kampus Undip",
+    tripId: `TRIP-2026-${row.code}`,
+    etaMinutes: 5,
+    speedKmh: 0,
+    crowdLevel: "LONGGAR",
+    passengers: 0,
+    capacity: row.capacity,
+    tag: "GPS Nyata",
+    updatedAt: "--:--",
+    connectionStatus: "offline",
+    currentStopIndex: 0,
+    stops: getHalteLocations().map((halte) => halte.name),
+    pathCursor: 0,
+    position: { lat, lng },
+  };
+}
+
+export async function GET() {
+  const adminGuard = await requireAdmin();
+  if (!adminGuard.authorized) return adminGuard.response;
+
+  try {
+    const supabase = createAdminClient();
+    if (!supabase) {
+      return NextResponse.json(
+        { error: "Fungsi Supabase Admin belum dikonfigurasi" },
+        { status: 500 },
+      );
+    }
+
+    const { data, error } = await supabase
+      .from("buggies")
+      .select("id, code, name, capacity, is_active, numeric_id")
+      .order("code", { ascending: true });
+
+    if (error) {
+      return NextResponse.json({ error: error.message }, { status: 500 });
+    }
+
+    const buggies = ((data ?? []) as BuggyRow[]).map(mapBuggyRow);
+    return NextResponse.json({ buggies });
+  } catch (err) {
+    return NextResponse.json({ error: getErrorMessage(err) }, { status: 500 });
+  }
+}
 
 export async function POST(request: Request) {
   const adminGuard = await requireAdmin();

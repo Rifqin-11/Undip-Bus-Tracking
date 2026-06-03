@@ -97,6 +97,7 @@ async function bootstrapBuggies(): Promise<void> {
   const { data, error } = await supabase
     .from("buggies")
     .select("id, code, name, capacity, is_active, numeric_id")
+    .eq("is_active", true)
     .order("code", { ascending: true });
 
   if (error) {

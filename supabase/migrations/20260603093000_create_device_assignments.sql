@@ -34,6 +34,34 @@ create trigger device_assignments_set_updated_at
   for each row
   execute function public.set_device_assignments_updated_at();
 
+create table if not exists public.device_registry (
+  devices_id text primary key,
+  label text,
+  last_seen_at timestamptz,
+  last_payload jsonb,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create index if not exists device_registry_last_seen_at_idx
+  on public.device_registry (last_seen_at desc);
+
+create or replace function public.set_device_registry_updated_at()
+returns trigger
+language plpgsql
+as $$
+begin
+  new.updated_at = now();
+  return new;
+end;
+$$;
+
+drop trigger if exists device_registry_set_updated_at on public.device_registry;
+create trigger device_registry_set_updated_at
+  before update on public.device_registry
+  for each row
+  execute function public.set_device_registry_updated_at();
+
 alter table public.latest_buggy_telemetry
   add column if not exists devices_id text;
 

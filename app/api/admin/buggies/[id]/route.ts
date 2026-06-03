@@ -1,7 +1,13 @@
 import { NextResponse } from "next/server";
 import { requireAdmin } from "@/lib/auth/admin-guard";
 import { createAdminClient } from "@/lib/supabase/server";
-import { adminUpdateBuggyInStore, adminRemoveBuggyFromStore } from "@/lib/realtime/buggy-live-store";
+import {
+  adminAddBuggyToStore,
+  adminUpdateBuggyInStore,
+  adminRemoveBuggyFromStore,
+} from "@/lib/realtime/buggy-live-store";
+import { getHalteLocations } from "@/lib/transit/halte-runtime";
+import { CENTER_UNDIP } from "@/lib/transit/buggy-data";
 import { getErrorMessage } from "@/lib/utils/error-message";
 
 export async function PUT(
@@ -43,13 +49,39 @@ export async function PUT(
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
-    // Update the live system memory store
-    adminUpdateBuggyInStore(id, {
-      code: data.code,
-      name: data.name,
-      capacity: data.capacity,
-      isActive: data.is_active,
-    });
+    if (data.is_active === false) {
+      adminRemoveBuggyFromStore(id);
+    } else {
+      const lat = CENTER_UNDIP[0];
+      const lng = CENTER_UNDIP[1];
+      adminAddBuggyToStore({
+        id: data.id,
+        numericId: data.numeric_id ?? undefined,
+        code: data.code,
+        name: data.name,
+        isActive: false,
+        routeLabel: "Rute Kampus Undip",
+        tripId: `TRIP-2026-${data.code}`,
+        etaMinutes: 5,
+        speedKmh: 0,
+        crowdLevel: "LONGGAR",
+        passengers: 0,
+        capacity: data.capacity,
+        tag: "GPS Nyata",
+        updatedAt: "--:--",
+        connectionStatus: "offline",
+        currentStopIndex: 0,
+        stops: getHalteLocations().map((halte) => halte.name),
+        pathCursor: 0,
+        position: { lat, lng },
+      });
+      adminUpdateBuggyInStore(id, {
+        numericId: data.numeric_id ?? undefined,
+        code: data.code,
+        name: data.name,
+        capacity: data.capacity,
+      });
+    }
 
     return NextResponse.json({ success: true, buggy: data });
   } catch (err) {

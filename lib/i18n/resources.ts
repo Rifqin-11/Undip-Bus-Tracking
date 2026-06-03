@@ -235,6 +235,9 @@ export const resources = {
       fleetName: "Nama Armada",
       fleetActive: "Armada aktif dan dapat beroperasi",
       fleetInactive: "Armada nonaktif",
+      hideFleet: "Hide Fleet",
+      fleetVisible: "Fleet tampil di daftar buggy",
+      fleetHidden: "Fleet disembunyikan dari daftar buggy",
       saveChanges: "Simpan Perubahan",
       deleteFleetTitle: "Hapus Armada Buggy",
       addHalte: "Tambah Halte",
@@ -286,6 +289,7 @@ export const resources = {
         "Pilih deviceId dari daftar assignment yang sudah terdaftar.",
       noAvailableDeviceToAssign:
         "Belum ada device lain yang tersedia untuk dipindahkan ke buggy ini.",
+      unassignedDevice: "Belum di-assign",
       moveDeviceToThisBuggy: "Pindahkan Device ke Buggy Ini",
       assignToThisBuggy: "Assign ke Buggy Ini",
       deviceAssignmentFormHint:
@@ -879,6 +883,9 @@ export const resources = {
       fleetName: "Fleet Name",
       fleetActive: "Fleet is active and can operate",
       fleetInactive: "Fleet is inactive",
+      hideFleet: "Hide Fleet",
+      fleetVisible: "Fleet is visible in the buggy list",
+      fleetHidden: "Fleet is hidden from the buggy list",
       saveChanges: "Save Changes",
       deleteFleetTitle: "Delete Buggy Fleet",
       addHalte: "Add Stop",
@@ -930,6 +937,7 @@ export const resources = {
         "Choose a deviceId from registered assignments.",
       noAvailableDeviceToAssign:
         "No other device is available to move to this buggy yet.",
+      unassignedDevice: "Unassigned",
       moveDeviceToThisBuggy: "Move Device to This Buggy",
       assignToThisBuggy: "Assign to This Buggy",
       deviceAssignmentFormHint:

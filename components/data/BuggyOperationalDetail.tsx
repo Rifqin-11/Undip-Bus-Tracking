@@ -33,6 +33,7 @@ type BuggyOperationalDetailProps = {
   onBack: () => void;
   /** Dipanggil setelah buggy berhasil dihapus — bisa berbeda dari onBack jika perlu refresh */
   onDeleteSuccess?: () => void;
+  onSaved?: () => void;
   geofenceManagerNode?: React.ReactNode;
   readOnly?: boolean;
 };
@@ -72,6 +73,7 @@ export function BuggyOperationalDetail({
   activeZones,
   onBack,
   onDeleteSuccess,
+  onSaved,
   geofenceManagerNode,
   readOnly = false,
 }: BuggyOperationalDetailProps) {
@@ -195,7 +197,10 @@ export function BuggyOperationalDetail({
       <AdminBuggyFormPanel
         buggy={buggy}
         onBack={() => setIsEditOpen(false)}
-        onSaved={() => setIsEditOpen(false)}
+        onSaved={() => {
+          setIsEditOpen(false);
+          onSaved?.();
+        }}
         onDeleted={onDeleteSuccess ?? onBack}
       />
     );

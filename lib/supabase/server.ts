@@ -90,3 +90,7 @@ export function getBuggySessionTableName() {
 export function getDeviceAssignmentsTableName() {
   return process.env.SUPABASE_DEVICE_ASSIGNMENTS_TABLE ?? "device_assignments";
 }
+
+export function getDeviceRegistryTableName() {
+  return process.env.SUPABASE_DEVICE_REGISTRY_TABLE ?? "device_registry";
+}

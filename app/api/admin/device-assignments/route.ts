@@ -3,6 +3,7 @@ import { requireAdmin } from "@/lib/auth/admin-guard";
 import {
   createAdminClient,
   getDeviceAssignmentsTableName,
+  getDeviceRegistryTableName,
   getLatestBuggyTelemetryTableName,
 } from "@/lib/supabase/server";
 import {
@@ -19,6 +20,14 @@ type LatestTelemetryRow = {
   recorded_at: string | null;
   received_at?: string | null;
   updated_at?: string | null;
+};
+
+type DeviceRegistryRow = {
+  devices_id: string;
+  label: string | null;
+  last_seen_at: string | null;
+  created_at: string;
+  updated_at: string;
 };
 
 function isSchemaColumnError(message: string) {
@@ -76,16 +85,23 @@ export async function GET() {
       );
     }
 
-    const [{ data, error }, latestByDevice] = await Promise.all([
+    const [{ data, error }, { data: registryData, error: registryError }, latestByDevice] = await Promise.all([
       supabase
         .from(getDeviceAssignmentsTableName())
         .select("id, devices_id, buggy_id, label, is_active, created_at, updated_at, buggies(id, code, name, numeric_id)")
         .order("updated_at", { ascending: false }),
+      supabase
+        .from(getDeviceRegistryTableName())
+        .select("devices_id, label, last_seen_at, created_at, updated_at")
+        .order("last_seen_at", { ascending: false }),
       fetchLatestTelemetryByDevice(),
     ]);
 
     if (error) {
       return NextResponse.json({ error: error.message }, { status: 500 });
+    }
+    if (registryError && !isSchemaColumnError(registryError.message)) {
+      return NextResponse.json({ error: registryError.message }, { status: 500 });
     }
 
     const assignments = ((data ?? []) as Parameters<typeof mapDeviceAssignmentRow>[0][])
@@ -108,7 +124,36 @@ export async function GET() {
         };
       });
 
-    return NextResponse.json({ assignments });
+    const assignedDeviceKeys = new Set(
+      assignments.map((assignment) => normalizeComparable(assignment.devicesId)),
+    );
+    const registryOptions = ((registryData ?? []) as DeviceRegistryRow[])
+      .filter((row) => !assignedDeviceKeys.has(normalizeComparable(row.devices_id)))
+      .map((row) => ({
+        id: `registry:${row.devices_id}`,
+        devicesId: row.devices_id,
+        buggyId: "",
+        buggyCode: null,
+        buggyName: null,
+        buggyNumericId: null,
+        label: row.label,
+        isActive: false,
+        createdAt: row.created_at,
+        updatedAt: row.updated_at,
+        lastSeenAt: row.last_seen_at,
+        speedKmh: null,
+        passengers: null,
+        source: "registry" as const,
+      }));
+    const deviceOptions = [
+      ...assignments.map((assignment) => ({
+        ...assignment,
+        source: "assignment" as const,
+      })),
+      ...registryOptions,
+    ];
+
+    return NextResponse.json({ assignments, deviceOptions });
   } catch (err) {
     return NextResponse.json({ error: getErrorMessage(err) }, { status: 500 });
   }
