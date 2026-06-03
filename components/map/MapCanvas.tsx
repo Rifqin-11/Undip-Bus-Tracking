@@ -26,6 +26,7 @@ import {
   HISTORY_POLYLINE_OPTIONS,
   ROUTE_POLYLINE_OPTIONS,
   WALKING_POLYLINE_OPTIONS,
+  buildHistoryEndpointIcon,
   buildHistoryStopIcon,
   buildPolylineEndpointIcon,
 } from "@/components/map/MapPolyline";
@@ -189,6 +190,7 @@ export function MapCanvas({
   const routeEndpointMarkersRef = useRef<MarkerHandle[]>([]);
   const historyPolylineRef = useRef<PolylineHandle | null>(null);
   const historyStopMarkersRef = useRef<MarkerHandle[]>([]);
+  const historyEndpointMarkersRef = useRef<MarkerHandle[]>([]);
   const userLocationMarkerRef = useRef<MarkerHandle | null>(null);
   const userLocationPulseRef = useRef<CircleHandle | null>(null);
   const userLocationPulseAnimationRef = useRef<number | null>(null);
@@ -466,6 +468,55 @@ export function MapCanvas({
           })
         : null;
   }, [historyPath, mapReady]);
+
+  useEffect(() => {
+    if (!mapReady || !mapInstanceRef.current || !mapsApiRef.current) return;
+
+    const map = mapInstanceRef.current;
+    const maps = mapsApiRef.current;
+    const startLabel = locale === "en" ? "Start" : "Awal";
+    const finishLabel = locale === "en" ? "Finish" : "Akhir";
+    const endpointPoints = historyPath.length
+      ? [
+          {
+            label: startLabel,
+            title: locale === "en" ? "Session start point" : "Titik awal sesi",
+            tone: "start" as const,
+            position: { lat: historyPath[0][0], lng: historyPath[0][1] },
+          },
+          ...(historyPath.length > 1
+            ? [
+                {
+                  label: finishLabel,
+                  title:
+                    locale === "en" ? "Session finish point" : "Titik akhir sesi",
+                  tone: "finish" as const,
+                  position: {
+                    lat: historyPath[historyPath.length - 1][0],
+                    lng: historyPath[historyPath.length - 1][1],
+                  },
+                },
+              ]
+            : []),
+        ]
+      : [];
+
+    historyEndpointMarkersRef.current.forEach((marker) => marker.setMap(null));
+    historyEndpointMarkersRef.current = endpointPoints.map((point) =>
+      new maps.Marker({
+        map,
+        position: point.position,
+        title: point.title,
+        icon: buildHistoryEndpointIcon(maps, point.label, point.tone),
+        zIndex: 48,
+      }),
+    );
+
+    return () => {
+      historyEndpointMarkersRef.current.forEach((marker) => marker.setMap(null));
+      historyEndpointMarkersRef.current = [];
+    };
+  }, [historyPath, locale, mapReady]);
 
   useEffect(() => {
     if (!mapReady || !mapInstanceRef.current || !mapsApiRef.current) return;

@@ -90,3 +90,36 @@ export function buildHistoryStopIcon(
     anchor: new maps.Point(center, 36),
   };
 }
+
+export function buildHistoryEndpointIcon(
+  maps: Pick<MapsApi, "Point" | "Size">,
+  label: string,
+  tone: "start" | "finish",
+) {
+  const safeLabel = label
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+  const width = Math.max(62, safeLabel.length * 7 + 24);
+  const center = width / 2;
+  const fillColor = tone === "start" ? "#059669" : "#e11d48";
+  const softColor = tone === "start" ? "#d1fae5" : "#ffe4e6";
+  const svg = `
+    <svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="50" viewBox="0 0 ${width} 50">
+      <rect x="2" y="1" width="${width - 4}" height="24" rx="12" fill="#ffffff" stroke="${softColor}" stroke-width="1.5"/>
+      <circle cx="15" cy="13" r="4" fill="${fillColor}"/>
+      <text x="${center + 5}" y="17" text-anchor="middle" font-family="Inter, Arial, sans-serif" font-size="11" font-weight="800" fill="#0f172a">${safeLabel}</text>
+      <line x1="${center}" y1="27" x2="${center}" y2="32" stroke="${fillColor}" stroke-width="2" stroke-linecap="round"/>
+      <circle cx="${center}" cy="39" r="8" fill="${fillColor}" stroke="#ffffff" stroke-width="3"/>
+      <circle cx="${center}" cy="39" r="3" fill="#ffffff"/>
+    </svg>
+  `.trim();
+
+  return {
+    url: `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(svg)}`,
+    size: new maps.Size(width, 50),
+    scaledSize: new maps.Size(width, 50),
+    anchor: new maps.Point(center, 39),
+  };
+}
