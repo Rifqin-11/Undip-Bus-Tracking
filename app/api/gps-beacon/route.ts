@@ -1,6 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireIngestToken } from "@/lib/auth/ingest-token";
-import { ingestBuggyPayload, getBuggyByNumericId, adminDeactivateBuggyInStore } from "@/lib/realtime/buggy-live-store";
+import {
+  ingestBuggyPayload,
+  getBuggyByNumericId,
+  adminDeactivateBuggyInStore,
+} from "@/lib/realtime/buggy-live-store";
 import {
   createAdminClient,
   getBuggyHistoryTableName,
@@ -18,6 +22,10 @@ import {
   isKnownNoFixCoordinate,
   isSameGpsCoordinate,
 } from "@/lib/buggy/gps-quality";
+import {
+  normalizeDevicesId,
+  resolveActiveDeviceAssignment,
+} from "@/lib/buggy/device-assignment";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -27,7 +35,7 @@ const HISTORY_INSERT_INTERVAL_MS = 10_000;
 const HISTORY_DISTANCE_THRESHOLD_METERS = 10;
 const HISTORY_SPEED_DELTA_THRESHOLD_KMH = 5;
 const lastHistoryInsertPerBuggy: Record<
-  number,
+  string,
   { insertedAtMs: number; lat: number; lng: number; speedKmh: number }
 > = {};
 
@@ -44,7 +52,7 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 }
 
 function shouldInsertHistoryPoint(
-  buggyNumericId: number,
+  historyKey: string,
   lat: number,
   lng: number,
   speedKmh: number,
@@ -53,7 +61,7 @@ function shouldInsertHistoryPoint(
   const currentPoint = { lat, lng };
   if (isKnownNoFixCoordinate(currentPoint)) return false;
 
-  const lastInsert = lastHistoryInsertPerBuggy[buggyNumericId];
+  const lastInsert = lastHistoryInsertPerBuggy[historyKey];
   if (!lastInsert) return true;
   if (isSameGpsCoordinate(lastInsert, currentPoint)) return false;
 
@@ -77,7 +85,8 @@ function shouldInsertHistoryPoint(
  * Receives real GPS data from iPhone and injects it directly
  * into the live buggy store.
  *
- * Body: { buggyId, lat, lng, accuracy?, speedKmh?, heading?, altitude? }
+ * Body: { devicesId/deviceId, lat, lng, accuracy?, speedKmh?, heading?, altitude? }
+ * Legacy body with { buggyId, ... } is still accepted for compatibility.
  */
 export async function POST(request: NextRequest) {
   const tokenError = requireIngestToken(request);
@@ -106,7 +115,12 @@ export async function POST(request: NextRequest) {
   }
 
   const {
-    buggyId = 2,
+    buggyId,
+    buggy_id,
+    deviceId,
+    device_id,
+    devicesId,
+    devices_id,
     lat,
     lng,
     accuracy,
@@ -124,25 +138,85 @@ export async function POST(request: NextRequest) {
     gsm,
   } = b;
 
-  const numericBuggyId = Number(buggyId);
-  const buggyIdNormalized = `buggy-${numericBuggyId}`;
+  const incomingDevicesId =
+    normalizeDevicesId(devicesId) ??
+    normalizeDevicesId(devices_id) ??
+    normalizeDevicesId(deviceId) ??
+    normalizeDevicesId(device_id);
+  const legacyBuggyId = buggyId ?? buggy_id;
   const incomingPosition = { lat: Number(lat), lng: Number(lng) };
 
   // ── Bootstrap: pastikan data dari Supabase sudah dimuat ───────────────────
   await bootstrapFromDatabase();
 
-  // ── Resolve UUID dari numericId ────────────────────────────────────────────
-  // GPS beacon mengirim ID numerik (misal: 2), sedangkan live store memakai UUID
-  // dari Supabase. Kita cari buggy yang punya numericId cocok.
-  const matchedBuggy = getBuggyByNumericId(numericBuggyId);
-  const resolvedBuggyId = matchedBuggy?.id ?? buggyIdNormalized;
+  let resolvedBuggyId: string | null = null;
+  let numericBuggyId: number | null = null;
+  let identitySource: "device_assignment" | "legacy_buggy_id" = "legacy_buggy_id";
+
+  if (incomingDevicesId) {
+    const { assignment, error } =
+      await resolveActiveDeviceAssignment(incomingDevicesId);
+
+    if (error) {
+      return NextResponse.json(
+        {
+          error: "Gagal membaca assignment device.",
+          devicesId: incomingDevicesId,
+          detail: error,
+        },
+        { status: 500 },
+      );
+    }
+
+    if (!assignment) {
+      return NextResponse.json(
+        {
+          error:
+            "Device belum diassign ke buggy. Atur assignment device di web admin terlebih dahulu.",
+          devicesId: incomingDevicesId,
+        },
+        { status: 409 },
+      );
+    }
+
+    resolvedBuggyId = assignment.buggyId;
+    numericBuggyId = assignment.buggyNumericId;
+    identitySource = "device_assignment";
+  } else if (legacyBuggyId !== undefined && legacyBuggyId !== null) {
+    const parsedNumericBuggyId = Number(legacyBuggyId);
+    if (Number.isFinite(parsedNumericBuggyId)) {
+      const matchedBuggy = getBuggyByNumericId(parsedNumericBuggyId);
+      resolvedBuggyId = matchedBuggy?.id ?? `buggy-${parsedNumericBuggyId}`;
+      numericBuggyId = matchedBuggy?.numericId ?? parsedNumericBuggyId;
+    } else if (typeof legacyBuggyId === "string" && legacyBuggyId.trim()) {
+      resolvedBuggyId = legacyBuggyId.trim();
+      numericBuggyId = null;
+    }
+  }
+
+  if (!resolvedBuggyId) {
+    return NextResponse.json(
+      {
+        error:
+          "Missing device identity. Kirim devicesId/deviceId, atau buggyId untuk payload lama.",
+      },
+      { status: 400 },
+    );
+  }
 
   // ── Session: handle end FIRST (no GPS data needed) ───────────────────────
   if (sessionEnd === true) {
     // Deaktivasi buggy langsung di live store agar monitoring tampil offline seketika
     adminDeactivateBuggyInStore(resolvedBuggyId);
     await finalizeSession(resolvedBuggyId);
-    return NextResponse.json({ ok: true, sessionEnded: true, buggyId: numericBuggyId });
+    return NextResponse.json({
+      ok: true,
+      sessionEnded: true,
+      devicesId: incomingDevicesId,
+      buggyId: resolvedBuggyId,
+      buggyNumericId: numericBuggyId,
+      identitySource,
+    });
   }
 
   const normalizedGsm = normalizeGsmStatus(gsm);
@@ -187,8 +261,9 @@ export async function POST(request: NextRequest) {
   const supabase = createAdminClient();
   const receivedAt = new Date().toISOString();
   const telemetryRow = {
-    buggy_id: buggyIdNormalized,
+    buggy_id: resolvedBuggyId,
     buggy_numeric_id: numericBuggyId,
+    devices_id: incomingDevicesId,
     lat: Number(lat),
     lng: Number(lng),
     accuracy: typeof accuracy === "number" ? accuracy : null,
@@ -228,6 +303,7 @@ export async function POST(request: NextRequest) {
           ...telemetryRow,
           updated_at: receivedAt,
         };
+        delete fallbackTelemetryRow.devices_id;
         delete fallbackTelemetryRow.received_at;
         const { error: fallbackError } = await supabase
           .from(getLatestBuggyTelemetryTableName())
@@ -250,7 +326,7 @@ export async function POST(request: NextRequest) {
 
   if (
     shouldInsertHistoryPoint(
-      numericBuggyId,
+      resolvedBuggyId,
       incomingPosition.lat,
       incomingPosition.lng,
       incomingSpeedKmh,
@@ -258,7 +334,7 @@ export async function POST(request: NextRequest) {
     )
   ) {
     // Segera perbarui cache agar request padat tidak spam insert raw history.
-    lastHistoryInsertPerBuggy[numericBuggyId] = {
+    lastHistoryInsertPerBuggy[resolvedBuggyId] = {
       insertedAtMs: now,
       lat: incomingPosition.lat,
       lng: incomingPosition.lng,
@@ -278,6 +354,7 @@ export async function POST(request: NextRequest) {
       if (error) {
         if (isSchemaColumnError(error.message)) {
           const fallbackRow: Record<string, unknown> = { ...historyRow };
+          delete fallbackRow.devices_id;
           delete fallbackRow.passengers;
           const { error: fallbackError } = await supabase
             .from(tableName)
@@ -321,7 +398,10 @@ export async function POST(request: NextRequest) {
   return NextResponse.json({
     ok: true,
     accepted: result.accepted,
-    buggyId: numericBuggyId,
+    devicesId: incomingDevicesId,
+    buggyId: resolvedBuggyId,
+    buggyNumericId: numericBuggyId,
+    identitySource,
     position: { lat: Number(lat), lng: Number(lng) },
     gsm: normalizedGsm
       ? {

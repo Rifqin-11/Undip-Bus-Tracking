@@ -8,6 +8,7 @@ import { resolveBuggyConnectionStatus } from "@/lib/buggy/connection-status";
 import type { Buggy } from "@/types/buggy";
 
 type LatestBuggyTelemetryRow = {
+  devices_id?: string | null;
   buggy_id: string | null;
   buggy_numeric_id: number | null;
   lat: number | null;

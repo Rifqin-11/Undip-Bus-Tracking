@@ -86,3 +86,7 @@ export function getLatestBuggyTelemetryTableName() {
 export function getBuggySessionTableName() {
   return process.env.SUPABASE_BUGGY_SESSION_TABLE ?? "buggy_session_history";
 }
+
+export function getDeviceAssignmentsTableName() {
+  return process.env.SUPABASE_DEVICE_ASSIGNMENTS_TABLE ?? "device_assignments";
+}

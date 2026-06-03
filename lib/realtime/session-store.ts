@@ -38,7 +38,7 @@ export type SessionPoint = {
 type ActiveSession = {
   sessionId: string;
   buggyId: string;
-  buggyNumericId: number;
+  buggyNumericId: number | null;
   sessionKey: string;
   sessionNumber: number;
   startedAt: string;    // ISO
@@ -191,7 +191,10 @@ function ensureGC(): void {
  * Start a new session for a buggy.
  * If there is already an active session, it will be finalized first.
  */
-export function startSession(buggyId: string, buggyNumericId: number): void {
+export function startSession(
+  buggyId: string,
+  buggyNumericId: number | null,
+): void {
   ensureGC();
   const sessions = getSessionMap();
   const bucket = getOperationalSessionBucket(new Date());
@@ -229,7 +232,7 @@ export function startSession(buggyId: string, buggyNumericId: number): void {
  */
 export function addPoint(
   buggyId: string,
-  buggyNumericId: number,
+  buggyNumericId: number | null,
   point: SessionPoint,
 ): void {
   if (sanitizeGpsPoints([point]).length === 0) {

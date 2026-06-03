@@ -67,6 +67,7 @@ Fitur utama:
 - Statistik operasional armada.
 - Data buggy dan detail operasional buggy.
 - Penambahan dan pengelolaan buggy.
+- Assignment device GPS fisik ke buggy, sehingga satu ESP dapat dipindahkan dari satu buggy ke buggy lain tanpa flash ulang firmware.
 - Data halte dan pengelolaan halte.
 - Manajemen geofence berbasis titik pusat dan radius.
 - Log event geofence, termasuk deteksi buggy masuk dan keluar area.
@@ -97,7 +98,7 @@ Fitur utama:
 - Publish data GPS ke MQTT WebSocket.
 - Mode simulasi satu device.
 - Mode simulasi beberapa buggy.
-- Payload berisi `buggyId`, `lat`, `lng`, `speedKmh`, `heading`, `altitude`, `accuracy`, `batteryLevel`, `passengers`, `capacity`, `sessionStart`, `sessionEnd`, `timestamp`, dan `source`.
+- Payload legacy simulator masih dapat berisi `buggyId`, sedangkan alur perangkat lapangan menggunakan `deviceId`/`devicesId`, `lat`, `lng`, `speedKmh`, `heading`, `altitude`, `accuracy`, `batteryLevel`, `passengers`, `capacity`, `sessionStart`, `sessionEnd`, `timestamp`, dan `source`.
 - Halaman ini hanya boleh diakses admin.
 
 ---
@@ -198,15 +199,16 @@ Frontend tidak membaca data langsung dari MQTT broker. Semua data masuk melalui 
 
 ### 6.1 Alur Data GPS
 
-1. GPS tracker atau simulator membuat payload telemetry.
-2. Payload dikirim ke MQTT topic `buggy/{numericId}/data`.
-3. MQTT bridge subscribe ke `buggy/+/data`.
+1. GPS tracker, simulator, atau perangkat ESP membuat payload telemetry.
+2. Perangkat lapangan mengirim identitas fisik `deviceId`, misalnya `ESP-1A2B3C4D`, bersama data GPS.
+3. MQTT bridge membaca payload dan menormalisasi identitas device menjadi `devicesId`.
 4. Bridge meneruskan data ke `POST /api/gps-beacon` dengan header `Authorization: Bearer <BUGGY_INGEST_TOKEN>`.
 5. API `gps-beacon` melakukan:
    - Validasi token ingest.
    - Validasi payload JSON.
    - Lazy bootstrap data `buggies` dan `haltes` dari Supabase.
-   - Mapping `buggyId` numerik ke ID buggy yang digunakan aplikasi.
+   - Lookup assignment aktif `devicesId -> buggy_id` pada tabel `device_assignments`.
+   - Payload lama berbasis `buggyId` tetap diterima sebagai fallback kompatibilitas.
    - Update live store.
    - Upsert snapshot telemetry terbaru ke `latest_buggy_telemetry`.
    - Insert ke `buggy_history` dengan pembatasan 1 insert per 10 detik per buggy.
@@ -369,6 +371,7 @@ Fungsi `mosquitto.db`:
 
 Histori perjalanan dan telemetry aplikasi tetap disimpan di Supabase, khususnya pada tabel:
 
+- `device_assignments`
 - `buggy_history`
 - `buggy_session_history`
 - `latest_buggy_telemetry`
@@ -514,9 +517,25 @@ Field penting yang digunakan aplikasi:
 - `is_active`
 - `numeric_id`
 
-`numeric_id` penting karena data GPS dari simulator atau hardware biasanya mengirim ID numerik, sedangkan data aplikasi memakai ID dari database.
+`numeric_id` tetap dipertahankan untuk kompatibilitas payload simulator atau payload lama yang masih mengirim ID numerik.
 
-### 8.3 `haltes`
+### 8.3 `device_assignments`
+
+Menyimpan assignment perangkat GPS fisik ke buggy.
+
+Field penting:
+
+- `id`
+- `devices_id`
+- `buggy_id`
+- `label`
+- `is_active`
+- `created_at`
+- `updated_at`
+
+Tabel ini menjadi sumber kebenaran untuk menghubungkan identitas perangkat ESP (`deviceId`/`devicesId`) dengan armada buggy. Dengan model ini, satu device dapat dipindahkan dari Buggy 01 ke Buggy 02 melalui dashboard admin tanpa perlu flash ulang firmware ESP. Endpoint `/api/gps-beacon` akan menolak payload device yang belum memiliki assignment aktif agar data tidak masuk ke buggy yang salah.
+
+### 8.4 `haltes`
 
 Menyimpan data halte kampus.
 
@@ -533,7 +552,7 @@ Field penting:
 
 Data halte dimuat ke runtime agar peta, detail halte, dan pencarian rute dapat bekerja.
 
-### 8.4 `geofences`
+### 8.5 `geofences`
 
 Menyimpan area operasional buggy.
 
@@ -551,11 +570,11 @@ Field penting:
 
 Admin dapat menambahkan, mengedit, mengaktifkan, menonaktifkan, dan menghapus geofence. Proses edit mendukung perubahan nama zona, titik pusat, dan radius. Proses delete memvalidasi keberadaan ID geofence sehingga API tidak memberikan status berhasil ketika data yang dimaksud tidak ditemukan.
 
-### 8.5 `announcements`
+### 8.6 `announcements`
 
 Menyimpan notifikasi atau pengumuman yang dapat dikelola admin dan ditampilkan pada dashboard.
 
-### 8.6 `buggy_history`
+### 8.7 `buggy_history`
 
 Menyimpan raw telemetry GPS.
 
@@ -563,6 +582,7 @@ Data yang disimpan mencakup:
 
 - ID buggy.
 - ID numerik buggy.
+- ID device fisik (`devices_id`) jika payload masuk melalui assignment device.
 - Latitude dan longitude.
 - Kecepatan.
 - Akurasi.
@@ -578,7 +598,7 @@ Insert ke tabel ini dibatasi maksimal sekali setiap 10 detik per buggy agar data
 
 Perubahan terbaru: kolom `passengers` ditambahkan melalui migrasi `20260526062537_add_passengers_to_buggy_history.sql` untuk memungkinkan pelacakan historis jumlah penumpang per titik GPS.
 
-### 8.7 `buggy_session_history`
+### 8.8 `buggy_session_history`
 
 Menyimpan ringkasan sesi perjalanan.
 
@@ -604,7 +624,7 @@ Tabel ini digunakan oleh panel riwayat perjalanan dan statistik operasional. Adm
 
 Perubahan terbaru: kolom `passenger_avg`, `passenger_peak`, dan `passenger_samples` ditambahkan melalui migrasi `20260526061902_add_passenger_metrics_to_buggy_sessions.sql` untuk mendukung analitik penumpang historis per sesi.
 
-### 8.8 `latest_buggy_telemetry`
+### 8.9 `latest_buggy_telemetry`
 
 Menyimpan snapshot telemetry terbaru per buggy. Tabel ini dibuat khusus untuk mendukung `GET /api/buggy` agar data terbaru dapat dibaca dari database meskipun live store in-memory direset (misalnya saat Vercel serverless cold start).
 
@@ -619,6 +639,7 @@ Data yang disimpan mencakup:
 - `id` UUID primary key.
 - `buggy_id` (unique, terhubung ke buggy aplikasi).
 - `buggy_numeric_id` ID numerik device.
+- `devices_id` ID perangkat fisik ESP.
 - `lat` dan `lng` posisi terbaru.
 - `speed_kmh` kecepatan terbaru.
 - `accuracy` akurasi GPS.
@@ -634,7 +655,7 @@ Data yang disimpan mencakup:
 
 Tabel ini dibuat melalui migrasi `20260526054636_create_latest_buggy_telemetry.sql`. Kolom `received_at` ditambahkan melalui migrasi `20260601154749_add_received_at_to_latest_buggy_telemetry.sql`.
 
-### 8.9 `notification_subscriptions`
+### 8.10 `notification_subscriptions`
 
 Menyimpan data subscription Web Push untuk pengguna yang mengaktifkan notifikasi browser/PWA. Tabel ini digunakan oleh backend untuk mengirim notifikasi ketika buggy dengan data yang masih cukup segar mendekati halte terdekat dari posisi terakhir pengguna.
 

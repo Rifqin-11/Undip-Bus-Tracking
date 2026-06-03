@@ -5,6 +5,7 @@ import { useTranslation } from "react-i18next";
 import type { Buggy } from "@/types/buggy";
 import { ChevronLeft, Trash2 } from "lucide-react";
 import { getErrorMessage } from "@/lib/utils/error-message";
+import { DeviceAssignmentPanel } from "./DeviceAssignmentPanel";
 
 type AdminBuggyFormPanelProps = {
   /** null = mode tambah, object = mode edit */
@@ -271,6 +272,14 @@ export function AdminBuggyFormPanel({
           )}
         </div>
       </div>
+
+      {isEdit ? (
+        <DeviceAssignmentPanel
+          buggies={[buggy]}
+          selectedBuggy={buggy}
+          readOnly={false}
+        />
+      ) : null}
     </section>
   );
 }

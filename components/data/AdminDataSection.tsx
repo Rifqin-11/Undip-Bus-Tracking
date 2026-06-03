@@ -77,6 +77,7 @@ export function AdminDataSection({
   const [internalActivePanel, setInternalActivePanel] =
     useState<AdminDataPanel>("statistics");
   const activePanel = controlledActivePanel ?? internalActivePanel;
+  const effectiveActivePanel = activePanel;
   const setActivePanel = (panel: AdminDataPanel) => {
     if (controlledActivePanel === undefined) {
       setInternalActivePanel(panel);
@@ -94,7 +95,7 @@ export function AdminDataSection({
     <section className={compactMode ? "space-y-2" : "space-y-3"}>
       <div className="grid grid-cols-3 rounded-full border border-slate-200/80 bg-white/70 p-1.5 shadow-[0_8px_20px_rgba(15,23,42,0.04)]">
         {tabs.map((tab) => {
-          const isActive = activePanel === tab.id;
+          const isActive = effectiveActivePanel === tab.id;
 
           return (
             <button
@@ -115,12 +116,12 @@ export function AdminDataSection({
       </div>
 
       {/* ── Statistik Operasional ──────────────────────────────────────── */}
-      {activePanel === "statistics" ? (
+      {effectiveActivePanel === "statistics" ? (
         <AdminStatisticsPanel buggies={buggies} />
       ) : null}
 
       {/* ── Data Operasional Buggy ─────────────────────────────────────── */}
-      {activePanel === "buggy" ? (
+      {effectiveActivePanel === "buggy" ? (
         isAddingBuggy && !readOnly ? (
           <AdminBuggyFormPanel
             buggy={null}
@@ -179,7 +180,7 @@ export function AdminDataSection({
       ) : null}
 
       {/* ── Manajemen Geofence ─────────────────────────────────────────── */}
-      {activePanel === "geofence" ? (
+      {effectiveActivePanel === "geofence" ? (
         <>
           <GeofenceManager
             geofences={geofences}

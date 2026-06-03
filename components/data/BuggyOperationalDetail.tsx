@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Image from "next/image";
 import { useTranslation } from "react-i18next";
 import type { Buggy } from "@/types/buggy";
@@ -14,15 +14,17 @@ import {
   ChevronLeft,
   Edit2Icon,
   Clock,
-  Gauge,
+  Cpu,
   MapPin,
   Radio,
   Users,
   Wifi,
 } from "lucide-react";
 import { AdminBuggyFormPanel } from "./AdminBuggyFormPanel";
+import { DeviceAssignmentPanel } from "./DeviceAssignmentPanel";
 import { DeleteConfirmModal } from "@/components/ui/DeleteConfirmModal";
 import { getErrorMessage } from "@/lib/utils/error-message";
+import type { DeviceAssignment } from "@/types/device-assignment";
 
 type BuggyOperationalDetailProps = {
   buggy: Buggy;
@@ -77,6 +79,41 @@ export function BuggyOperationalDetail({
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [isDeleteOpen, setIsDeleteOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [assignedDeviceIds, setAssignedDeviceIds] = useState<string[]>([]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadAssignedDeviceIds() {
+      try {
+        const res = await fetch("/api/admin/device-assignments", {
+          cache: "no-store",
+        });
+        if (!res.ok) return;
+
+        const data = (await res.json()) as {
+          assignments?: DeviceAssignment[];
+        };
+        if (cancelled) return;
+
+        const nextDeviceIds = (data.assignments ?? [])
+          .filter(
+            (assignment) =>
+              assignment.isActive && assignment.buggyId === buggy.id,
+          )
+          .map((assignment) => assignment.devicesId);
+        setAssignedDeviceIds(nextDeviceIds);
+      } catch {
+        if (!cancelled) setAssignedDeviceIds([]);
+      }
+    }
+
+    void loadAssignedDeviceIds();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [buggy.id]);
 
   const handleDelete = async () => {
     setIsDeleting(true);
@@ -142,10 +179,8 @@ export function BuggyOperationalDetail({
     100,
   );
   const safeOccupancyPct = Number.isFinite(occupancyPct) ? occupancyPct : 0;
-  const speedValue =
-    typeof buggy.speedKmh === "number" && Number.isFinite(buggy.speedKmh)
-      ? `${Math.max(0, Math.round(buggy.speedKmh))} ${t("speedUnit")}`
-      : "--";
+  const deviceIdValue =
+    assignedDeviceIds.length > 0 ? assignedDeviceIds.join(", ") : "--";
   const connectionStatusValue = buggy.connectionStatus
     ? connectionTone.label
     : "--";
@@ -329,16 +364,16 @@ export function BuggyOperationalDetail({
         <div className="grid grid-cols-3 gap-2">
           <div className="rounded-2xl border border-slate-200/70 bg-white p-2.5 shadow-sm">
             <div className="mb-1 flex items-center gap-1 text-slate-400">
-              <Gauge className="size-3" />
+              <Cpu className="size-3" />
               <p className="text-[10px] font-semibold uppercase tracking-wider">
-                {t("speed")}
+                {t("devicesId")}
               </p>
             </div>
             <p
-              className="truncate text-[14px] font-bold text-slate-800 tabular-nums"
-              title={speedValue}
+              className="truncate text-[14px] font-bold text-slate-800"
+              title={deviceIdValue}
             >
-              {speedValue}
+              {deviceIdValue}
             </p>
           </div>
           <div className="rounded-2xl border border-slate-200/70 bg-white p-2.5 shadow-sm">
@@ -490,6 +525,13 @@ export function BuggyOperationalDetail({
           </div>
         </div>
       </div>
+
+      <DeviceAssignmentPanel
+        buggies={[buggy]}
+        selectedBuggy={buggy}
+        readOnly
+        summaryOnly
+      />
 
       {/* ── Data Rows ──────────────────────────────────────────────────── */}
       <div className="rounded-3xl border border-slate-200/80 bg-white/70">

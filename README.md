@@ -110,12 +110,14 @@ SIMOBI keeps MQTT outside the browser-facing app. Telemetry is normalized by a b
 
 ## Realtime Data Flow
 
-1. A GPS device or simulator publishes telemetry to `buggy/{id}/data`.
-2. The MQTT bridge subscribes to `buggy/+/data`.
-3. The bridge forwards normalized telemetry to the protected GPS ingest API.
-4. The backend updates the live buggy store and persists telemetry history.
+1. A GPS device publishes telemetry with a physical `deviceId`, for example `ESP-1A2B3C4D`.
+2. The MQTT bridge normalizes it to `devicesId` and forwards it to the protected `/api/gps-beacon` ingest API.
+3. The backend looks up the active `device_assignments` row to resolve `devicesId -> buggy_id`.
+4. The resolved buggy is updated in the live store, `latest_buggy_telemetry`, and `buggy_history`.
 5. The dashboard reads the latest buggy snapshot from the backend.
 6. Admin history panels read aggregated sessions from Supabase.
+
+Legacy telemetry with `buggyId` is still accepted for compatibility, but new ESP firmware should keep sending `deviceId`. Device-to-buggy mapping is changed from the admin dashboard, so an ESP can move from Buggy 01 to Buggy 02 without reflashing.
 
 ## Data Model
 
@@ -123,6 +125,7 @@ SIMOBI keeps MQTT outside the browser-facing app. Telemetry is normalized by a b
 | --- | --- |
 | `accounts` | User profile, role, and driver assignment. |
 | `buggies` | Fleet master data, capacity, code, and active status. |
+| `device_assignments` | Active mapping from physical ESP `devices_id` to a buggy record. |
 | `haltes` | Campus halte points, order, schedule, and facilities. |
 | `geofences` | Operational areas used for geofence monitoring. |
 | `announcements` | Admin-managed public notifications. |
