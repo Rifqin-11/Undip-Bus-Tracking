@@ -1,3 +1,9 @@
+/**
+ * Shared ingest-token validator for machine-to-machine telemetry endpoints.
+ *
+ * GPS devices and bridge services authenticate with a static bearer token. This
+ * keeps telemetry ingestion independent from browser Supabase sessions.
+ */
 import { NextResponse, type NextRequest } from "next/server";
 
 export function requireIngestToken(request: NextRequest) {

@@ -1,3 +1,9 @@
+/**
+ * Admin announcement creation API.
+ *
+ * Accepts announcement content from the admin dashboard and persists it to
+ * Supabase. Public clients read active announcements through `/api/announcements`.
+ */
 import { NextResponse } from "next/server";
 import { requireAdmin } from "@/lib/auth/admin-guard";
 import { createClient } from "@/lib/supabase/server";

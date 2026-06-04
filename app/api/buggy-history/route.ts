@@ -1,3 +1,9 @@
+/**
+ * Buggy raw-history API.
+ *
+ * Exposes GPS point history for admin and driver dashboards. Driver requests are
+ * filtered server-side to the assigned buggy so UI filters cannot bypass access.
+ */
 import { NextRequest, NextResponse } from "next/server";
 import {
   mapBuggyHistoryRow,

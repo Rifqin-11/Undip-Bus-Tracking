@@ -1,5 +1,11 @@
 "use client";
 
+/**
+ * Client-side i18n provider.
+ *
+ * Creates one i18next instance per rendered provider and syncs it with the route
+ * locale so components can use `useTranslation()` consistently.
+ */
 import { createContext, useContext, useEffect, useMemo, type ReactNode } from "react";
 import i18next, { type i18n as I18nInstance } from "i18next";
 import LanguageDetector from "i18next-browser-languagedetector";

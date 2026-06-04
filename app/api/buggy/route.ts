@@ -1,3 +1,10 @@
+/**
+ * Live buggy snapshot API.
+ *
+ * Returns the current fleet state for map panels by merging the process-local
+ * live store with Supabase master data and latest telemetry. Hidden fleets are
+ * removed here so every frontend surface receives the same visibility rules.
+ */
 import { NextResponse } from "next/server";
 import { getBuggyLiveSnapshot } from "@/lib/realtime/buggy-live-store";
 import { bootstrapFromDatabase } from "@/lib/supabase/data-loader";

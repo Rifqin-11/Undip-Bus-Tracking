@@ -1,5 +1,11 @@
 "use client";
 
+/**
+ * Browser Web Push client helpers.
+ *
+ * Registers the service worker, converts VAPID keys, and talks to subscription
+ * APIs while keeping PushManager details out of UI components.
+ */
 import type { LatLng } from "@/hooks/useUserPosition";
 
 type SubscribeOptions = {

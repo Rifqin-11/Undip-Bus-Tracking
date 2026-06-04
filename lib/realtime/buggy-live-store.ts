@@ -1,3 +1,9 @@
+/**
+ * Process-local live fleet store.
+ *
+ * Holds the latest in-memory buggy state for map snapshots and SSE responses.
+ * Durable history still lives in Supabase; this store optimizes realtime reads.
+ */
 import { OFFICIAL_ROUTE_PATH } from "@/lib/transit/buggy-data";
 import { getHalteLocations } from "@/lib/transit/halte-runtime";
 import {
@@ -63,6 +69,8 @@ function nowMs(): number {
 }
 
 const HALTE_ARRIVAL_RADIUS_METERS = 20;
+const HALTE_SNAP_RADIUS_METERS = 120;
+const HALTE_SNAP_HYSTERESIS_METERS = 15;
 // Keep progression directional to avoid jumping to opposite-side nearby haltes.
 const MAX_SKIP_AHEAD_STOPS = 0;
 const ACTIVE_TELEMETRY_WINDOW_MS = 15_000;
@@ -91,9 +99,18 @@ function resolveNearestHalteIndexFromPosition(
   lat: number,
   lng: number,
 ): number {
+  return resolveNearestHalteCandidate(lat, lng).index;
+}
+
+function resolveNearestHalteCandidate(
+  lat: number,
+  lng: number,
+): { index: number; geoDistanceMeters: number } {
   const haltes = getHalteLocations();
   const halteCount = haltes.length;
-  if (halteCount <= 0) return 0;
+  if (halteCount <= 0) {
+    return { index: 0, geoDistanceMeters: Number.POSITIVE_INFINITY };
+  }
 
   const pointCursor = findNearestPathIndex(lat, lng);
   const routeCursorCount = OFFICIAL_ROUTE_PATH.length;
@@ -125,7 +142,7 @@ function resolveNearestHalteIndexFromPosition(
     }
   }
 
-  return bestIndex;
+  return { index: bestIndex, geoDistanceMeters: bestGeoDistance };
 }
 
 function findArrivedNextHalteIndex(
@@ -177,7 +194,25 @@ function resolveCurrentStopIndexFromPosition(
   if (arrivedIndex !== null) return arrivedIndex;
 
   const current = normalizeLoopIndex(existingStopIndex, halteCount);
-  const nearestIndex = resolveNearestHalteIndexFromPosition(lat, lng);
+  const nearestCandidate = resolveNearestHalteCandidate(lat, lng);
+  const nearestIndex = nearestCandidate.index;
+  const currentHalte = haltes[current];
+  const distanceToCurrentHalte = currentHalte
+    ? haversineMeters({ lat, lng }, { lat: currentHalte.lat, lng: currentHalte.lng })
+    : Number.POSITIVE_INFINITY;
+
+  // GPS pings can occasionally skip several stop transitions while the server
+  // still remembers the previous stop. If the latest coordinate is clearly near
+  // another halte, snap to it immediately instead of waiting for a full refresh.
+  if (
+    nearestIndex !== current &&
+    nearestCandidate.geoDistanceMeters <= HALTE_SNAP_RADIUS_METERS &&
+    nearestCandidate.geoDistanceMeters + HALTE_SNAP_HYSTERESIS_METERS <
+      distanceToCurrentHalte
+  ) {
+    return nearestIndex;
+  }
+
   const forwardSteps =
     (((nearestIndex - current) % halteCount) + halteCount) % halteCount;
   const maxForwardResync = Math.floor(halteCount / 2);
@@ -327,6 +362,8 @@ function setState(next: BuggyLiveState): BuggyLiveSnapshot {
 }
 
 export function getBuggyLiveSnapshot(): BuggyLiveSnapshot {
+  // The live map is intentionally backed by a process-local cache so SSE
+  // responses are fast. Supabase remains the durable source for reloads/history.
   const state = getMutableState();
   const now = nowMs();
   return {
@@ -414,6 +451,8 @@ function autoRegisterBuggy(buggyId: string, point: BuggyTelemetryInput): Buggy {
 function ingestTelemetry(
   telemetry: BuggyTelemetryInput[],
 ): BuggyIngestResult | null {
+  // Telemetry requests are stateless. Each point refreshes position, passenger
+  // load, GSM metadata, and the last-seen clock used to mark buggy offline.
   const current = getMutableState();
   const byId = new Map(
     current.buggies.map((buggy) => [buggy.id, cloneBuggy(buggy)]),

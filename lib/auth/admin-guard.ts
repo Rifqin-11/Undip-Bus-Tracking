@@ -1,3 +1,10 @@
+/**
+ * Server-side admin authorization guard.
+ *
+ * Combines Supabase Auth identity with the application `accounts.role` value.
+ * API routes use this helper so admin-only write operations share one consistent
+ * 401/403 response contract.
+ */
 import { NextResponse } from "next/server";
 import type { User } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/server";

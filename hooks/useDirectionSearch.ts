@@ -1,5 +1,11 @@
 "use client";
 
+/**
+ * Direction-search workflow hook.
+ *
+ * Resolves typed places or "My Location" into campus haltes, builds the walking
+ * and buggy route segments, and recommends only online/reachable fleets.
+ */
 import { useCallback, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { GoogleMapsService } from "@/lib/services/google-maps-service";
@@ -69,6 +75,9 @@ export function useDirectionSearch(opts: UseDirectionSearchOptions) {
   const runDirectionSearch = useCallback(async () => {
     if (requireAuth && !requireAuth()) return;
 
+    // The search bar is intentionally two-step: destination first, then origin.
+    // This mirrors the panel flow and lets the second step recommend a reachable
+    // online buggy from the resolved origin halte.
     if (searchStep === "destination") {
       if (!normalize(toInput)) return;
       setSearchStep("origin");
@@ -216,6 +225,8 @@ export function useDirectionSearch(opts: UseDirectionSearchOptions) {
         routePath,
       );
 
+      // Only online/reachable fleets are eligible for recommendation. If none
+      // exists, the route is still shown as stop guidance without a buggy pick.
       const reachableBuggies = liveBuggies.filter(isBuggyRealtimeReachable);
       const nearest = findNearestBuggyToHalte(reachableBuggies, originHalte!);
 

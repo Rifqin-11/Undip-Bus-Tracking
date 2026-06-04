@@ -1,3 +1,10 @@
+/**
+ * Supabase Auth callback route.
+ *
+ * Exchanges OAuth or email-link codes for a server session, then redirects the
+ * user back to a locale-safe `next` path. Password reset links are routed to the
+ * reset-password page instead of the default dashboard.
+ */
 import { NextResponse } from "next/server";
 import { localeCookieName, normalizeLocale } from "@/lib/i18n/config";
 import { getLocaleFromPath, localizePath } from "@/lib/i18n/routing";

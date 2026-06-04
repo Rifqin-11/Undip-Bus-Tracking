@@ -1,3 +1,9 @@
+/**
+ * Internationalization configuration.
+ *
+ * Defines supported locales, namespaces, and locale normalization rules shared by
+ * middleware, server components, and browser helpers.
+ */
 export const locales = ["id", "en"] as const;
 
 export type Locale = (typeof locales)[number];

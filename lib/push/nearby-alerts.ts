@@ -1,3 +1,9 @@
+/**
+ * Server-side nearby-buggy push alert worker.
+ *
+ * Evaluates stored browser subscriptions against the live fleet snapshot and
+ * sends Web Push notifications with per-endpoint cooldown protection.
+ */
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { getBuggyLiveSnapshot } from "@/lib/realtime/buggy-live-store";
 import { bootstrapFromDatabase } from "@/lib/supabase/data-loader";

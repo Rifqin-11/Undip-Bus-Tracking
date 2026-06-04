@@ -1,3 +1,9 @@
+/**
+ * Time formatting helpers for compact dashboard labels.
+ *
+ * These functions avoid duplicating Indonesian date/time formatting rules across
+ * panels, exports, and history details.
+ */
 export function fmtDate(iso: string): string {
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return "-";

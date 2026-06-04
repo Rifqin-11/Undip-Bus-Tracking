@@ -1,3 +1,9 @@
+/**
+ * GPS quality and path sanitation utilities.
+ *
+ * Filters invalid, duplicate, or known no-fix coordinates before they contaminate
+ * session history, route distance, CSV export, and map playback.
+ */
 import { OFFICIAL_ROUTE_PATH } from "@/lib/transit/buggy-data";
 import { haversineMeters } from "@/lib/transit/buggy-route-utils";
 

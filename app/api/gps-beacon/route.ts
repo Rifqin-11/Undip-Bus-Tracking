@@ -1,3 +1,10 @@
+/**
+ * Production GPS beacon ingest API.
+ *
+ * This is the canonical telemetry entry point for MQTT bridge payloads. It
+ * validates the ingest token, resolves devicesId/deviceId to the assigned buggy,
+ * updates live state, and persists latest/history/session data.
+ */
 import { NextRequest, NextResponse } from "next/server";
 import { requireIngestToken } from "@/lib/auth/ingest-token";
 import {
@@ -83,8 +90,9 @@ function shouldInsertHistoryPoint(
 /**
  * POST /api/gps-beacon
  *
- * Receives real GPS data from iPhone and injects it directly
- * into the live buggy store.
+ * Receives telemetry from the MQTT bridge or legacy clients and applies it to
+ * the currently assigned buggy. The device assignment table is the canonical
+ * source of truth; legacy buggyId is accepted only for backward compatibility.
  *
  * Body: { devicesId/deviceId, lat, lng, accuracy?, speedKmh?, heading?, altitude? }
  * Legacy body with { buggyId, ... } is still accepted for compatibility.
@@ -166,6 +174,8 @@ export async function POST(request: NextRequest) {
       receivedAt: new Date().toISOString(),
     });
 
+    // A physical ESP can be moved between fleets without reflashing firmware.
+    // The backend resolves devicesId -> buggy_id on every ingest request.
     const { assignment, error } =
       await resolveActiveDeviceAssignment(incomingDevicesId);
 
@@ -271,6 +281,9 @@ export async function POST(request: NextRequest) {
         : 0;
   const recordedAt = new Date().toISOString();
 
+  // The same accepted point updates four operational views:
+  // 1) in-memory live map, 2) latest telemetry row, 3) raw history points,
+  // and 4) session aggregation for trip history.
   // ── Live store ingest ─────────────────────────────────────────────────────
   const telemetryPayload = {
     telemetry: [

@@ -1,3 +1,9 @@
+/**
+ * Geofence collection API.
+ *
+ * Public reads return configured geofence areas for map rendering. Writes are
+ * admin-only because geofences affect operational monitoring and alerts.
+ */
 import { NextResponse } from "next/server";
 import { requireAdmin } from "@/lib/auth/admin-guard";
 import { createGeofence, readGeofences } from "@/lib/geofence-store";

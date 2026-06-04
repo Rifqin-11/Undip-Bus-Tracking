@@ -1,3 +1,9 @@
+/**
+ * Latest telemetry merger.
+ *
+ * Overlays durable `latest_buggy_telemetry` rows onto the live-store snapshot so
+ * the dashboard can recover last known position/status after server restarts.
+ */
 import {
   createAdminClient,
   getLatestBuggyTelemetryTableName,

@@ -1,3 +1,10 @@
+/**
+ * Session deletion API.
+ *
+ * Deletes a persisted session and its matching raw GPS points using the stored
+ * session path/time span, not only a broad time window. This keeps admin cleanup
+ * precise and avoids deleting unrelated nearby sessions.
+ */
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdmin } from "@/lib/auth/admin-guard";
 import {

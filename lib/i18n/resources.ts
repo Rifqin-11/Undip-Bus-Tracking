@@ -1,5 +1,11 @@
 import type { Locale } from "@/lib/i18n/config";
 
+/**
+ * Application translation resources.
+ *
+ * Keeps Indonesian and English UI copy in one typed module so the dashboard,
+ * admin panels, history views, and notifications can share consistent labels.
+ */
 export const resources = {
   id: {
     common: {

@@ -1,3 +1,9 @@
+/**
+ * Web Push unsubscribe API.
+ *
+ * Removes a browser endpoint from Supabase when the user disables notifications
+ * or the browser subscription becomes invalid.
+ */
 import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/server";
 

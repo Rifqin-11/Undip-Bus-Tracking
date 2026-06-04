@@ -1,3 +1,9 @@
+/**
+ * Supabase buggy history row mappers.
+ *
+ * Converts raw database rows into frontend-friendly history entries and keeps
+ * sorting behavior consistent across history consumers.
+ */
 import type { BuggyHistoryEntry } from "@/types/buggy-history";
 
 function asNumber(value: unknown): number | null {

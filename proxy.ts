@@ -41,6 +41,10 @@ function redirectToLocalized(request: NextRequest, pathname: string) {
 
 export async function proxy(request: NextRequest) {
   const originalPathname = request.nextUrl.pathname;
+
+  // Locale normalization runs before auth so every browser-facing page has a
+  // stable `/id` or `/en` prefix. API routes and static assets are skipped to
+  // keep machine-facing endpoints untouched.
   if (!pathShouldSkipLocale(originalPathname)) {
     const pathLocale = getLocaleFromPath(originalPathname);
     if (!pathLocale) {
@@ -106,6 +110,9 @@ export async function proxy(request: NextRequest) {
 
   let role: "Admin" | "Driver" | "Pengguna umum" = "Pengguna umum";
 
+  // The Supabase session only proves identity. Authorization comes from the
+  // application-owned `accounts.role` field, so role changes take effect without
+  // modifying Supabase Auth metadata.
   if (authenticated) {
     const { data: account } = await supabase
       .from("accounts")
@@ -122,6 +129,8 @@ export async function proxy(request: NextRequest) {
     }
   }
 
+  // Route-level access control lives here as a first line of defense. Sensitive
+  // API handlers still keep their own guards for write operations.
   if (isProtectedRoute) {
     if (!authenticated) {
       if (pathname.startsWith("/api/")) {

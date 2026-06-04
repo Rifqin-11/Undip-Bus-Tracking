@@ -1,3 +1,10 @@
+/**
+ * Admin fleet collection API.
+ *
+ * Creates and lists buggy master data. New fleets are inserted into Supabase and
+ * mirrored into the process-local live store so the dashboard reflects changes
+ * without waiting for the next GPS packet.
+ */
 import { NextResponse } from "next/server";
 import { requireAdmin } from "@/lib/auth/admin-guard";
 import { createAdminClient } from "@/lib/supabase/server";

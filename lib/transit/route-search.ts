@@ -1,15 +1,21 @@
+/**
+ * Campus route search helpers.
+ *
+ * Contains pure utility functions for matching halte names, slicing the loop
+ * route, and selecting the nearest online buggy candidate.
+ */
 import { OFFICIAL_ROUTE_PATH } from "@/lib/transit/buggy-data";
 import { findNearestPathIndex } from "@/lib/transit/buggy-route-utils";
 import type { Buggy, HaltePoint } from "@/types/buggy";
 
 export type LatLng = { lat: number; lng: number };
 
-/** Lowercase + trim — untuk pencocokan teks halte longgar */
+/** Lowercase and trim input for tolerant halte-name matching. */
 export function normalize(s: string): string {
   return s.trim().toLowerCase();
 }
 
-/** Cari halte berdasar substring nama (case-insensitive) */
+/** Find a halte by case-insensitive name substring. */
 export function findHalteByQuery(
   query: string,
   haltes: HaltePoint[],

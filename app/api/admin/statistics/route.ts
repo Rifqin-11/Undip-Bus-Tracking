@@ -1,3 +1,10 @@
+/**
+ * Admin operational statistics API.
+ *
+ * Aggregates completed session rows into monthly fleet metrics for the admin
+ * dashboard. The handler reads durable history instead of live telemetry so the
+ * reported values remain stable across server restarts.
+ */
 import { NextResponse } from "next/server";
 import { requireAdmin } from "@/lib/auth/admin-guard";
 import { createAdminClient, getBuggySessionTableName } from "@/lib/supabase/server";

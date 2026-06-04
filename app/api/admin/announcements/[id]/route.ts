@@ -1,3 +1,9 @@
+/**
+ * Admin announcement mutation API.
+ *
+ * Updates or deletes a single announcement by id. The public announcement API is
+ * intentionally read-only; all writes are kept behind the admin guard here.
+ */
 import { NextResponse } from "next/server";
 import { requireAdmin } from "@/lib/auth/admin-guard";
 import { createClient } from "@/lib/supabase/server";

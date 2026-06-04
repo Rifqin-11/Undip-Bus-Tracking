@@ -1,5 +1,12 @@
 "use client";
 
+/**
+ * Live fleet data hook.
+ *
+ * Supports both Server-Sent Events and interval polling. The caller receives one
+ * normalized state shape so UI panels do not need to know which transport is
+ * currently active.
+ */
 import { useEffect, useMemo, useState } from "react";
 import type { Buggy } from "@/types/buggy";
 

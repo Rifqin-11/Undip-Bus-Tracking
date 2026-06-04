@@ -1,3 +1,9 @@
+/**
+ * Admin device assignment item API.
+ *
+ * Updates or deactivates one assignment record. Deactivation is preferred over
+ * hard delete so operational history can still be audited later.
+ */
 import { NextResponse } from "next/server";
 import { requireAdmin } from "@/lib/auth/admin-guard";
 import {

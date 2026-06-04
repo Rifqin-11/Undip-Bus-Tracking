@@ -1,3 +1,9 @@
+/**
+ * Server-side Supabase client factories and table-name helpers.
+ *
+ * User-scoped clients read browser cookies; admin clients use the service role
+ * key and must only be called from trusted server code.
+ */
 import { createServerClient } from "@supabase/ssr";
 import { createClient as createSupabaseClient } from "@supabase/supabase-js";
 import { cookies } from "next/headers";

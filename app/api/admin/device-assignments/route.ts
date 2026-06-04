@@ -1,3 +1,10 @@
+/**
+ * Admin device assignment collection API.
+ *
+ * Provides the registry of physical GPS devices and the active devicesId ->
+ * buggy_id assignment used by `/api/gps-beacon`. Only one active assignment per
+ * device is allowed so an ESP can be moved between fleets safely.
+ */
 import { NextResponse } from "next/server";
 import { requireAdmin } from "@/lib/auth/admin-guard";
 import {

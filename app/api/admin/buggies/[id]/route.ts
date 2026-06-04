@@ -1,3 +1,9 @@
+/**
+ * Admin fleet item API.
+ *
+ * Updates, hides, or deletes one buggy. The route also synchronizes the in-memory
+ * live store because fleet visibility affects the real-time map immediately.
+ */
 import { NextResponse } from "next/server";
 import { requireAdmin } from "@/lib/auth/admin-guard";
 import { createAdminClient } from "@/lib/supabase/server";

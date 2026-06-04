@@ -1,3 +1,9 @@
+/**
+ * Driver-to-buggy assignment helpers.
+ *
+ * These functions normalize historical assignment formats so driver accounts can
+ * be matched against UUIDs, numeric ids, codes, or display names safely.
+ */
 import type { Buggy } from "@/types/buggy";
 
 function normalizeKey(value: string | null | undefined) {

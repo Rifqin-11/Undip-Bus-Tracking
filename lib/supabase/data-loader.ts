@@ -1,12 +1,12 @@
 /**
  * data-loader.ts
  *
- * Bootstrap fungsi yang mengisi:
- *  - Halte runtime (lib/transit/halte-runtime) dari tabel `haltes` Supabase
- *  - Buggy live store (lib/realtime/buggy-live-store) dari tabel `buggies` Supabase
+ * Bootstraps runtime caches from Supabase:
+ *  - halte runtime from the `haltes` table
+ *  - buggy live store from the `buggies` table
  *
- * Dipanggil sekali secara lazy di /api/buggy/route.ts saat first request.
- * Menggunakan globalThis flag agar tidak dipanggil berulang dalam satu server process.
+ * Called lazily on first live-data request. A global flag prevents duplicate
+ * bootstrap work inside the same server process.
  */
 
 import { createAdminClient } from "@/lib/supabase/server";

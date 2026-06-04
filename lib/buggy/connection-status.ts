@@ -1,3 +1,9 @@
+/**
+ * Fleet connection status helpers.
+ *
+ * Centralizes how telemetry age becomes Online/Idle/Offline state so panels,
+ * recommendations, and alerts use the same operational meaning.
+ */
 import type { Buggy, BuggyConnectionStatus } from "@/types/buggy";
 
 const ONLINE_MAX_SECONDS = 10;

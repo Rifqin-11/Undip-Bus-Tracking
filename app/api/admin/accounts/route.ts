@@ -1,3 +1,10 @@
+/**
+ * Admin account management API.
+ *
+ * Owns CRUD operations for application accounts and keeps Supabase Auth users in
+ * sync with the `accounts` profile table. Every handler is protected by
+ * `requireAdmin()` because these operations can create or delete login access.
+ */
 import { NextResponse } from "next/server";
 import {
   createAdminClient,

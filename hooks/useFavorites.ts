@@ -1,5 +1,11 @@
 "use client";
 
+/**
+ * Favorite halte and buggy hook.
+ *
+ * Loads the signed-in user's favorites from Supabase, exposes O(1) lookup sets,
+ * and performs optimistic updates so the UI stays responsive on slow networks.
+ */
 import { useCallback, useEffect, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 
@@ -9,19 +15,19 @@ type FavoritesRow = {
 };
 
 type UseFavoritesReturn = {
-  /** Set ID halte favorit (lookup O(1)). Empty saat guest atau belum loaded. */
+  /** Favorite halte ids for O(1) lookup. Empty for guests or before load. */
   favoriteHaltes: Set<string>;
-  /** Set ID buggy favorit (lookup O(1)). Empty saat guest atau belum loaded. */
+  /** Favorite buggy ids for O(1) lookup. Empty for guests or before load. */
   favoriteBuggies: Set<string>;
-  /** True ketika fetch awal selesai (atau guest \u2192 langsung true). */
+  /** True after the first load completes; guests resolve immediately. */
   ready: boolean;
-  /** True jika user sudah login (akses ke fitur favorit). */
+  /** True when the current user can persist favorites. */
   canFavorite: boolean;
   isFavoriteHalte: (halteId: string) => boolean;
   isFavoriteBuggy: (buggyId: string) => boolean;
-  /** Toggle halte favorit (optimistic). Resolves true jika berhasil. */
+  /** Optimistically toggle a halte favorite. Resolves true on success. */
   toggleHalte: (halteId: string) => Promise<boolean>;
-  /** Toggle buggy favorit (optimistic). Resolves true jika berhasil. */
+  /** Optimistically toggle a buggy favorite. Resolves true on success. */
   toggleBuggy: (buggyId: string) => Promise<boolean>;
 };
 

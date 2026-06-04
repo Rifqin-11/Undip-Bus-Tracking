@@ -1,14 +1,20 @@
 "use client";
 
+/**
+ * Lightweight toast stack state hook.
+ *
+ * Owns toast ids, max visible count, and optional auto-dismiss timers. UI
+ * rendering stays in `ToastStack`; this hook only manages state transitions.
+ */
 import { useCallback, useRef, useState } from "react";
 import type { ToastItem } from "@/components/ui/ToastStack";
 
 type AddToastInput = Omit<ToastItem, "id">;
 
 type UseToastStackOptions = {
-  /** Maksimum toast yang ditampilkan bersamaan. Default 5. */
+  /** Maximum number of visible toasts. Defaults to 5. */
   limit?: number;
-  /** Default duration auto-dismiss (ms). Default 4500. Set 0 untuk tidak auto-dismiss. */
+  /** Default auto-dismiss duration in ms. Set 0 to disable auto-dismiss. */
   defaultTtlMs?: number;
 };
 

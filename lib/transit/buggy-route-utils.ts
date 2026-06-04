@@ -1,3 +1,9 @@
+/**
+ * Route geometry utilities.
+ *
+ * Provides distance, nearest-path, stop-order, and ETA helpers used by live map
+ * positioning, history playback, and route recommendation logic.
+ */
 import { HALTE_LOCATIONS, OFFICIAL_ROUTE_PATH } from "@/lib/transit/buggy-data";
 import { getHalteLocations } from "@/lib/transit/halte-runtime";
 import type { Buggy, HaltePoint } from "@/types/buggy";

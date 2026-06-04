@@ -1,3 +1,9 @@
+/**
+ * Web Push provider wrapper.
+ *
+ * Lazily configures `web-push` from VAPID environment variables and exposes one
+ * safe send function for background alert workers.
+ */
 import webPush, { type PushSubscription } from "web-push";
 
 let configured = false;

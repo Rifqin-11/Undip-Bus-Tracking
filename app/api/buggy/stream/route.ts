@@ -1,3 +1,9 @@
+/**
+ * Server-Sent Events stream for live buggy snapshots.
+ *
+ * Polls the process-local live store and emits only when position or connection
+ * state changes. The hook can fall back to normal polling if SSE is unavailable.
+ */
 import { getBuggyLiveSnapshot } from "@/lib/realtime/buggy-live-store";
 
 export const runtime = "nodejs";

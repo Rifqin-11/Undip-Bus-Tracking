@@ -1,5 +1,11 @@
 import "server-only";
 
+/**
+ * Geofence persistence facade.
+ *
+ * Wraps Supabase reads/writes for geofence records and provides a single API for
+ * validation, fallback behavior, update semantics, and not-found handling.
+ */
 import { createAdminClient } from "@/lib/supabase/server";
 import type { Geofence } from "@/types/geofence";
 

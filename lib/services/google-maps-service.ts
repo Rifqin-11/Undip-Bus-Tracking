@@ -1,6 +1,8 @@
 /**
- * Google Maps Service menggunakan JavaScript API (browser)
- * untuk geocoding dan directions.
+ * Browser-side Google Maps service adapter.
+ *
+ * Wraps geocoding and directions calls from the Google Maps JavaScript API so
+ * React hooks can depend on a small typed interface instead of global objects.
  */
 
 export type LatLngConstructor = new (lat: number, lng: number) => {

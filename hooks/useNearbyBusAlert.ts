@@ -1,3 +1,9 @@
+/**
+ * Local nearby-buggy alert hook.
+ *
+ * Runs in the browser and emits in-app callbacks when an online buggy approaches
+ * the halte nearest to the user. Server-side Web Push uses a separate worker.
+ */
 import { useEffect, useRef } from "react";
 import { haversineMeters } from "@/lib/transit/buggy-route-utils";
 import { HALTE_LOCATIONS } from "@/lib/transit/buggy-data";
@@ -6,13 +12,13 @@ import type { Buggy } from "@/types/buggy";
 
 // ─── Configuration ────────────────────────────────────────────────────────────
 
-/** Default radius (meter) bus dianggap "mendekati" halte. Bisa di-override via prop. */
+/** Default radius in meters for considering a buggy near a halte. */
 const DEFAULT_NEARBY_THRESHOLD_METERS = 150;
 
-/** Radius (meter) maks halte dianggap sebagai "halte terdekat pengguna" */
+/** Maximum radius in meters for selecting the user's nearest halte. */
 const USER_HALTE_RADIUS_METERS = 500;
 
-/** Cooldown (ms) per kombinasi busId+halteId agar tidak spam notifikasi */
+/** Cooldown per buggy+halte pair to avoid notification spam. */
 const ALERT_COOLDOWN_MS = 60_000;
 
 // ─── Types ────────────────────────────────────────────────────────────────────

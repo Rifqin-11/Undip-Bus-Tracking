@@ -1,3 +1,9 @@
+/**
+ * Static campus transit seed data.
+ *
+ * Provides fallback center coordinates, halte definitions, and the official
+ * loop route used before Supabase runtime data is loaded.
+ */
 import type { Buggy, CrowdLevel, HaltePoint } from "@/types/buggy";
 
 // ─── Campus center ────────────────────────────────────────────────────────────

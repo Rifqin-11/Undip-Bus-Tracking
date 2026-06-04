@@ -1,3 +1,9 @@
+/**
+ * Geofence item API.
+ *
+ * Updates or deletes one geofence. The delete path returns a not-found response
+ * when the id does not exist so the admin UI cannot show false success.
+ */
 import { NextResponse } from "next/server";
 import { requireAdmin } from "@/lib/auth/admin-guard";
 import { deleteGeofenceById, updateGeofenceById } from "@/lib/geofence-store";

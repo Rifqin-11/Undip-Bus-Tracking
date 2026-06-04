@@ -1,3 +1,10 @@
+/**
+ * Buggy session history API.
+ *
+ * Combines persisted sessions with recent raw GPS points so active trips can
+ * appear before an ESP sends `sessionEnd`. Access is role-aware: admin receives
+ * all fleets, while driver receives only the assigned buggy aliases.
+ */
 import { NextRequest, NextResponse } from "next/server";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import {
@@ -68,6 +75,8 @@ function addBuggyAliases(target: Set<string>, value: string | number | null | un
 async function getHistoryAccessContext(
   adminSupabase: SupabaseClient,
 ): Promise<HistoryAccessContext | NextResponse> {
+  // Session history is shared by admin and driver dashboards. Admin receives all
+  // rows, while driver access is narrowed to aliases of the assigned buggy.
   let userSupabase: Awaited<ReturnType<typeof createClient>>;
 
   try {
@@ -513,6 +522,8 @@ export async function GET(request: NextRequest) {
   const saves: Promise<void>[] = [];
 
   // 3. Gabungkan titik jadi sesi on-the-fly (Sintesis)
+  // This makes the history UI resilient when the buggy has not sent a formal
+  // sessionEnd event yet; active trips still appear immediately.
   for (const [bId, { numericId, pts }] of pointsByBuggy.entries()) {
     const groups = groupPointsIntoSessions(pts);
     

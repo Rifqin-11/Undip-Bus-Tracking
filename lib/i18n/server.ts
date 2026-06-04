@@ -1,3 +1,9 @@
+/**
+ * Server-side translation helper.
+ *
+ * Creates a lightweight i18next instance for server rendering without sharing
+ * mutable i18n state across requests.
+ */
 import { createInstance } from "i18next";
 import { defaultLocale, namespaces, type I18nNamespace, type Locale } from "@/lib/i18n/config";
 import { resources } from "@/lib/i18n/resources";

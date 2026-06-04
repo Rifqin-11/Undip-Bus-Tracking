@@ -1,3 +1,9 @@
+/**
+ * Halte item API.
+ *
+ * Updates or deletes one campus stop, then reloads the runtime halte cache so
+ * route search, maps, and admin tables stay consistent after mutation.
+ */
 import { NextResponse } from "next/server";
 import { requireAdmin } from "@/lib/auth/admin-guard";
 import { createAdminClient } from "@/lib/supabase/server";

@@ -1,3 +1,9 @@
+/**
+ * Halte collection API.
+ *
+ * Returns the active campus stop list for routing and map rendering. Admin writes
+ * update Supabase and refresh the in-memory halte runtime used by route search.
+ */
 import { NextResponse } from "next/server";
 import { requireAdmin } from "@/lib/auth/admin-guard";
 import { createAdminClient } from "@/lib/supabase/server";

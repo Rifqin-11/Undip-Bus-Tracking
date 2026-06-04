@@ -1,3 +1,9 @@
+/**
+ * Locale-aware route utilities.
+ *
+ * These helpers keep URL manipulation deterministic across middleware, auth
+ * callback redirects, and navigation components.
+ */
 import { defaultLocale, isLocale, type Locale } from "@/lib/i18n/config";
 
 const PUBLIC_FILE = /\.(.*)$/;

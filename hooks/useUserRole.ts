@@ -1,5 +1,11 @@
 "use client";
 
+/**
+ * Client-side role/profile hook.
+ *
+ * Reads the signed-in Supabase user and the application `accounts` row. Components
+ * use this for UI branching only; protected routes still enforce access server-side.
+ */
 import { useCallback, useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 

@@ -1,3 +1,9 @@
+/**
+ * GSM/MQTT status normalization helpers.
+ *
+ * Converts loosely shaped ESP bridge payloads into a predictable object used by
+ * operational detail panels, telemetry persistence, and CSV/debug views.
+ */
 import type { Buggy, BuggyGsmStatus } from "@/types/buggy";
 
 function isFiniteNumber(value: unknown): value is number {

@@ -1,3 +1,10 @@
+/**
+ * Physical device assignment helpers.
+ *
+ * The ESP `devicesId` is not hardcoded to a buggy. These helpers normalize the
+ * physical id, resolve its active fleet assignment, and maintain the registry of
+ * devices that have ever sent telemetry.
+ */
 import {
   createAdminClient,
   getDeviceAssignmentsTableName,

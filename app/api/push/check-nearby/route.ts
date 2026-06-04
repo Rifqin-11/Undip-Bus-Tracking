@@ -1,3 +1,9 @@
+/**
+ * Push worker endpoint for nearby-buggy alerts.
+ *
+ * Intended for a cron or worker call protected by PUSH_WORKER_TOKEN/CRON_SECRET.
+ * It evaluates saved subscriptions against the latest live fleet snapshot.
+ */
 import { NextRequest, NextResponse } from "next/server";
 import { processNearbyPushAlerts } from "@/lib/push/nearby-alerts";
 

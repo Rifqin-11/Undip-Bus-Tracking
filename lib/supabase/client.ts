@@ -1,3 +1,9 @@
+/**
+ * Browser Supabase client factory.
+ *
+ * Creates a client with public anon credentials for user-scoped reads/writes.
+ * Service-role operations must stay server-side.
+ */
 import { createBrowserClient } from "@supabase/ssr";
 
 function resolveSupabaseUrl() {

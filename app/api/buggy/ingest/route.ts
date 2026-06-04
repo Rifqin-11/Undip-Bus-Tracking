@@ -1,3 +1,10 @@
+/**
+ * Legacy live-store ingest API.
+ *
+ * Accepts simulator-style snapshots or telemetry arrays and writes only to the
+ * in-memory live store. Production ESP ingestion should use `/api/gps-beacon`
+ * because it resolves devicesId assignments and persists history.
+ */
 import { NextRequest, NextResponse } from "next/server";
 import { requireIngestToken } from "@/lib/auth/ingest-token";
 import { ingestBuggyPayload } from "@/lib/realtime/buggy-live-store";

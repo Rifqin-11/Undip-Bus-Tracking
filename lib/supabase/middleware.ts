@@ -1,3 +1,9 @@
+/**
+ * Supabase session middleware helper.
+ *
+ * Refreshes browser auth cookies inside Next.js middleware while preserving the
+ * response object expected by `@supabase/ssr`.
+ */
 import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
 

@@ -1,5 +1,12 @@
 "use client";
 
+/**
+ * Client-side admin settings store.
+ *
+ * Keeps dashboard preferences in localStorage and exposes a React-safe external
+ * store. Settings here are intentionally UI/notification preferences, not server
+ * authorization rules.
+ */
 import { useCallback, useMemo, useSyncExternalStore } from "react";
 
 export type MapStyle = "standard" | "satellite" | "terrain";
@@ -11,7 +18,7 @@ export type AdminSettings = {
   openPanelOnDashboard: boolean;
   compactAdminPanels: boolean;
   mapStyle: MapStyle;
-  /** Radius (meter) saat bus dianggap mendekati halte user. Min 50, max 1000. */
+  /** Radius in meters for considering a buggy near the user's halte. */
   nearbyAlertRadiusMeters: number;
 };
 

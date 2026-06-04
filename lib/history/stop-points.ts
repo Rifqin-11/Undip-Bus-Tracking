@@ -1,3 +1,9 @@
+/**
+ * History stop-point detection.
+ *
+ * Derives meaningful halte stops from GPS playback by matching session points to
+ * campus halte coordinates. Used by the history detail map and CSV exports.
+ */
 import { haversineMeters } from "@/lib/transit/buggy-route-utils";
 import { HALTE_LOCATIONS } from "@/lib/transit/buggy-data";
 import type { HaltePoint } from "@/types/buggy";

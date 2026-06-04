@@ -1,13 +1,20 @@
 "use client";
 
+/**
+ * Browser geolocation hook.
+ *
+ * Watches the user's location continuously and exposes an on-demand high
+ * accuracy getter. If a fresh request fails, callers can still use the cached
+ * position already shown on the map.
+ */
 import { useCallback, useEffect, useState } from "react";
 
 export type LatLng = { lat: number; lng: number };
 
 /**
- * Mengambil, memantau, dan men-cache posisi geolokasi user di browser.
- * - `userPosition`: posisi terakhir yang berhasil diambil (atau `null`)
- * - `getLatestUserPosition`: refetch on-demand (dengan accuracy tinggi); jatuh ke posisi cached jika gagal.
+ * Tracks and caches the user's browser geolocation.
+ * - `userPosition`: last known successful position, or `null`.
+ * - `getLatestUserPosition`: high-accuracy refetch with cached fallback.
  */
 export function useUserPosition() {
   const [userPosition, setUserPosition] = useState<LatLng | null>(null);

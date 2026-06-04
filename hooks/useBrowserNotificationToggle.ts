@@ -1,5 +1,11 @@
 "use client";
 
+/**
+ * Bridges the settings UI with the browser Web Push lifecycle.
+ *
+ * The hook requests notification permission, registers/unregisters push
+ * subscriptions, and sends the latest user position/radius to the backend.
+ */
 import { useCallback, useEffect, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import type { ToastItem } from "@/components/ui/ToastStack";
