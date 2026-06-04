@@ -43,12 +43,44 @@ function normalizeBuggyId(value: string): string {
   return text;
 }
 
-function getBuggyNorm(b: Buggy): string {
+function getBuggyNorm(b: Pick<Buggy, "id" | "code">): string {
   const match = b.code.match(/\d+/);
   if (match) {
     return `buggy-${Number.parseInt(match[0], 10)}`;
   }
   return normalizeBuggyId(b.id);
+}
+
+function getBuggyHistoryKeys(b: Pick<Buggy, "id" | "code" | "numericId">): string[] {
+  const keys = new Set<string>();
+  keys.add(normalizeBuggyId(b.id));
+  keys.add(getBuggyNorm(b));
+
+  if (typeof b.numericId === "number") {
+    keys.add(`buggy-${b.numericId}`);
+    keys.add(String(b.numericId));
+  }
+
+  if (b.code) {
+    keys.add(normalizeBuggyId(b.code));
+  }
+
+  return Array.from(keys).filter(Boolean);
+}
+
+function getSessionsForBuggy(
+  buggy: Pick<Buggy, "id" | "code" | "numericId">,
+  sessionsByBuggy: Map<string, BuggySession[]>,
+): BuggySession[] {
+  const byId = new Map<string, BuggySession>();
+  for (const key of getBuggyHistoryKeys(buggy)) {
+    for (const session of sessionsByBuggy.get(key) ?? []) {
+      byId.set(session.id, session);
+    }
+  }
+  return Array.from(byId.values()).sort(
+    (a, b) => getSessionLastActivityMs(b) - getSessionLastActivityMs(a),
+  );
 }
 
 function getSessionLastActivityMs(session: BuggySession): number {
@@ -220,6 +252,7 @@ export function HistoryPanel({
           id: b.id,
           code: b.code,
           name: b.name,
+          numericId: b.numericId,
           norm: getBuggyNorm(b),
           isActive: b.isActive,
         }))
@@ -271,7 +304,7 @@ export function HistoryPanel({
       buggyOptions
         .map((buggy) => ({
           ...buggy,
-          sessions: sessionsByBuggy.get(buggy.norm) ?? [],
+          sessions: getSessionsForBuggy(buggy, sessionsByBuggy),
         }))
         .filter((buggy) => buggy.sessions.length > 0),
     [buggyOptions, sessionsByBuggy],
@@ -300,7 +333,7 @@ export function HistoryPanel({
     if (!selectedBuggyId) return [];
     const buggy = buggies.find((b) => b.id === selectedBuggyId);
     if (!buggy) return [];
-    return sessionsByBuggy.get(getBuggyNorm(buggy)) ?? [];
+    return getSessionsForBuggy(buggy, sessionsByBuggy);
   }, [sessionsByBuggy, selectedBuggyId, buggies]);
 
   const selectedSession = useMemo(
