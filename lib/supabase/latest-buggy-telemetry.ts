@@ -70,14 +70,22 @@ function resolveCrowdLevel(passengers: number, capacity: number): Buggy["crowdLe
   return "LONGGAR";
 }
 
-function resolveTelemetryKey(row: LatestBuggyTelemetryRow): string | null {
-  if (typeof row.buggy_numeric_id === "number") {
-    return `numeric:${row.buggy_numeric_id}`;
-  }
+function getTelemetryTimeMs(row: LatestBuggyTelemetryRow): number {
+  const value = resolveLastSeenAt(row) ?? row.recorded_at;
+  if (!value) return 0;
+  const time = new Date(value).getTime();
+  return Number.isFinite(time) ? time : 0;
+}
+
+function resolveTelemetryKeys(row: LatestBuggyTelemetryRow): string[] {
+  const keys: string[] = [];
   if (typeof row.buggy_id === "string" && row.buggy_id.length > 0) {
-    return `id:${row.buggy_id}`;
+    keys.push(`id:${row.buggy_id}`);
   }
-  return null;
+  if (typeof row.buggy_numeric_id === "number") {
+    keys.push(`numeric:${row.buggy_numeric_id}`);
+  }
+  return keys;
 }
 
 function resolveBuggyKeys(buggy: Buggy): string[] {
@@ -106,9 +114,12 @@ export async function mergeLatestBuggyTelemetry(
 
   const latestByKey = new Map<string, LatestBuggyTelemetryRow>();
   for (const row of (data ?? []) as LatestBuggyTelemetryRow[]) {
-    const key = resolveTelemetryKey(row);
-    if (!key) continue;
-    latestByKey.set(key, row);
+    for (const key of resolveTelemetryKeys(row)) {
+      const existing = latestByKey.get(key);
+      if (!existing || getTelemetryTimeMs(row) > getTelemetryTimeMs(existing)) {
+        latestByKey.set(key, row);
+      }
+    }
   }
 
   let mergedCount = 0;
@@ -116,9 +127,12 @@ export async function mergeLatestBuggyTelemetry(
   const now = Date.now();
 
   const merged = buggies.map((buggy) => {
-    const row = resolveBuggyKeys(buggy)
-      .map((key) => latestByKey.get(key))
-      .find((item): item is LatestBuggyTelemetryRow => Boolean(item));
+    const row =
+      resolveBuggyKeys(buggy)
+        .map((key) => latestByKey.get(key))
+        .filter((item): item is LatestBuggyTelemetryRow => Boolean(item))
+        .sort((a, b) => getTelemetryTimeMs(b) - getTelemetryTimeMs(a))[0] ??
+      null;
 
     const lastSeenAt = row ? resolveLastSeenAt(row) : null;
     if (
