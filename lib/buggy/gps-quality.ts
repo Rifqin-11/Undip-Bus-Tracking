@@ -8,9 +8,11 @@ type LatLng = {
 
 export type TimestampedGpsPoint = LatLng & {
   recordedAt?: string;
+  tsMs?: number;
+  passengers?: number | null;
 };
 
-export type GpsPathPoint = [number, number, number?];
+export type GpsPathPoint = [number, number, number?, number?];
 
 const MAX_DISTANCE_FROM_ROUTE_METERS = 2_500;
 const MAX_SEGMENT_SPEED_KMH = 90;
@@ -117,20 +119,32 @@ export function sanitizeGpsPoints<T extends TimestampedGpsPoint>(
 
 export function sanitizePath(path: GpsPathPoint[]): GpsPathPoint[] {
   return sanitizeGpsPoints(
-    path.map(([lat, lng, tsMs]) => ({
+    path.map(([lat, lng, tsMs, passengers]) => ({
       lat,
       lng,
       recordedAt:
         typeof tsMs === "number" && Number.isFinite(tsMs)
           ? new Date(tsMs).toISOString()
           : undefined,
-      tsMs,
+      tsMs: typeof tsMs === "number" && Number.isFinite(tsMs) ? tsMs : undefined,
+      passengers:
+        typeof passengers === "number" && Number.isFinite(passengers)
+          ? passengers
+          : undefined,
     })),
-  ).map((point) =>
-    typeof point.tsMs === "number"
-      ? [point.lat, point.lng, point.tsMs]
-      : [point.lat, point.lng],
-  );
+  ).map((point) => {
+    const tuple: GpsPathPoint = [point.lat, point.lng];
+
+    if (typeof point.tsMs === "number") {
+      tuple[2] = point.tsMs;
+    }
+
+    if (typeof point.passengers === "number") {
+      tuple[3] = point.passengers;
+    }
+
+    return tuple;
+  });
 }
 
 export function calculatePathDistanceKm(path: GpsPathPoint[]): number {

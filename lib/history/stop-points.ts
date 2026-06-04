@@ -2,7 +2,7 @@ import { haversineMeters } from "@/lib/transit/buggy-route-utils";
 import { HALTE_LOCATIONS } from "@/lib/transit/buggy-data";
 import type { HaltePoint } from "@/types/buggy";
 
-export type HistoryPathPoint = [number, number, number?];
+export type HistoryPathPoint = [number, number, number?, number?];
 
 export type HistoryStopPoint = {
   halteId: string;

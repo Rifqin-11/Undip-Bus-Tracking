@@ -42,11 +42,8 @@ function toIsoTimestamp(value: string | number | null | undefined) {
   return date.toISOString();
 }
 
-function toDisplayTimestamp(value: string | number | null | undefined) {
-  if (value === null || value === undefined || value === "") return "";
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return "";
-  return fmtTimestamp(date.toISOString());
+function toCsvNumber(value: unknown) {
+  return typeof value === "number" && Number.isFinite(value) ? value : "";
 }
 
 export function HistorySessionDetail({
@@ -107,14 +104,7 @@ export function HistorySessionDetail({
       : `${t("session")} ${s.sessionNumber}`;
     const statusLabel = s.isOngoing ? t("ongoing") : t("completed");
     const gpsPointCount = s.path.length;
-    const stopSummary = halteStopPoints
-      .map((stop, index) => {
-        const timeValue = stop.startedAtMs ?? stop.endedAtMs;
-        const timeLabel = toDisplayTimestamp(timeValue);
-        return `${index + 1}. ${stop.halteName}${timeLabel ? ` (${timeLabel})` : ""}`;
-      })
-      .join(" | ");
-    const baseSessionValues = [
+    const baseIdentityValues = [
       selectedBuggy.code,
       selectedBuggy.name,
       sessionLabel,
@@ -122,15 +112,11 @@ export function HistorySessionDetail({
       s.sessionDate,
       toIsoTimestamp(s.startedAt),
       s.isOngoing ? "" : toIsoTimestamp(s.endedAt),
+    ];
+    const sessionMetricValues = [
       s.durationMinutes ?? "",
       s.totalDistanceKm ?? "",
       s.avgSpeedKmh ?? "",
-      s.passengerAvg ?? "",
-      s.passengerPeak ?? "",
-      s.passengerSamples ?? "",
-      s.batteryStart ?? "",
-      s.batteryEnd ?? "",
-      s.batteryUsed ?? "",
       gpsPointCount,
     ];
 
@@ -147,18 +133,12 @@ export function HistorySessionDetail({
       t("csvDurationMinutes"),
       t("csvDistanceKm"),
       t("csvAverageSpeed"),
-      t("csvAveragePassengers"),
-      t("csvPeakPassengers"),
-      t("csvPassengerSamples"),
-      t("csvBatteryStart"),
-      t("csvBatteryEnd"),
-      t("csvBatteryUsage"),
       t("csvGpsPointCount"),
-      t("csvStopHaltes"),
       t("csvPointIndex"),
       t("csvPointTime"),
       t("csvLatitude"),
       t("csvLongitude"),
+      t("csvPointPassengers"),
       t("csvStopHalteName"),
       t("csvStopStartedAt"),
       t("csvStopEndedAt"),
@@ -170,8 +150,9 @@ export function HistorySessionDetail({
     const summaryRow = [
       1,
       t("csvSummary"),
-      ...baseSessionValues,
-      stopSummary,
+      ...baseIdentityValues,
+      ...sessionMetricValues,
+      "",
       "",
       "",
       "",
@@ -184,15 +165,19 @@ export function HistorySessionDetail({
       "",
     ];
 
-    const routeRows = s.path.map(([lat, lng, tsMs], idx) => [
+    const routeRows = s.path.map(([lat, lng, tsMs, passengers], idx) => [
       idx + 2,
       t("csvGpsPoint"),
-      ...baseSessionValues,
+      ...baseIdentityValues,
+      "",
+      "",
+      "",
       "",
       idx + 1,
       toIsoTimestamp(tsMs ?? s.startedAt),
       lat,
       lng,
+      toCsvNumber(passengers),
       "",
       "",
       "",
@@ -204,12 +189,16 @@ export function HistorySessionDetail({
     const stopRows = halteStopPoints.map((stop, idx) => [
       routeRows.length + idx + 2,
       t("csvStopHalte"),
-      ...baseSessionValues,
-      stopSummary,
+      ...baseIdentityValues,
+      "",
+      "",
+      "",
+      "",
       "",
       "",
       stop.lat,
       stop.lng,
+      "",
       stop.halteName,
       toIsoTimestamp(stop.startedAtMs),
       toIsoTimestamp(stop.endedAtMs),
@@ -227,7 +216,9 @@ export function HistorySessionDetail({
       .map((row) => row.map(escapeCsvValue).join(","))
       .join("\n");
 
-    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const blob = new Blob([`\uFEFF${csvContent}`], {
+      type: "text/csv;charset=utf-8;",
+    });
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
     const sessionPart = s.isOngoing ? "ongoing" : `session_${s.sessionNumber}`;

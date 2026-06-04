@@ -21,9 +21,10 @@ export type BuggySession = {
   passengerSamples?: number;
   /**
    * GPS path as ordered tuples for map rendering.
-   * Format: [lat, lng, unixMs?] — 3rd element is unix timestamp (ms) for per-point display.
+   * Format: [lat, lng, unixMs?, passengers?] — 3rd element is unix timestamp
+   * (ms), 4th element is passenger count for the point when available.
    */
-  path: [number, number, number?][];
+  path: [number, number, number?, number?][];
   /** True when the session is currently in progress (not yet finalized) */
   isOngoing?: boolean;
   /** IDs of persisted session rows represented by a merged display session. */

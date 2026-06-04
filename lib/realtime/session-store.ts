@@ -62,7 +62,7 @@ export type ActiveSessionSummary = {
   passengerAvg: number | null;
   passengerPeak: number | null;
   passengerSamples: number;
-  path: [number, number, number][];
+  path: [number, number, number, number?][];
 };
 
 // ── Global state (survives HMR in dev) ───────────────────────────────────────
@@ -365,11 +365,19 @@ export function buildSessionSummary(
   const passengerPeak =
     passengerValues.length > 0 ? Math.max(...passengerValues) : null;
 
-  const path: [number, number, number][] = points.map((p) => [
-    p.lat,
-    p.lng,
-    new Date(p.recordedAt).getTime(),
-  ]);
+  const path: [number, number, number, number?][] = points.map((p) => {
+    const tuple: [number, number, number, number?] = [
+      p.lat,
+      p.lng,
+      new Date(p.recordedAt).getTime(),
+    ];
+
+    if (typeof p.passengers === "number" && Number.isFinite(p.passengers)) {
+      tuple[3] = p.passengers;
+    }
+
+    return tuple;
+  });
 
   return {
     id: sessionId,
@@ -509,12 +517,20 @@ export async function saveSessionPointsToDb(
     const last = points[points.length - 1];
     if (pathSource[pathSource.length - 1] !== last) pathSource.push(last);
   }
-  // Store [lat, lng, unixMs] so the panel can display per-point timestamps
-  const path = pathSource.map((p) => [
-    p.lat,
-    p.lng,
-    new Date(p.recordedAt).getTime(),
-  ]);
+  // Store [lat, lng, unixMs, passengers?] so exports can show per-point values.
+  const path = pathSource.map((p) => {
+    const tuple: [number, number, number, number?] = [
+      p.lat,
+      p.lng,
+      new Date(p.recordedAt).getTime(),
+    ];
+
+    if (typeof p.passengers === "number" && Number.isFinite(p.passengers)) {
+      tuple[3] = p.passengers;
+    }
+
+    return tuple;
+  });
 
   // ── Persist to Supabase ──────────────────────────────────────────────────
 

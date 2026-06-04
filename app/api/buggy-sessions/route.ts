@@ -16,6 +16,7 @@ import {
   calculatePathDistanceKm,
   sanitizePath,
 } from "@/lib/buggy/gps-quality";
+import type { GpsPathPoint } from "@/lib/buggy/gps-quality";
 import type { BuggySession } from "@/types/buggy-session";
 
 export const runtime = "nodejs";
@@ -167,11 +168,11 @@ function asNum(v: unknown): number | null {
 function mapRow(row: Record<string, unknown>): BuggySession | null {
   if (!row.id || !row.buggy_id || !row.started_at || !row.ended_at) return null;
 
-  let path: [number, number, number][] = [];
+  let path: GpsPathPoint[] = [];
   try {
     const raw =
       typeof row.path === "string" ? JSON.parse(row.path) : row.path;
-    if (Array.isArray(raw)) path = raw as [number, number, number][];
+    if (Array.isArray(raw)) path = raw as GpsPathPoint[];
   } catch {
     path = [];
   }
@@ -201,7 +202,7 @@ function mapRow(row: Record<string, unknown>): BuggySession | null {
     passengerAvg: asNum(row.passenger_avg),
     passengerPeak: asNum(row.passenger_peak),
     passengerSamples: Number(row.passenger_samples ?? 0),
-    path: sanitizedPath as [number, number, number?][],
+    path: sanitizedPath,
     sourceSessionIds: [String(row.id)],
   };
 }
@@ -268,19 +269,19 @@ function mergeSessionsByOperationalBucket(
         : latest,
     );
     const bucket = getOperationalSessionBucket(first.startedAt);
-    const pathByKey = new Map<string, [number, number, number?]>();
+    const pathByKey = new Map<string, GpsPathPoint>();
 
     for (const session of ordered) {
-      for (const [lat, lng, tsMs] of session.path) {
+      for (const [lat, lng, tsMs, passengers] of session.path) {
         const key = `${tsMs ?? ""}:${lat}:${lng}`;
-        pathByKey.set(key, [lat, lng, tsMs]);
+        pathByKey.set(key, [lat, lng, tsMs, passengers]);
       }
     }
 
     const mergedPath = sanitizePath(
       Array.from(pathByKey.values()).sort(
         (a, b) => (a[2] ?? 0) - (b[2] ?? 0),
-      ) as [number, number, number][],
+      ),
     );
     const startedAt = ordered[0].startedAt;
     const endedAt = last.endedAt;
@@ -344,7 +345,7 @@ function mergeSessionsByOperationalBucket(
         passengerAvg !== null ? Number(passengerAvg.toFixed(1)) : null,
       passengerPeak,
       passengerSamples,
-      path: mergedPath as [number, number, number?][],
+      path: mergedPath,
       isOngoing: ordered.some((session) => session.isOngoing),
       sourceSessionIds: ordered.flatMap((session) =>
         session.sourceSessionIds?.length ? session.sourceSessionIds : [session.id],
