@@ -213,7 +213,187 @@ Referensi kode:
 
 ---
 
-## 5. Map dan Visualisasi Google Maps
+## 5. Pola Alur Data Frontend
+
+Bagian ini penting karena banyak komponen React di SIMOBI tidak mengambil data langsung dari database. Umumnya data melewati beberapa lapisan:
+
+```text
+Database / API
+  -> parent component fetch data
+  -> data disimpan ke state
+  -> user memilih item tertentu
+  -> parent mencari selected item
+  -> selected item dikirim ke child component sebagai props
+  -> child component hanya menampilkan/mengelola UI
+```
+
+### 5.1 Perbedaan Type, State, dan Props
+
+Dalam TypeScript React, ada tiga hal yang sering terlihat mirip tetapi fungsinya berbeda.
+
+| Istilah | Fungsi | Contoh |
+| --- | --- | --- |
+| `type` | Menjelaskan bentuk data. Tidak mengambil data. | `selectedSession: BuggySession` |
+| `state` | Data nyata yang disimpan komponen saat runtime. | `const [sessions, setSessions] = useState([])` |
+| `props` | Data nyata yang dikirim dari parent ke child. | `<HistorySessionDetail selectedSession={selectedSession} />` |
+
+Contoh:
+
+```ts
+type HistorySessionDetailProps = {
+  selectedSession: BuggySession;
+};
+```
+
+Kode di atas hanya berarti:
+
+```text
+Komponen HistorySessionDetail wajib menerima prop bernama selectedSession
+yang bentuk datanya mengikuti type BuggySession.
+```
+
+Kode itu **bukan** query database, bukan import data, dan bukan fetch API.
+
+### 5.2 Contoh Lengkap: HistoryPanel ke HistorySessionDetail
+
+Pada fitur history, data diambil oleh `HistoryPanel`, bukan oleh `HistorySessionDetail`.
+
+Alurnya:
+
+```text
+Supabase buggy_session_history
+  -> GET /api/buggy-sessions
+  -> HistoryPanel fetch()
+  -> setSessions(payload.sessions)
+  -> user klik session
+  -> selectedSessionId disimpan
+  -> selectedSession dicari dari state sessions
+  -> HistorySessionDetail menerima selectedSession sebagai props
+```
+
+Kode penting:
+
+```ts
+const res = await fetch("/api/buggy-sessions?limit=200", {
+  cache: "no-store",
+});
+```
+
+Kode tersebut mengambil data session dari API.
+
+```ts
+setSessions(Array.isArray(payload.sessions) ? payload.sessions : []);
+```
+
+Kode tersebut menyimpan data API ke React state `sessions`.
+
+```ts
+const selectedSession = useMemo(
+  () => sessions.find((s) => s.id === selectedSessionId) ?? null,
+  [sessions, selectedSessionId],
+);
+```
+
+Kode tersebut mencari session yang sedang dipilih user.
+
+```tsx
+<HistorySessionDetail
+  selectedBuggy={selectedBuggy}
+  selectedSession={selectedSession}
+  onBack={goBackFromDetail}
+/>
+```
+
+Kode tersebut mengirim data nyata dari `HistoryPanel` ke `HistorySessionDetail`.
+
+Di `HistorySessionDetail`:
+
+```ts
+export function HistorySessionDetail({
+  selectedBuggy,
+  selectedSession: s,
+  onBack,
+}: HistorySessionDetailProps) {
+```
+
+`selectedSession: s` bukan type. Itu adalah **rename variable**. Artinya data prop `selectedSession` dipakai dengan nama lokal `s`.
+
+Maka:
+
+```ts
+s.batteryStart
+```
+
+sama dengan:
+
+```ts
+selectedSession.batteryStart
+```
+
+Nilainya berasal dari API, bukan dibuat di file `HistorySessionDetail.tsx`.
+
+### 5.3 Contoh Data dari Database sampai UI
+
+Contoh field `batteryStart`:
+
+```text
+Tabel buggy_session_history.battery_start
+  -> app/api/buggy-sessions/route.ts mapRow()
+  -> batteryStart: asNum(row.battery_start)
+  -> object BuggySession
+  -> HistoryPanel state sessions
+  -> selectedSession
+  -> HistorySessionDetail props
+  -> s.batteryStart
+```
+
+Contoh field `path`:
+
+```text
+Tabel buggy_session_history.path
+  -> mapRow() parse JSON path
+  -> sanitizePath(path)
+  -> selectedSession.path
+  -> HistoryPanel onShowPath()
+  -> MapCanvas render garis history
+  -> HistorySessionDetail export CSV
+```
+
+Contoh field `passengerAvg`:
+
+```text
+GPS payload passengers
+  -> /api/gps-beacon addPoint()
+  -> session-store buildSessionSummary()
+  -> passenger_avg di buggy_session_history
+  -> /api/buggy-sessions mapRow()
+  -> selectedSession.passengerAvg
+  -> tampil di detail history
+```
+
+### 5.4 Pola Parent dan Child di SIMOBI
+
+Beberapa fitur menggunakan pola yang sama:
+
+| Parent | Child | Data dari mana | Penjelasan |
+| --- | --- | --- | --- |
+| `HistoryPanel` | `HistorySessionDetail` | `/api/buggy-sessions` | Parent fetch session, child tampilkan detail. |
+| `AdminDataSection` | `BuggyOperationalDetail` | `/api/buggy` dan master data | Parent memilih buggy, detail menampilkan telemetry. |
+| `AdminBuggyFormPanel` | `DeviceAssignmentPanel` | `/api/admin/device-assignments` | Form fleet menampilkan pengaturan device untuk buggy yang sedang diedit. |
+| `MapCanvas` | `MapMarker` | Props `buggies`, `haltes`, `historyPath` | Map menerima data dari page/admin lalu render visual. |
+| `PanelActive` | `BuggyCard` | `liveBuggies` dari `useBuggyLiveFeed` | Panel list menerima data live, card hanya render satu item. |
+
+Prinsip yang perlu dihafal:
+
+1. Child component biasanya tidak tahu database.
+2. Parent component atau hook biasanya yang fetch data.
+3. API route mengubah row database menjadi object yang cocok untuk frontend.
+4. TypeScript type hanya menjaga bentuk data, bukan mengambil data.
+5. Jika bingung asal data, cari urutan: `props -> parent -> state -> fetch -> API -> database`.
+
+---
+
+## 6. Map dan Visualisasi Google Maps
 
 Komponen peta utama adalah `MapCanvas`.
 
@@ -253,7 +433,7 @@ Hal yang perlu dijelaskan ke dosen:
 
 ---
 
-## 6. Panel Buggy, Halte, dan Direction
+## 7. Panel Buggy, Halte, dan Direction
 
 Panel utama kiri menggunakan `BuggyList`.
 
@@ -282,7 +462,7 @@ Referensi kode:
 
 ---
 
-## 7. Search dan Rute Perjalanan
+## 8. Search dan Rute Perjalanan
 
 Pencarian rute dibagi menjadi dua bagian:
 
@@ -342,9 +522,9 @@ Referensi kode:
 
 ---
 
-## 8. Alur Realtime GPS
+## 9. Alur Realtime GPS
 
-### 8.1 Payload dari Perangkat
+### 9.1 Payload dari Perangkat
 
 Perangkat ESP mengirim payload ke MQTT dengan identitas fisik:
 
@@ -372,7 +552,7 @@ MQTT bridge menormalisasi menjadi:
 }
 ```
 
-### 8.2 API Ingest GPS
+### 9.2 API Ingest GPS
 
 Endpoint utama:
 
@@ -418,7 +598,7 @@ Hal yang perlu dipahami:
 
 ---
 
-## 9. Live Store dan Status Koneksi
+## 10. Live Store dan Status Koneksi
 
 Live store adalah penyimpanan sementara di memory server untuk data buggy realtime.
 
@@ -446,7 +626,7 @@ Alur update:
 
 ---
 
-## 10. API Live Buggy
+## 11. API Live Buggy
 
 Frontend tidak membaca live store langsung. Frontend memanggil API:
 
@@ -477,7 +657,7 @@ Frontend mengambil data dengan hook:
 
 ---
 
-## 11. Device Assignment
+## 12. Device Assignment
 
 Device assignment memungkinkan ESP dipindah dari satu buggy ke buggy lain tanpa flash ulang firmware.
 
@@ -525,7 +705,7 @@ Frontend:
 
 ---
 
-## 12. Fleet Management
+## 13. Fleet Management
 
 Admin dapat menambah, mengubah, menghapus, dan menyembunyikan fleet.
 
@@ -555,7 +735,7 @@ Backend:
 
 ---
 
-## 13. Operational Detail
+## 14. Operational Detail
 
 Operational Detail adalah halaman detail admin untuk satu buggy.
 
@@ -590,14 +770,14 @@ Referensi kode:
 
 ---
 
-## 14. History dan Session
+## 15. History dan Session
 
 History terdiri dari dua sumber:
 
 1. `buggy_history`: raw GPS point.
 2. `buggy_session_history`: ringkasan session perjalanan.
 
-### 14.1 Session Store
+### 15.1 Session Store
 
 Session store mengakumulasi point GPS menjadi sesi perjalanan.
 
@@ -617,7 +797,7 @@ Referensi kode:
 | Path menyimpan passenger per point | `lib/realtime/session-store.ts:520-533` |
 | Row session DB | `lib/realtime/session-store.ts:578-598` |
 
-### 14.2 API History Session
+### 15.2 API History Session
 
 Endpoint:
 
@@ -640,7 +820,7 @@ Referensi kode:
 | Build synthetic session dari raw point | `app/api/buggy-sessions/route.ts:515-579` |
 | Delete session admin | `app/api/buggy-sessions/delete/route.ts:63-195` |
 
-### 14.3 UI History
+### 15.3 UI History
 
 UI history memakai kalender tanggal. Tanggal yang memiliki session diberi titik biru. User memilih tanggal, lalu melihat buggy aktif pada tanggal itu.
 
@@ -662,7 +842,7 @@ Referensi kode:
 | Delete session dari UI | `components/history/HistorySessionDetail.tsx:62-99` |
 | Export CSV detail session | `components/history/HistorySessionDetail.tsx:101-235` |
 
-### 14.4 Stop Halte pada History
+### 15.4 Stop Halte pada History
 
 Stop halte dideteksi dari path GPS yang berada dekat titik halte.
 
@@ -677,7 +857,7 @@ Referensi kode:
 
 ---
 
-## 15. Statistik Operasional
+## 16. Statistik Operasional
 
 Statistik operasional menggunakan data session dan live buggy.
 
@@ -710,7 +890,7 @@ Referensi kode:
 
 ---
 
-## 16. Geofence
+## 17. Geofence
 
 Geofence adalah area operasional berbentuk lingkaran dengan center dan radius.
 
@@ -744,7 +924,7 @@ UI:
 
 ---
 
-## 17. Settings dan Account Management
+## 18. Settings dan Account Management
 
 Settings menyimpan preferensi di localStorage.
 
@@ -778,7 +958,7 @@ Referensi kode:
 
 ---
 
-## 18. Authentication
+## 19. Authentication
 
 Auth memakai Supabase Auth. Callback OAuth/password reset diproses di API route.
 
@@ -805,7 +985,7 @@ Hal yang perlu dijelaskan:
 
 ---
 
-## 19. Push Notification
+## 20. Push Notification
 
 Push notification digunakan untuk memberi alert ketika buggy mendekati halte dekat pengguna.
 
@@ -834,7 +1014,7 @@ Referensi kode:
 
 ---
 
-## 20. Database dan Supabase
+## 21. Database dan Supabase
 
 Tabel penting:
 
@@ -865,9 +1045,9 @@ Referensi kode Supabase:
 
 ---
 
-## 21. Alur End-to-End yang Perlu Dihafal
+## 22. Alur End-to-End yang Perlu Dihafal
 
-### 21.1 Saat buggy mengirim GPS
+### 22.1 Saat buggy mengirim GPS
 
 1. ESP mengirim `deviceId`, lat, lng, speed, passengers, gsm ke MQTT.
 2. MQTT bridge mengirim HTTP POST ke `/api/gps-beacon`.
@@ -884,7 +1064,7 @@ Referensi kode Supabase:
 13. Frontend polling `/api/buggy` setiap detik.
 14. Map dan panel berubah sesuai posisi terbaru.
 
-### 21.2 Saat admin melihat history
+### 22.2 Saat admin melihat history
 
 1. UI `HistoryPanel` fetch `/api/buggy-sessions`.
 2. API memastikan user admin/driver.
@@ -898,7 +1078,7 @@ Referensi kode Supabase:
 10. UI menampilkan path di map dan detail session.
 11. Export CSV dibuat di browser dari data session.
 
-### 21.3 Saat admin memindahkan device
+### 22.3 Saat admin memindahkan device
 
 1. Admin masuk Edit Fleet.
 2. Panel device assignment menampilkan device dari `device_registry` dan assignment lama.
@@ -907,7 +1087,7 @@ Referensi kode Supabase:
 5. Assignment aktif lama untuk device yang sama dinonaktifkan.
 6. GPS berikutnya dari device tersebut otomatis masuk ke buggy baru.
 
-### 21.4 Saat fleet di-hide
+### 22.4 Saat fleet di-hide
 
 1. Admin edit fleet.
 2. Toggle `Hide Fleet`.
@@ -916,9 +1096,44 @@ Referensi kode Supabase:
 5. `/api/buggy` juga filter hidden fleet.
 6. Jika GPS masuk untuk fleet hidden, `/api/gps-beacon` return 409 dan tidak menerapkan ke live map.
 
+### 22.5 Peta Alur Data per Fitur
+
+Gunakan tabel ini saat ingin menjawab pertanyaan “data ini asalnya dari mana?”.
+
+| Fitur | Sumber data | API / hook | Parent pengambil data | Child penerima data | Bentuk data penting |
+| --- | --- | --- | --- | --- | --- |
+| Live buggy list | `buggies` + `latest_buggy_telemetry` + live store | `/api/buggy`, `useBuggyLiveFeed` | `app/[locale]/page.tsx`, `app/[locale]/admin/page.tsx` | `PanelActive`, `BuggyCard`, `MapCanvas`, `MapMarker` | `Buggy[]` |
+| Detail buggy realtime | Live buggy dari `/api/buggy` | `useBuggyLiveFeed` | Admin page memilih `selectedBuggy` | `BuggyOperationalDetail` | `Buggy` |
+| Device ID di operational detail | `device_assignments`, `device_registry`, `latest_buggy_telemetry.devices_id` | `/api/admin/device-assignments` | `BuggyOperationalDetail` load assigned devices | Card detail device | `devicesId`, `lastSeenAt`, `speedKmh` |
+| Edit fleet | `buggies` | `/api/admin/buggies`, `/api/admin/buggies/[id]` | `AdminDataSection` | `AdminBuggyFormPanel` | `Buggy` form values |
+| Device assignment | `device_registry`, `device_assignments` | `/api/admin/device-assignments` | `AdminBuggyFormPanel` | `DeviceAssignmentPanel` | `DeviceAssignment[]` |
+| History calendar | `buggy_session_history` + raw `buggy_history` H-1 | `/api/buggy-sessions` | `HistoryPanel` | `HistoryDateBuggyList` | `sessions`, `availableDates`, `activeBuggySummaries` |
+| History session list | `sessions` state dari `HistoryPanel` | Tidak fetch ulang | `HistoryPanel` mencari session by buggy/date | `HistorySessionList` | `selectedBuggySessions` |
+| History session detail | `sessions` state dari `HistoryPanel` | Tidak fetch ulang | `HistoryPanel` mencari `selectedSession` | `HistorySessionDetail` | `selectedSession: BuggySession` |
+| History path map | `selectedSession.path` | Tidak fetch ulang | `HistoryPanel` | `MapCanvas` melalui `onShowPath` | `[lat,lng][]`, stop points |
+| Export CSV history | `selectedSession.path` + stop points | Browser-only | `HistorySessionDetail` | Download CSV | summary row, GPS point rows, stop halte rows |
+| Statistik operasional | `buggy_session_history` | `/api/admin/statistics` | `AdminDataSection` | `AdminStatisticsPanel` | monthly totals, passenger series |
+| Geofence map | `geofences` | `/api/geofences` | Admin page | `MapCanvas`, geofence panel | `Geofence[]` |
+| Search route | `haltes`, `liveBuggies`, Google Maps API | `useDirectionSearch` | Public/admin page | `LiveSearchBar`, `DirectionPanel`, `MapCanvas` | `DirectionResult` |
+| Halte list | `haltes` DB atau static fallback | `/api/haltes`, runtime cache | Page/admin data panel | Halte panel, map marker | `HaltePoint[]` |
+| User role | `accounts` + Supabase Auth | `useUserRole`, proxy | Page/components | Conditional UI | `role`, `buggy_id` |
+| Push notification | `notification_subscriptions`, live buggy snapshot | `/api/push/subscribe`, `/api/push/check-nearby` | Settings / background worker | Browser notification | push endpoint, radius, user position |
+
+Cara membaca satu baris tabel:
+
+```text
+Fitur History Detail
+  -> data awal dari buggy_session_history
+  -> API /api/buggy-sessions mengubah row DB menjadi BuggySession
+  -> HistoryPanel fetch dan menyimpan ke state sessions
+  -> HistoryPanel mencari selectedSession
+  -> HistorySessionDetail menerima selectedSession sebagai props
+  -> UI membaca s.durationMinutes, s.path, s.passengerAvg, dan field lain
+```
+
 ---
 
-## 22. Pertanyaan Dosen yang Mungkin Muncul
+## 23. Pertanyaan Dosen yang Mungkin Muncul
 
 ### Apa perbedaan `deviceId`, `devicesId`, dan `buggyId`?
 
@@ -974,7 +1189,7 @@ Kode: `lib/auth/admin-guard.ts:15-49`.
 
 ---
 
-## 23. Ringkasan Jawaban Cepat
+## 24. Ringkasan Jawaban Cepat
 
 Jika harus menjelaskan dalam 1 menit:
 
@@ -997,7 +1212,7 @@ Push worker: PUSH_WORKER_TOKEN atau CRON_SECRET
 
 ---
 
-## 24. Checklist Belajar
+## 25. Checklist Belajar
 
 Pelajari urutan ini:
 

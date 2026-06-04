@@ -234,6 +234,35 @@ export function HistorySessionDetail({
     URL.revokeObjectURL(url);
   }
 
+  const StatistikData =
+  [
+    { label: t("duration"), value: fmtDuration(s.durationMinutes) },
+    { label: t("gpsPoints"), value: `${s.pointCount} ${t("point")}` },
+    { label: t("distance"), value: s.totalDistanceKm !== null ? `${s.totalDistanceKm.toFixed(2)} km` : "—" },
+    { label: t("averageSpeed"), value: s.avgSpeedKmh !== null ? tCommon("kmh", { value: s.avgSpeedKmh.toFixed(1) }) : "—" },
+    {
+      label: t("averagePassengers"),
+      value:
+        typeof s.passengerAvg === "number" && s.passengerAvg > 0
+          ? `${s.passengerAvg.toFixed(1)} ${t("passengers")}`
+          : "—",
+    },
+    {
+      label: t("peakPassengers"),
+      value:
+        typeof s.passengerPeak === "number" && s.passengerPeak > 0
+          ? `${s.passengerPeak} ${t("passengers")}`
+          : "—",
+    },
+    {
+      label: t("passengerSamples"),
+      value:
+        typeof s.passengerSamples === "number" && s.passengerSamples > 0
+          ? `${s.passengerSamples} ${t("point")}`
+          : "—",
+    },
+  ]
+
   return (
     <section className="space-y-3 relative">
       {/* Header */}
@@ -320,45 +349,7 @@ export function HistorySessionDetail({
 
       {/* Statistik */}
       <div className="rounded-3xl border border-slate-200/80 bg-white/70">
-        {[
-          { label: t("duration"), value: fmtDuration(s.durationMinutes) },
-          { label: t("gpsPoints"), value: `${s.pointCount} ${t("point")}` },
-          { label: t("distance"), value: s.totalDistanceKm !== null ? `${s.totalDistanceKm.toFixed(2)} km` : "—" },
-          { label: t("averageSpeed"), value: s.avgSpeedKmh !== null ? tCommon("kmh", { value: s.avgSpeedKmh.toFixed(1) }) : "—" },
-          {
-            label: t("averagePassengers"),
-            value:
-              typeof s.passengerAvg === "number" && s.passengerAvg > 0
-                ? `${s.passengerAvg.toFixed(1)} ${t("passengers")}`
-                : "—",
-          },
-          {
-            label: t("peakPassengers"),
-            value:
-              typeof s.passengerPeak === "number" && s.passengerPeak > 0
-                ? `${s.passengerPeak} ${t("passengers")}`
-                : "—",
-          },
-          {
-            label: t("passengerSamples"),
-            value:
-              typeof s.passengerSamples === "number" && s.passengerSamples > 0
-                ? `${s.passengerSamples} ${t("point")}`
-                : "—",
-          },
-          {
-            label: t("battery"),
-            value: s.batteryStart !== null && s.batteryEnd !== null
-              ? `${s.batteryStart}% → ${s.batteryEnd}%`
-              : "—",
-          },
-          {
-            label: t("batteryUsage"),
-            value: s.batteryUsed !== null
-              ? `${s.batteryUsed > 0 ? "-" : "+"}${Math.abs(s.batteryUsed)}%`
-              : "—",
-          },
-        ].map((row, idx, arr) => (
+        {StatistikData.map((row, idx, arr) => (
           <div
             key={row.label}
             className={`flex flex-wrap items-baseline justify-between gap-x-4 gap-y-0.5 px-4 py-3 text-[12px] ${
