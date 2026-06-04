@@ -197,6 +197,24 @@ export async function proxy(request: NextRequest) {
     );
   }
 
+  // Operators should always land on the operator dashboard. The public root
+  // page intentionally does not mount statistics/history/data-management
+  // content, so keeping admins or drivers there can create a partial UI where
+  // account settings are visible but operator panels are missing.
+  if (pathname === "/" && authenticated) {
+    if (role === "Admin") {
+      return NextResponse.redirect(
+        new URL(localizePath("/admin", activeLocale), request.url),
+      );
+    }
+
+    if (role === "Driver") {
+      return NextResponse.redirect(
+        new URL(localizePath("/driver", activeLocale), request.url),
+      );
+    }
+  }
+
   supabaseResponse.cookies.set(localeCookieName, activeLocale, {
     path: "/",
     maxAge: 60 * 60 * 24 * 365,

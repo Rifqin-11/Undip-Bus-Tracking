@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useTranslation } from "react-i18next";
 import { AuthModal } from "@/components/auth/AuthModal";
@@ -64,6 +64,20 @@ export default function DashboardPage() {
     () => realtimeFeed.liveBuggies ?? [],
     [realtimeFeed.liveBuggies],
   );
+
+  useEffect(() => {
+    if (userLoading) return;
+
+    if (isAdmin) {
+      router.replace(localizePath("/admin", locale));
+      return;
+    }
+
+    if (isDriver) {
+      router.replace(localizePath("/driver", locale));
+    }
+  }, [isAdmin, isDriver, locale, router, userLoading]);
+
   const visibleBuggies = useMemo(() => {
     if (isAdmin || isDriver) return liveBuggies;
     return liveBuggies.filter((buggy) => !isBuggyOffline(buggy));
