@@ -13,7 +13,7 @@ import { createClient } from "@/lib/supabase/server";
 export async function GET(request: Request) {
   const { searchParams, origin } = new URL(request.url);
   const code = searchParams.get("code");
-  const next = searchParams.get("next") ?? "/admin";
+  const next = searchParams.get("next") ?? "/";
   const safeNext = next.startsWith("/") ? next : "/";
   const locale = getLocaleFromPath(safeNext) ?? normalizeLocale(request.headers.get("accept-language"));
   const strippedNext = safeNext.replace(/^\/(id|en)(?=\/|$)/, "") || "/";
@@ -26,28 +26,6 @@ export async function GET(request: Request) {
     if (!error) {
       if (isPasswordReset) {
         return NextResponse.redirect(`${origin}${localizePath("/reset-password", locale)}`);
-      }
-
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-
-      if (user) {
-        const { data: account } = await supabase
-          .from("accounts")
-          .select("role")
-          .eq("id", user.id)
-          .single();
-
-        if (account?.role === "Admin") {
-          return NextResponse.redirect(`${origin}${localizePath("/admin", locale)}`);
-        }
-
-        if (account?.role === "Driver") {
-          return NextResponse.redirect(`${origin}${localizePath("/driver", locale)}`);
-        }
-
-        return NextResponse.redirect(`${origin}${localizePath("/", locale)}`);
       }
 
       const response = NextResponse.redirect(`${origin}${localizedNext}`);

@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { AuthModal } from "@/components/auth/AuthModal";
 import { MapCanvas } from "@/components/map/MapCanvas";
 import { BuggyList } from "@/components/buggy/PanelActive";
 import { FloatingSidebar } from "@/components/sidebar/FloatingSidebar";
@@ -52,7 +53,9 @@ import type { Geofence, GeofenceEvent } from "@/types/geofence";
 import type { HistoryStopPoint } from "@/lib/history/stop-points";
 import { useLocale } from "@/lib/i18n/client";
 import { localizePath } from "@/lib/i18n/routing";
-import { LogoutIcon, BellIcon } from "@/components/ui/Icons";
+import { getDashboardPermissions } from "@/lib/auth/dashboard-permissions";
+import { isBuggyOffline } from "@/lib/buggy/connection-status";
+import { LogoutIcon, BellIcon, LoginIcon } from "@/components/ui/Icons";
 import { PenIcon } from "lucide-react";
 
 const GEOFENCE_DEFAULT_RADIUS_METERS = 100;
@@ -99,6 +102,10 @@ function isPersistedAdminView(value: string | null): value is PanelView {
   return PERSISTED_ADMIN_VIEWS.includes(value as PanelView);
 }
 
+function isOperatorPanelView(value: PanelView) {
+  return value === "data" || value === "data-detail" || value === "history";
+}
+
 function replaceAdminViewQuery(view: PanelView) {
   if (typeof window === "undefined") return;
   if (!isPersistedAdminView(view)) return;
@@ -110,12 +117,13 @@ function replaceAdminViewQuery(view: PanelView) {
   window.history.replaceState(null, "", `${url.pathname}${url.search}${url.hash}`);
 }
 
-export default function DashboardPage() {
+export default function DashboardShell() {
   const dashboardShellRef = useRef<HTMLElement | null>(null);
   const locale = useLocale();
   const { t } = useTranslation("admin");
   const { t: tCommon } = useTranslation("common");
   const { t: tNav } = useTranslation("navigation");
+  const { t: tAuth } = useTranslation("auth");
   const realtimeFeed = useBuggyLiveFeed();
   const { settings, updateSetting, resetSettings } = useAdminSettings();
   const {
@@ -123,7 +131,13 @@ export default function DashboardPage() {
     loading: userLoading,
     isAdmin: isAdminUser,
     isDriver: isDriverUser,
+    isAuthenticated,
+    role,
   } = useUserRole();
+  const permissions = useMemo(
+    () => getDashboardPermissions(role, isAuthenticated),
+    [isAuthenticated, role],
+  );
   const {
     favoriteBuggies,
     favoriteHaltes,
@@ -146,7 +160,7 @@ export default function DashboardPage() {
   );
 
   const loadAdminFleetBuggies = useCallback(async () => {
-    if (!isAdminUser) {
+    if (!permissions.canManageDashboard) {
       setAdminFleetBuggies([]);
       return;
     }
@@ -161,7 +175,7 @@ export default function DashboardPage() {
     } catch {
       // Live feed remains the source for operational views.
     }
-  }, [isAdminUser]);
+  }, [permissions.canManageDashboard]);
 
   /** Fetch daftar buggy terbaru dari server dan simpan ke localBuggies */
   const handleBuggyMutated = useCallback(async () => {
@@ -214,24 +228,30 @@ export default function DashboardPage() {
   const [settingsAccountForm, setSettingsAccountForm] =
     useState<AccountFormMode | null>(null);
   const [activeViewHydrated, setActiveViewHydrated] = useState(false);
+  const [authModalOpen, setAuthModalOpen] = useState(false);
+  const [authRedirectTo, setAuthRedirectTo] = useState(localizePath("/", locale));
 
-  const driverFilteredBuggies = useMemo(() => {
-    if (userProfile?.role === "Driver" && userProfile.buggy_id) {
+  const visibleBuggies = useMemo(() => {
+    if (permissions.canViewAssignedBuggyOnly && userProfile?.buggy_id) {
       return liveBuggies.filter((buggy) =>
         isBuggyAssignedToValue(buggy, userProfile.buggy_id),
       );
     }
-    if (userProfile?.role === "Driver") {
+    if (permissions.canViewAssignedBuggyOnly) {
       return [];
     }
-    return liveBuggies;
-  }, [liveBuggies, userProfile]);
 
-  const canManageDashboard = isAdminUser;
-  const visibleBuggies = driverFilteredBuggies;
+    if (!permissions.canViewAllBuggies) {
+      return liveBuggies.filter((buggy) => !isBuggyOffline(buggy));
+    }
+
+    return liveBuggies;
+  }, [liveBuggies, permissions, userProfile?.buggy_id]);
+
+  const canManageDashboard = permissions.canManageDashboard;
   const dataManagementBuggies = canManageDashboard
     ? adminFleetBuggies
-    : driverFilteredBuggies;
+    : visibleBuggies;
 
   useEffect(() => {
     void loadAdminFleetBuggies();
@@ -254,6 +274,34 @@ export default function DashboardPage() {
     fallback: liveBuggies[0]?.position ?? HALTE_FALLBACK_POSITION,
   });
 
+  const openLogin = useCallback((next = "/") => {
+    setAuthRedirectTo(localizePath(next, locale));
+    setAuthModalOpen(true);
+  }, [locale]);
+
+  const requireDirectionLogin = useCallback(() => {
+    if (userLoading) {
+      addToast({
+        tone: "info",
+        title: tCommon("loading"),
+        description: "Tunggu sebentar lalu coba lagi.",
+        duration: 3_000,
+      });
+      return false;
+    }
+
+    if (isAuthenticated) return true;
+
+    addToast({
+      tone: "warning",
+      title: tAuth("signInRequired"),
+      description: tAuth("signInRouteSearch"),
+      duration: 5_000,
+    });
+    openLogin();
+    return false;
+  }, [addToast, isAuthenticated, openLogin, tAuth, tCommon, userLoading]);
+
   const {
     fromInput,
     setFromInput,
@@ -267,10 +315,11 @@ export default function DashboardPage() {
     runRecommendedHalteDirection,
     resetToDestination,
   } = useDirectionSearch({
-    liveBuggies,
+    liveBuggies: visibleBuggies,
     haltes: HALTE_LOCATIONS,
     routePath: OFFICIAL_ROUTE_PATH,
     getLatestUserPosition,
+    requireAuth: requireDirectionLogin,
     onSearchComplete: (_result, nearest) => {
       if (nearest) {
         setSelectedBuggyId(nearest.id);
@@ -385,6 +434,12 @@ export default function DashboardPage() {
     });
 
   const loadGeofences = useCallback(async () => {
+    if (!permissions.canViewOperatorPanels) {
+      setGeofences([]);
+      setGeofenceLoading(false);
+      return;
+    }
+
     setGeofenceLoading(true);
     try {
       const response = await fetch("/api/geofences", { cache: "no-store" });
@@ -404,13 +459,17 @@ export default function DashboardPage() {
     } finally {
       setGeofenceLoading(false);
     }
-  }, [addToast, t]);
+  }, [addToast, permissions.canViewOperatorPanels, t]);
 
   useEffect(() => {
     void loadGeofences();
   }, [loadGeofences]);
 
   const handleSelectView = useCallback((view: PanelView) => {
+    if (!permissions.canViewOperatorPanels && isOperatorPanelView(view)) {
+      view = "buggy";
+    }
+
     setActiveView(view);
     setPanelOpen(true);
     setSettingsAccountForm(null);
@@ -421,7 +480,7 @@ export default function DashboardPage() {
     if (view !== "data-detail") {
       setSelectedAdminBuggyId(null);
     }
-  }, []);
+  }, [permissions.canViewOperatorPanels]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -434,21 +493,28 @@ export default function DashboardPage() {
         ? storedView
         : null;
 
-    if (restoredView) {
+    if (
+      restoredView &&
+      (permissions.canViewOperatorPanels || !isOperatorPanelView(restoredView))
+    ) {
       handleSelectView(restoredView);
     }
 
     setActiveViewHydrated(true);
-  }, [handleSelectView]);
+  }, [handleSelectView, permissions.canViewOperatorPanels]);
 
   useEffect(() => {
     if (!activeViewHydrated) return;
     if (typeof window === "undefined") return;
     if (!isPersistedAdminView(activeView)) return;
+    if (!permissions.canViewOperatorPanels && isOperatorPanelView(activeView)) {
+      setActiveView("buggy");
+      return;
+    }
 
     window.localStorage.setItem(ADMIN_ACTIVE_VIEW_STORAGE_KEY, activeView);
     replaceAdminViewQuery(activeView);
-  }, [activeView, activeViewHydrated]);
+  }, [activeView, activeViewHydrated, permissions.canViewOperatorPanels]);
 
   useEffect(() => {
     if (
@@ -877,24 +943,27 @@ export default function DashboardPage() {
   ]);
 
   const accountMenuItems = useMemo<AccountMenuItem[]>(
-    () => [
-      {
-        label: t("editAccount"),
-        icon: <PenIcon className="h-4 w-4 text-slate-500" />,
-        onClick: (): void => {
-          handleOpenSettings("edit");
-        },
-      },
-      {
-        label: tNav("signOut"),
-        icon: <LogoutIcon className="h-4 w-4" />,
-        onClick: (): void => {
-          void handleLogout();
-        },
-        tone: "danger",
-      },
-    ],
-    [handleLogout, handleOpenSettings, t, tNav],
+    () =>
+      isAuthenticated
+        ? [
+            {
+              label: t("editAccount"),
+              icon: <PenIcon className="h-4 w-4 text-slate-500" />,
+              onClick: (): void => {
+                handleOpenSettings("edit");
+              },
+            },
+            {
+              label: tNav("signOut"),
+              icon: <LogoutIcon className="h-4 w-4" />,
+              onClick: (): void => {
+                void handleLogout();
+              },
+              tone: "danger",
+            },
+          ]
+        : [],
+    [handleLogout, handleOpenSettings, isAuthenticated, t, tNav],
   );
 
   const mapBuggies = activeView === "halte" ? [] : visibleBuggies;
@@ -923,8 +992,10 @@ export default function DashboardPage() {
         destinationMarkerPosition={directionResult?.destinationPosition}
         selectedBuggyId={mapFollowingBuggyId}
         selectedHalteId={selectedHalteId}
-        geofences={geofences}
-        geofenceCreateMode={geofenceCreateMode}
+        geofences={permissions.canViewOperatorPanels ? geofences : []}
+        geofenceCreateMode={
+          permissions.canManageDashboard && geofenceCreateMode
+        }
         draftGeofence={
           geofenceCreateMode && draftGeofenceCenter
             ? { center: draftGeofenceCenter, radiusMeters: draftGeofenceRadius }
@@ -953,15 +1024,13 @@ export default function DashboardPage() {
             <AccountPill
               variant="mobile-icon"
               loading={userLoading}
-              user={
-                userProfile
-                  ? {
-                      ...userProfile,
-                      avatar: userProfile.avatar ?? (isDriverUser ? "D" : "A"),
-                    }
-                  : { avatar: isDriverUser ? "D" : "A" }
-              }
+              user={userProfile}
               menuItems={accountMenuItems}
+              fallback={{
+                label: tNav("signIn"),
+                icon: <LoginIcon className="h-5 w-5" />,
+                onClick: () => openLogin("/"),
+              }}
             />
           </>
         }
@@ -979,22 +1048,23 @@ export default function DashboardPage() {
         <AccountPill
           variant="desktop"
           loading={userLoading}
-          user={
-            userProfile ?? {
-              name: isDriverUser ? tCommon("driver") : tCommon("admin"),
-              role: "SIMOBI Operator",
-              avatar: isDriverUser ? "D" : "A",
-            }
-          }
+          user={userProfile}
           menuItems={accountMenuItems}
-          defaultName={isDriverUser ? tCommon("driver") : tCommon("admin")}
+          fallback={{
+            label: tNav("signIn"),
+            description: tCommon("signInHere"),
+            icon: <LoginIcon className="size-4" />,
+            onClick: () => openLogin("/"),
+          }}
+          defaultName={isDriverUser ? tCommon("driver") : "User"}
         />
       </div>
 
       <FloatingSidebar
         activeView={activeView}
         onSelectView={handleSelectView}
-        showDataButton
+        showDataButton={permissions.canViewOperatorPanels}
+        onLogin={() => openLogin("/")}
       />
 
       <LiveSearchBar
@@ -1028,51 +1098,53 @@ export default function DashboardPage() {
         onClearSelectedHalte={handleClearSelectedHalte}
         directionResult={directionResult}
         onCloseDirection={() => setDirectionResult(null)}
-        canFavorite={canFavorite && favoritesReady}
+        canFavorite={permissions.canUseFavorites && canFavorite && favoritesReady}
         favoriteBuggies={favoriteBuggies}
         favoriteHaltes={favoriteHaltes}
         onToggleFavoriteBuggy={toggleFavoriteBuggy}
         onToggleFavoriteHalte={toggleFavoriteHalte}
-        showApnStatus={isAdminUser || isDriverUser}
+        showApnStatus={permissions.canViewOperatorPanels}
         dataViewContent={
-          <AdminDataSection
-            buggies={dataManagementBuggies}
-            realtimeConnected={realtimeFeed.connected}
-            realtimeSource={realtimeFeed.source}
-            geofences={geofences}
-            events={geofenceEvents}
-            geofenceStatuses={geofenceStatuses}
-            geofenceLoading={geofenceLoading}
-            geofenceCreateMode={geofenceCreateMode}
-            draftGeofence={
-              geofenceCreateMode && draftGeofenceCenter
-                ? {
-                    center: draftGeofenceCenter,
-                    radiusMeters: draftGeofenceRadius,
-                  }
-                : null
-            }
-            draftName={draftGeofenceName}
-            browserNotificationEnabled={browserNotificationEnabled}
-            onSelectBuggy={handleSelectAdminBuggy}
-            activePanel={adminDataPanel}
-            onActivePanelChange={setAdminDataPanel}
-            onToggleCreateMode={handleToggleCreateMode}
-            onDraftNameChange={setDraftGeofenceName}
-            onDraftRadiusChange={setDraftGeofenceRadius}
-            onSaveDraft={handleSaveDraft}
-            onCancelDraft={handleCancelDraft}
-            onToggleGeofence={handleToggleGeofence}
-            onEditGeofence={handleEditGeofence}
-            onDeleteGeofence={handleDeleteGeofence}
-            onToggleBrowserNotification={handleToggleBrowserNotification}
-            compactMode={settings.compactAdminPanels}
-            readOnly={!canManageDashboard}
-            onBuggyMutated={() => void handleBuggyMutated()}
-          />
+          permissions.canViewDataPanel ? (
+            <AdminDataSection
+              buggies={dataManagementBuggies}
+              realtimeConnected={realtimeFeed.connected}
+              realtimeSource={realtimeFeed.source}
+              geofences={geofences}
+              events={geofenceEvents}
+              geofenceStatuses={geofenceStatuses}
+              geofenceLoading={geofenceLoading}
+              geofenceCreateMode={geofenceCreateMode}
+              draftGeofence={
+                geofenceCreateMode && draftGeofenceCenter
+                  ? {
+                      center: draftGeofenceCenter,
+                      radiusMeters: draftGeofenceRadius,
+                    }
+                  : null
+              }
+              draftName={draftGeofenceName}
+              browserNotificationEnabled={browserNotificationEnabled}
+              onSelectBuggy={handleSelectAdminBuggy}
+              activePanel={adminDataPanel}
+              onActivePanelChange={setAdminDataPanel}
+              onToggleCreateMode={handleToggleCreateMode}
+              onDraftNameChange={setDraftGeofenceName}
+              onDraftRadiusChange={setDraftGeofenceRadius}
+              onSaveDraft={handleSaveDraft}
+              onCancelDraft={handleCancelDraft}
+              onToggleGeofence={handleToggleGeofence}
+              onEditGeofence={handleEditGeofence}
+              onDeleteGeofence={handleDeleteGeofence}
+              onToggleBrowserNotification={handleToggleBrowserNotification}
+              compactMode={settings.compactAdminPanels}
+              readOnly={!canManageDashboard}
+              onBuggyMutated={() => void handleBuggyMutated()}
+            />
+          ) : null
         }
         dataDetailViewContent={
-          selectedAdminBuggy ? (
+          permissions.canViewDataPanel && selectedAdminBuggy ? (
             <BuggyOperationalDetail
               buggy={selectedAdminBuggy}
               assignedDriverName={driverNamesByBuggyId[selectedAdminBuggy.id]}
@@ -1092,22 +1164,25 @@ export default function DashboardPage() {
           ) : null
         }
         historyViewContent={
-          <HistoryPanel
-            buggies={visibleBuggies}
-            onShowPath={(path, stopPoints = []) => {
-              setHistoryPath(path);
-              setHistoryStopPoints(stopPoints);
-            }}
-            readOnly={!canManageDashboard}
-          />
+          permissions.canViewHistory ? (
+            <HistoryPanel
+              buggies={visibleBuggies}
+              onShowPath={(path, stopPoints = []) => {
+                setHistoryPath(path);
+                setHistoryStopPoints(stopPoints);
+              }}
+              readOnly={!canManageDashboard}
+            />
+          ) : null
         }
         settingsViewContent={
           <AppSettingsPanel
-            mode="admin"
+            mode={permissions.canViewOperatorPanels ? "admin" : "public"}
             settings={settings}
             onUpdateSetting={updateSetting}
             onResetSettings={resetSettings}
             onToggleBrowserNotification={handleToggleBrowserNotification}
+            onLogin={() => openLogin("/")}
             onLogout={handleLogout}
             accountForm={settingsAccountForm}
             onAccountFormChange={setSettingsAccountForm}
@@ -1120,7 +1195,12 @@ export default function DashboardPage() {
         activeView={activeView}
         onSelectView={handleSelectView}
         onDragOpenPanel={() => setPanelOpen(true)}
-        showDataButton
+        showDataButton={permissions.canViewOperatorPanels}
+      />
+      <AuthModal
+        open={authModalOpen}
+        redirectTo={authRedirectTo}
+        onClose={() => setAuthModalOpen(false)}
       />
     </main>
   );

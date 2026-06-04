@@ -20,7 +20,7 @@ type AuthFormProps = {
 };
 
 function normalizeRedirect(next: string, locale: ReturnType<typeof useLocale>) {
-  if (!next.startsWith("/")) return localizePath("/admin", locale);
+  if (!next.startsWith("/")) return localizePath("/", locale);
   return getLocaleFromPath(next) ? next : localizePath(next, locale);
 }
 
@@ -88,14 +88,6 @@ export function AuthForm({
     } = await supabase.auth.getUser();
     if (!user) return safeRedirectTo;
 
-    const { data: account } = await supabase
-      .from("accounts")
-      .select("role")
-      .eq("id", user.id)
-      .single();
-
-    if (account?.role === "Admin") return localizePath("/admin", locale);
-    if (account?.role === "Driver") return localizePath("/driver", locale);
     return safeRedirectTo.endsWith("/admin") || safeRedirectTo.endsWith("/driver")
       ? localizePath("/", locale)
       : safeRedirectTo;

@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { ArrowLeft, Home, MapPin, ShieldAlert } from "lucide-react";
+import { ArrowLeft, Home, MapPin } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import logo from "@/public/logo.svg";
 import { useLocale } from "@/lib/i18n/client";
@@ -18,12 +18,6 @@ export default function NotFound() {
       label: t("openMap"),
       description: t("mapDescription"),
       icon: MapPin,
-    },
-    {
-      href: localizePath("/admin", locale),
-      label: t("adminDashboard"),
-      description: t("dashboardAdminDescription"),
-      icon: ShieldAlert,
     },
   ];
 

@@ -1,7 +1,6 @@
 "use client";
 
 import React from "react";
-import { usePathname } from "next/navigation";
 import { useTranslation } from "react-i18next";
 import { Settings } from "lucide-react";
 import {
@@ -10,7 +9,6 @@ import {
   DataIcon,
   HistoryIcon,
 } from "@/components/ui/Icons";
-import { stripLocaleFromPath } from "@/lib/i18n/routing";
 import type { PanelView } from "@/types/buggy";
 
 type MobileBottomNavProps = {
@@ -46,13 +44,8 @@ export function MobileBottomNav({
   showDataButton = false,
   showSettingsButton = true,
 }: MobileBottomNavProps) {
-  const pathname = usePathname();
   const { t } = useTranslation("navigation");
-  const unlocalizedPathname = stripLocaleFromPath(pathname);
-  const isOnOperatorPage =
-    unlocalizedPathname.startsWith("/admin") ||
-    unlocalizedPathname.startsWith("/driver");
-  const shouldShowDataButton = isOnOperatorPage && showDataButton;
+  const shouldShowDataButton = showDataButton;
   const shouldShowSettingsButton = showSettingsButton;
   const dragStartYRef = React.useRef<number | null>(null);
   const dragTriggeredRef = React.useRef(false);

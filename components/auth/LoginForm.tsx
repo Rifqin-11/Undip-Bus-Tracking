@@ -12,7 +12,7 @@ export default function LoginForm() {
 
   const redirectTo = useMemo(() => {
     const next = searchParams.get("next");
-    if (!next || !next.startsWith("/")) return localizePath("/admin", locale);
+    if (!next || !next.startsWith("/")) return localizePath("/", locale);
     return next;
   }, [locale, searchParams]);
 

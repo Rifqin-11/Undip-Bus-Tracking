@@ -300,7 +300,7 @@ export function AppSettingsPanel({
           ) : (
             <button
               type="button"
-              onClick={onLogin}
+              onClick={() => onLogin?.()}
               className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-[#0f1a3b] px-3 py-2.5 text-[12px] font-bold text-white transition hover:bg-slate-900 active:scale-[0.98]"
             >
               <LogIn className="h-4 w-4" />

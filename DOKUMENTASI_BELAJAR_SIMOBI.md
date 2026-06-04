@@ -40,9 +40,9 @@ Referensi kode:
 
 | Bagian | File |
 | --- | --- |
-| Halaman publik | `app/[locale]/page.tsx:40` |
-| Halaman admin | `app/[locale]/admin/page.tsx:113` |
-| Halaman driver | `app/[locale]/driver/page.tsx:1` |
+| Entry dashboard utama | `app/[locale]/page.tsx` |
+| Shell dashboard role-based | `components/dashboard/DashboardShell.tsx` |
+| Permission dashboard | `lib/auth/dashboard-permissions.ts` |
 | Middleware/proxy route | `proxy.ts:42` |
 | API ingest GPS | `app/api/gps-beacon/route.ts:92` |
 | Live store buggy | `lib/realtime/buggy-live-store.ts:311` |
@@ -70,16 +70,17 @@ Referensi kode:
 | Proxy mengambil role dari `accounts` | `proxy.ts:107-123` |
 | Proteksi halaman/admin API | `proxy.ts:125-170` |
 | Guard khusus API admin | `lib/auth/admin-guard.ts:15-49` |
-| Driver filter pada admin dashboard | `app/[locale]/admin/page.tsx:218-228` |
-| Driver page reuse admin dashboard | `app/[locale]/driver/page.tsx:1` |
+| Permission UI dashboard | `lib/auth/dashboard-permissions.ts` |
+| Driver filter pada dashboard | `components/dashboard/DashboardShell.tsx` |
 
 Penjelasan penting:
 
 1. User login menggunakan Supabase Auth.
 2. Setelah login, sistem membaca tabel `accounts` untuk mengetahui role.
 3. Jika user membuka route protected tanpa login, proxy mengarahkan ke login.
-4. Jika role bukan admin, API `/api/admin/*` ditolak dengan status 403.
-5. Driver tetap boleh membuka history/statistik, tetapi data difilter sesuai `buggy_id`.
+4. Semua role membuka dashboard utama yang sama di `/id` atau `/en`.
+5. Jika role bukan admin, API `/api/admin/*` ditolak dengan status 403.
+6. Driver tetap boleh membuka history/statistik, tetapi data difilter sesuai `buggy_id`.
 
 ---
 
@@ -92,8 +93,6 @@ Website memakai prefix bahasa:
 ```text
 /id
 /en
-/id/admin
-/en/admin
 /id/login
 /en/login
 ```
@@ -115,8 +114,6 @@ Referensi kode:
 Proxy menentukan route protected:
 
 ```text
-/admin
-/driver
 /gps-tracker
 /api/admin/*
 /api/geofences/*
@@ -124,91 +121,72 @@ Proxy menentukan route protected:
 /api/buggy-history
 ```
 
+Catatan: route UI lama `/admin` dan `/driver` sudah tidak memiliki file page.
+Jika URL lama dibuka, proxy mengarahkannya ke dashboard utama `/id` atau `/en`.
+
 Referensi kode:
 
 | Fungsi | Lokasi |
 | --- | --- |
 | Identifikasi route protected | `proxy.ts:91-105` |
 | Redirect unauthenticated ke login | `proxy.ts:125-136` |
-| User umum tidak boleh admin/driver | `proxy.ts:139-143` |
 | GPS tracker hanya admin | `proxy.ts:145-149` |
 | Admin API hanya admin | `proxy.ts:151-156` |
 | History API boleh admin/driver | `proxy.ts:158-163` |
 | Geofence write hanya admin | `proxy.ts:165-170` |
+| Redirect legacy `/admin` dan `/driver` ke dashboard utama | `proxy.ts` |
 
 ---
 
 ## 4. Struktur Halaman Frontend
 
-### 4.1 Dashboard Publik
+### 4.1 Dashboard Utama Role-Based
 
-Dashboard publik berada di `app/[locale]/page.tsx`.
+Dashboard utama berada di `app/[locale]/page.tsx`, tetapi file tersebut hanya
+menjadi entry tipis. Logic UI lengkap berada di `components/dashboard/DashboardShell.tsx`.
+Semua role memakai dashboard yang sama; perbedaannya ditentukan oleh permission.
 
-Fitur utama:
+Fitur dasar untuk semua pengunjung:
 
 - Menampilkan peta Google Maps.
-- Menampilkan buggy yang aktif/online untuk user umum.
-- Admin dan driver tetap dapat melihat semua buggy yang tersedia pada live feed.
+- Menampilkan halte dan buggy yang boleh dilihat role tersebut.
 - Search rute dari asal ke tujuan.
 - Mengambil lokasi pengguna.
 - Menampilkan rekomendasi halte terdekat.
-- Login modal jika fitur tertentu butuh autentikasi.
-- Push notification untuk buggy mendekati halte.
+- Login melalui auth modal.
+
+Fitur tambahan berdasarkan role:
+
+| Role | Data buggy | Panel tambahan |
+| --- | --- | --- |
+| Guest | Buggy online saja | Tidak ada |
+| Pengguna umum | Buggy online saja + favorit | Tidak ada |
+| Driver | Buggy yang di-assign | Statistik, history, detail operasional read-only |
+| Admin | Semua buggy yang tidak di-hide | Statistik, history, CRUD fleet, geofence, device assignment, account management |
 
 Referensi kode:
 
 | Fungsi | Lokasi |
 | --- | --- |
-| Komponen dashboard publik | `app/[locale]/page.tsx:40` |
-| Ambil live feed buggy | `app/[locale]/page.tsx:46-66` |
-| Filter buggy offline untuk user umum | `app/[locale]/page.tsx:67-70` |
-| State view, selected buggy/halte | `app/[locale]/page.tsx:72-80` |
-| Gate login untuk pencarian rute | `app/[locale]/page.tsx:98-121` |
-| Hook pencarian rute | `app/[locale]/page.tsx:123-149` |
-| Logout public dashboard | `app/[locale]/page.tsx:151-167` |
-| Nearby bus alert lokal | `app/[locale]/page.tsx:229-253` |
+| Entry dashboard | `app/[locale]/page.tsx` |
+| Shell dashboard utama | `components/dashboard/DashboardShell.tsx` |
+| Permission role dashboard | `lib/auth/dashboard-permissions.ts` |
+| Filter buggy berdasarkan role | `components/dashboard/DashboardShell.tsx` |
+| Login modal dashboard | `components/dashboard/DashboardShell.tsx` |
+| Sidebar berdasarkan permission | `components/sidebar/FloatingSidebar.tsx` |
+| Mobile nav berdasarkan permission | `components/sidebar/MobileBottomNav.tsx` |
 
-### 4.2 Dashboard Admin
+### 4.2 Legacy Route Admin dan Driver
 
-Dashboard admin berada di `app/[locale]/admin/page.tsx`.
-
-Fitur utama:
-
-- Melihat peta dan live buggy.
-- Melihat statistik operasional.
-- CRUD buggy.
-- Detail operasional buggy.
-- Assignment device ke buggy.
-- CRUD geofence.
-- Log geofence event.
-- History session.
-- Settings aplikasi.
-- Account management.
+Route UI `/admin` dan `/driver` tidak lagi memiliki file page karena dashboard
+sudah menjadi satu. Jika URL lama dibuka, proxy mengarahkannya ke dashboard utama
+sesuai locale. Nama `/api/admin/*` tetap dipakai untuk API backend admin.
 
 Referensi kode:
 
 | Fungsi | Lokasi |
 | --- | --- |
-| Komponen halaman admin | `app/[locale]/admin/page.tsx:113` |
-| Import panel admin, history, settings | `app/[locale]/admin/page.tsx:10-17` |
-| Live feed realtime | `app/[locale]/admin/page.tsx:119` |
-| Load fleet master untuk admin | `app/[locale]/admin/page.tsx:148-164` |
-| Refresh setelah mutasi buggy | `app/[locale]/admin/page.tsx:166-178` |
-| State geofence | `app/[locale]/admin/page.tsx:195-208` |
-| State history path | `app/[locale]/admin/page.tsx:210-213` |
-| Filter driver | `app/[locale]/admin/page.tsx:218-228` |
-| Data management buggies | `app/[locale]/admin/page.tsx:230-234` |
-
-### 4.3 Dashboard Driver
-
-Halaman driver menggunakan halaman admin yang sama, tetapi aksesnya dibatasi oleh role dan filter data.
-
-Referensi kode:
-
-| Fungsi | Lokasi |
-| --- | --- |
-| Driver page export admin page | `app/[locale]/driver/page.tsx:1` |
-| Proxy mengizinkan driver page untuk Driver | `proxy.ts:139-143` |
+| Redirect `/admin` dan `/driver` ke dashboard utama | `proxy.ts` |
 | Driver history filter server-side | `app/api/buggy-sessions/route.ts:106-152` |
 
 ---

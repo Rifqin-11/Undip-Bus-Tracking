@@ -1,6 +1,6 @@
 "use client";
 
-import { usePathname, useRouter } from "next/navigation";
+import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { useTranslation } from "react-i18next";
 import { Settings } from "lucide-react";
@@ -17,7 +17,7 @@ import {
 } from "@/components/ui/Icons";
 import { DESKTOP_LAYOUT } from "@/lib/presenters/layout-metrics";
 import { useLocale } from "@/lib/i18n/client";
-import { localizePath, stripLocaleFromPath } from "@/lib/i18n/routing";
+import { localizePath } from "@/lib/i18n/routing";
 import type { PanelView } from "@/types/buggy";
 import logo from "@/public/logo.svg";
 
@@ -39,20 +39,15 @@ export function FloatingSidebar({
   showSettingsButton = true,
   onLogin,
 }: FloatingSidebarProps) {
-  const pathname = usePathname();
   const router = useRouter();
   const locale = useLocale();
   const { t } = useTranslation("navigation");
-  const unlocalizedPathname = stripLocaleFromPath(pathname);
-  const isOnAdminPage = unlocalizedPathname.startsWith("/admin");
-  const isOnOperatorPage =
-    isOnAdminPage || unlocalizedPathname.startsWith("/driver");
-  const shouldShowDataButton = isOnOperatorPage && showDataButton;
+  const shouldShowDataButton = showDataButton;
   const shouldShowSettingsButton = showSettingsButton;
   const { isAuthenticated } = useUserRole();
 
   const handleAdminButtonClick = async () => {
-    if (isAuthenticated || isOnOperatorPage) {
+    if (isAuthenticated) {
       try {
         const supabase = createClient();
         await supabase.auth.signOut();
@@ -161,12 +156,12 @@ export function FloatingSidebar({
         <button
           className="grid h-11 w-11 place-items-center rounded-2xl border border-[#0f1a3b] bg-[#0f1a3b] text-white transition hover:bg-white hover:text-[#0f1a3b] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-300"
           aria-label={
-            isAuthenticated || isOnOperatorPage ? t("signOut") : t("signIn")
+            isAuthenticated ? t("signOut") : t("signIn")
           }
           type="button"
           onClick={handleAdminButtonClick}
         >
-          {isAuthenticated || isOnOperatorPage ? (
+          {isAuthenticated ? (
             <LogoutIcon className="h-5 w-5" />
           ) : (
             <LoginIcon className="h-5 w-5" />

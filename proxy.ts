@@ -101,8 +101,6 @@ export async function proxy(request: NextRequest) {
     pathname.startsWith("/api/buggy-sessions") ||
     pathname.startsWith("/api/buggy-history");
   const isProtectedRoute =
-    isAdminPage ||
-    isDriverPage ||
     isGpsTrackerPage ||
     isAdminApi ||
     isGeofenceApi ||
@@ -145,12 +143,6 @@ export async function proxy(request: NextRequest) {
       return NextResponse.redirect(loginUrl);
     }
 
-    if ((isAdminPage || isDriverPage) && role === "Pengguna umum") {
-      return NextResponse.redirect(
-        new URL(localizePath("/", activeLocale), request.url),
-      );
-    }
-
     if (isGpsTrackerPage && role !== "Admin") {
       return NextResponse.redirect(
         new URL(localizePath("/", activeLocale), request.url),
@@ -179,40 +171,18 @@ export async function proxy(request: NextRequest) {
     }
   }
 
+  // `/admin` and `/driver` are legacy UI aliases. The dashboard is now a single
+  // role-based page at the locale root, while admin API routes remain protected.
+  if (isAdminPage || isDriverPage) {
+    const dashboardUrl = new URL(localizePath("/", activeLocale), request.url);
+    dashboardUrl.search = request.nextUrl.search;
+    return NextResponse.redirect(dashboardUrl);
+  }
+
   if (pathname === "/login" && authenticated) {
-    if (role === "Admin") {
-      return NextResponse.redirect(
-        new URL(localizePath("/admin", activeLocale), request.url),
-      );
-    }
-
-    if (role === "Driver") {
-      return NextResponse.redirect(
-        new URL(localizePath("/driver", activeLocale), request.url),
-      );
-    }
-
     return NextResponse.redirect(
       new URL(localizePath("/", activeLocale), request.url),
     );
-  }
-
-  // Operators should always land on the operator dashboard. The public root
-  // page intentionally does not mount statistics/history/data-management
-  // content, so keeping admins or drivers there can create a partial UI where
-  // account settings are visible but operator panels are missing.
-  if (pathname === "/" && authenticated) {
-    if (role === "Admin") {
-      return NextResponse.redirect(
-        new URL(localizePath("/admin", activeLocale), request.url),
-      );
-    }
-
-    if (role === "Driver") {
-      return NextResponse.redirect(
-        new URL(localizePath("/driver", activeLocale), request.url),
-      );
-    }
   }
 
   supabaseResponse.cookies.set(localeCookieName, activeLocale, {
