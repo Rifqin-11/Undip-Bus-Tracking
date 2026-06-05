@@ -3,7 +3,7 @@
 > **Judul proyek:** Sistem Monitoring dan Tracking Real-Time Armada Buggy Listrik Kampus UNDIP
 > **Nama aplikasi:** SIMOBI
 > **Konteks:** Smart Mobility Universitas Diponegoro
-> **Status dokumen:** Diperbarui sesuai kondisi repo saat ini, 3 Juni 2026
+> **Status dokumen:** Diperbarui sesuai kondisi repo saat ini, 5 Juni 2026
 > **Tujuan dokumen:** Ringkasan teknis yang siap dipakai sebagai konteks untuk penulisan BAB skripsi, diskusi dengan dosen pembimbing, atau ditempel ke AI lain.
 
 ---
@@ -17,9 +17,9 @@ Fokus utama sistem adalah:
 - Menampilkan posisi buggy listrik secara real-time pada peta Google Maps.
 - Menyediakan informasi operasional seperti ETA, kecepatan, halte saat ini, halte berikutnya, kapasitas, dan jumlah penumpang.
 - Menampilkan posisi terakhir buggy (last known location) dan status koneksi ketika telemetry tidak lagi diterima akibat gangguan sinyal.
-- Mengelola data buggy, halte, geofence, akun, notifikasi, dan riwayat perjalanan melalui dashboard admin.
+- Mengelola data buggy, halte, geofence, akun, notifikasi, dan riwayat perjalanan melalui panel admin pada dashboard utama.
 - Mengatur visibilitas armada melalui fitur **Hide Fleet** agar armada tertentu dapat disembunyikan dari daftar operasional tanpa menghapus master data.
-- Memberikan tampilan khusus untuk driver berdasarkan buggy yang ditugaskan.
+- Menyesuaikan tampilan dashboard berdasarkan role pengguna, termasuk akses driver berdasarkan buggy yang ditugaskan.
 - Menerima data GPS dari simulator atau perangkat lapangan melalui MQTT bridge.
 - Menyimpan histori GPS dan sesi perjalanan ke Supabase PostgreSQL.
 - Mendukung Progressive Web App (PWA) dasar melalui manifest, ikon aplikasi, service worker, dan Web Push Notification.
@@ -43,9 +43,13 @@ Pembagian peran dilakukan melalui Supabase Auth dan tabel `accounts`. Role yang 
 
 ## 3. Fitur yang Sudah Ada pada Web
 
-### 3.1 Dashboard Publik
+### 3.1 Dashboard Utama Role-Based
 
-Dashboard publik digunakan oleh pengguna umum untuk melihat kondisi transportasi buggy kampus.
+SIMOBI menggunakan satu dashboard utama berbasis role pada route `/id` dan `/en`.
+Komponen route `app/[locale]/page.tsx` hanya menjadi wrapper server-side tipis,
+sedangkan logic UI utama berada pada `components/dashboard/DashboardShell.tsx`.
+Perbedaan akses pengguna umum, driver, dan admin ditentukan oleh helper permission
+di `lib/auth/dashboard-permissions.ts`.
 
 Fitur utama:
 
@@ -59,11 +63,18 @@ Fitur utama:
 - Favorit buggy dan halte untuk pengguna yang sudah login.
 - Tampilan responsif dengan top bar, sidebar desktop, dan bottom navigation mobile.
 
-### 3.2 Dashboard Admin
+Perbedaan tampilan berdasarkan role:
 
-Dashboard admin berfungsi sebagai pusat pengelolaan operasional.
+| Role | Tampilan pada dashboard |
+| --- | --- |
+| Guest | Melihat peta, halte, dan buggy yang online. Login dibuka melalui auth modal. |
+| Pengguna umum | Melihat fitur publik, rute, favorit, dan buggy online. |
+| Driver | Melihat buggy yang ditugaskan, statistik, riwayat perjalanan, dan detail operasional read-only. |
+| Admin | Melihat seluruh panel operasional serta fitur pengelolaan data. |
 
-Fitur utama:
+### 3.2 Panel Admin
+
+Panel admin muncul pada dashboard utama jika user memiliki role `Admin`.
 
 - Statistik operasional armada.
 - Data buggy dan detail operasional buggy.
@@ -80,9 +91,9 @@ Fitur utama:
 - Pengaturan aplikasi, bahasa, tampilan peta, notifikasi browser, alert geofence, alert buggy offline terlalu lama, dan akun.
 - Detail operasional buggy yang menampilkan muatan penumpang, kecepatan, status koneksi, last seen, serta status GSM/MQTT jika tersedia.
 
-### 3.3 Dashboard Driver
+### 3.3 Panel Driver
 
-Dashboard driver memiliki akses terbatas. Jika akun memiliki role `Driver` dan memiliki `buggy_id`, maka tampilan dashboard akan difilter agar driver hanya melihat buggy yang ditugaskan.
+Panel driver muncul pada dashboard utama jika akun memiliki role `Driver`. Jika akun driver memiliki `buggy_id`, maka data dashboard difilter agar driver hanya melihat buggy yang ditugaskan.
 
 Fitur utama:
 
@@ -758,18 +769,17 @@ Role pengguna disimpan pada tabel `accounts`.
 
 Route yang dilindungi oleh `proxy.ts`:
 
-- `/admin`
-- `/driver`
 - `/gps-tracker`
 - `/api/admin/*`
 - `/api/geofences/*`
 - `/api/buggy-sessions/*`
 - `/api/buggy-history`
 
+Route UI lama `/admin` dan `/driver` tidak lagi memiliki halaman dashboard terpisah. Jika URL tersebut dibuka, proxy mengarahkannya ke dashboard utama sesuai locale. Perbedaan tampilan admin, driver, dan pengguna umum ditentukan oleh role handler pada frontend dan tetap diperkuat oleh proteksi API di backend.
+
 Aturan akses penting:
 
 - User yang belum login diarahkan ke halaman login.
-- User umum tidak boleh masuk ke admin atau driver page.
 - `/gps-tracker` hanya dapat diakses admin.
 - API admin hanya dapat diakses admin.
 - API history dapat diakses admin dan driver, tetapi driver hanya menerima data buggy yang ditugaskan melalui filter server-side.
@@ -811,6 +821,7 @@ Endpoint worker push bersifat fail-closed. Jika token tidak cocok atau tidak dik
 
 | Komponen / Hook | Fungsi |
 | --- | --- |
+| `components/dashboard/DashboardShell.tsx` | Shell dashboard utama role-based untuk guest, pengguna umum, driver, dan admin. |
 | `components/map/MapCanvas.tsx` | Render Google Maps, marker, route, dan visualisasi peta. |
 | `components/buggy/PanelActive.tsx` | Daftar buggy aktif. |
 | `components/buggy/BuggyDetailView.tsx` | Detail buggy yang dipilih. |
@@ -828,6 +839,7 @@ Endpoint worker push bersifat fail-closed. Jika token tidak cocok atau tidak dik
 | `hooks/useBrowserNotificationToggle.ts` | Mengelola izin Notification API, toggle notifikasi, dan sinkronisasi Web Push subscription. |
 | `hooks/useFavorites.ts` | Favorit halte dan buggy. |
 | `hooks/useUserRole.ts` | Membaca role user aktif. |
+| `lib/auth/dashboard-permissions.ts` | Helper permission frontend untuk menentukan panel dan fitur berdasarkan role. |
 
 ---
 
@@ -953,7 +965,7 @@ Alasan topik ini sesuai:
 
 - Ada masalah nyata: pengguna membutuhkan informasi posisi dan ketersediaan buggy.
 - Ada aspek IoT: data GPS/telemetry dikirim melalui MQTT.
-- Ada aspek web engineering: dashboard publik, admin, driver, API, auth, dan i18n.
+- Ada aspek web engineering: dashboard role-based, API, auth, dan i18n.
 - Ada aspek database: penyimpanan master data, telemetry history, dan trip session.
 - Ada aspek keamanan: role-based access dan protected ingest endpoint.
 - Ada aspek pengujian: simulator GPS dapat digunakan untuk uji end-to-end tanpa hardware final.
@@ -1029,7 +1041,7 @@ Bahas:
 - Implementasi live feed polling/SSE.
 - Implementasi PWA, service worker, dan Web Push Notification.
 - Implementasi histori perjalanan.
-- Implementasi admin dashboard.
+- Implementasi dashboard role-based dan panel admin/driver.
 - Pengujian fungsi utama.
 - Pengujian pipeline simulator.
 - Pengujian akses role.
@@ -1085,8 +1097,8 @@ Pengembangan berikutnya yang dapat ditulis sebagai saran:
 
 ## 20. Ringkasan Singkat untuk Ditempel ke AI Lain
 
-SIMOBI adalah sistem monitoring real-time armada buggy listrik kampus UNDIP berbasis Next.js 16, React 19, TypeScript, Supabase PostgreSQL/Auth, Google Maps API, MQTT, dan PWA Web Push Notification. Sistem memiliki tiga peran pengguna: pengguna umum, driver, dan admin. Pengguna umum dapat melihat peta buggy, halte, ETA, rute, detail buggy, status koneksi, posisi terakhir buggy, favorit, serta menerima notifikasi ketika buggy mendekati halte terdekat dari posisi terakhir pengguna. Driver melihat dashboard terbatas sesuai buggy yang ditugaskan, termasuk statistik dan riwayat sesi untuk buggy tersebut. Admin dapat mengelola buggy, hide/unhide fleet, assignment device GPS fisik ke buggy, halte, geofence, akun, notifikasi, statistik, riwayat perjalanan, alert geofence, dan alert buggy offline terlalu lama.
+SIMOBI adalah sistem monitoring real-time armada buggy listrik kampus UNDIP berbasis Next.js 16, React 19, TypeScript, Supabase PostgreSQL/Auth, Google Maps API, MQTT, dan PWA Web Push Notification. Sistem memiliki tiga peran pengguna: pengguna umum, driver, dan admin. Aplikasi memakai satu dashboard utama berbasis role pada route `/id` dan `/en`, dengan `DashboardShell` sebagai pusat UI dan `dashboard-permissions` sebagai helper penentu akses. Pengguna umum dapat melihat peta buggy, halte, ETA, rute, detail buggy, status koneksi, posisi terakhir buggy, favorit, serta menerima notifikasi ketika buggy mendekati halte terdekat dari posisi terakhir pengguna. Driver melihat panel terbatas sesuai buggy yang ditugaskan, termasuk statistik dan riwayat sesi untuk buggy tersebut. Admin melihat panel operasional penuh untuk mengelola buggy, hide/unhide fleet, assignment device GPS fisik ke buggy, halte, geofence, akun, notifikasi, statistik, riwayat perjalanan, alert geofence, dan alert buggy offline terlalu lama.
 
 Alur data utama adalah GPS tracker/simulator/hardware mengirim telemetry ke MQTT broker pada topic `buggy/{deviceId}/data`, misalnya `buggy/ESP-3C124B00/data`. Broker production menggunakan Mosquitto pada folder sibling `simobi-mosquitto-broker`, dengan autentikasi username/password, ACL per device, persistence internal `mosquitto.db`, dan deployment long-running. MQTT bridge production berada pada folder sibling `mqtt-bridge-service`; worker ini subscribe ke `buggy/+/data`, menormalisasi payload menjadi `devicesId`, lalu meneruskan data ke endpoint protected `POST /api/gps-beacon`. Untuk data simulator `/gps-tracker`, payload legacy berbasis `buggyId` masih diterima sebagai fallback kompatibilitas. Endpoint ingest memvalidasi `BUGGY_INGEST_TOKEN`, mencatat device yang terlihat ke `device_registry`, melakukan lookup assignment aktif `devicesId -> buggy_id`, menolak device yang belum diassign, menolak penerapan payload untuk fleet yang sedang di-hide, memperbarui live buggy store, menyimpan raw telemetry ke `buggy_history`, meng-upsert snapshot ke `latest_buggy_telemetry`, dan mengelola sesi perjalanan ke `buggy_session_history`. Setiap snapshot terbaru menyimpan `received_at` sebagai waktu server menerima telemetry. Field ini digunakan untuk menghitung status koneksi `Online`, `Signal unstable`, `Connection lost`, atau `Offline`, sehingga dashboard tetap dapat menampilkan last known location ketika sinyal SIM800 melemah. Frontend membaca data terbaru melalui `GET /api/buggy` dengan mode polling default setiap 1 detik atau alternatif SSE melalui `/api/buggy/stream`. Untuk notifikasi PWA, browser mendaftarkan service worker `/sw.js`, menyimpan push subscription ke `notification_subscriptions`, lalu endpoint `/api/push/check-nearby` mengirim Web Push ketika buggy dengan status `Online` atau `Signal unstable` mendekati halte terdekat pengguna.
 
-Database utama terdiri dari `accounts`, `buggies`, `device_assignments`, `device_registry`, `haltes`, `geofences`, `announcements`, `buggy_history`, `buggy_session_history`, `latest_buggy_telemetry`, dan `notification_subscriptions`. Tabel `buggies.is_active` dipakai sebagai flag visibilitas fleet: fleet hidden tidak muncul pada buggy list/map/history operasional, tetapi tetap dapat dikelola admin. Tabel `device_assignments` menyimpan relasi aktif antara perangkat fisik ESP dan buggy, sedangkan `device_registry` menyimpan device yang pernah terlihat dari payload MQTT agar dapat dipilih pada Edit Fleet. Tabel `latest_buggy_telemetry` menyimpan satu baris snapshot telemetry terbaru per buggy untuk mendukung fallback saat live store in-memory direset pada serverless deployment, termasuk kolom `received_at` untuk menentukan kesegaran data. Tabel `notification_subscriptions` menyimpan endpoint Web Push, key subscription, posisi terakhir pengguna, radius alert, dan cooldown notifikasi. Tabel `buggy_history` kini memiliki kolom `passengers` untuk pelacakan historis penumpang per titik GPS. Tabel `buggy_session_history` memiliki kolom `passenger_avg`, `passenger_peak`, dan `passenger_samples` untuk analitik penumpang per sesi perjalanan. Sistem menggunakan `proxy.ts`, `requireAdmin()`, dan filter role server-side untuk role-based access; endpoint history dapat diakses admin dan driver, tetapi driver hanya menerima data buggy yang ditugaskan. Ketika session habis pada panel history, frontend menangani `401/403` dengan redirect ke login. Endpoint ingest dilindungi bearer token, sedangkan endpoint push checker dilindungi `PUSH_WORKER_TOKEN` atau `CRON_SECRET`. Geofence saat ini berbasis center point dan radius serta dapat diedit atau dihapus melalui dashboard admin. Aplikasi mendukung bahasa Indonesia dan Inggris melalui route `/id` dan `/en`. Rencana pengembangan berikutnya meliputi integrasi hardware final, command queue, ACK mechanism, penyimpanan permanen event geofence, notifikasi berbasis preferensi pengguna yang tersinkron ke database, dan pengujian lapangan.
+Database utama terdiri dari `accounts`, `buggies`, `device_assignments`, `device_registry`, `haltes`, `geofences`, `announcements`, `buggy_history`, `buggy_session_history`, `latest_buggy_telemetry`, dan `notification_subscriptions`. Tabel `buggies.is_active` dipakai sebagai flag visibilitas fleet: fleet hidden tidak muncul pada buggy list/map/history operasional, tetapi tetap dapat dikelola admin. Tabel `device_assignments` menyimpan relasi aktif antara perangkat fisik ESP dan buggy, sedangkan `device_registry` menyimpan device yang pernah terlihat dari payload MQTT agar dapat dipilih pada Edit Fleet. Tabel `latest_buggy_telemetry` menyimpan satu baris snapshot telemetry terbaru per buggy untuk mendukung fallback saat live store in-memory direset pada serverless deployment, termasuk kolom `received_at` untuk menentukan kesegaran data. Tabel `notification_subscriptions` menyimpan endpoint Web Push, key subscription, posisi terakhir pengguna, radius alert, dan cooldown notifikasi. Tabel `buggy_history` kini memiliki kolom `passengers` untuk pelacakan historis penumpang per titik GPS. Tabel `buggy_session_history` memiliki kolom `passenger_avg`, `passenger_peak`, dan `passenger_samples` untuk analitik penumpang per sesi perjalanan. Sistem menggunakan `proxy.ts`, `requireAdmin()`, filter role server-side, dan permission helper frontend untuk role-based access; endpoint history dapat diakses admin dan driver, tetapi driver hanya menerima data buggy yang ditugaskan. Ketika session habis pada panel history, frontend menangani `401/403` dengan redirect ke login. Endpoint ingest dilindungi bearer token, sedangkan endpoint push checker dilindungi `PUSH_WORKER_TOKEN` atau `CRON_SECRET`. Geofence saat ini berbasis center point dan radius serta dapat diedit atau dihapus melalui panel admin. Aplikasi mendukung bahasa Indonesia dan Inggris melalui route `/id` dan `/en`. Rencana pengembangan berikutnya meliputi integrasi hardware final, command queue, ACK mechanism, penyimpanan permanen event geofence, notifikasi berbasis preferensi pengguna yang tersinkron ke database, dan pengujian lapangan.

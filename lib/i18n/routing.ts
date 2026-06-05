@@ -36,6 +36,8 @@ export function pathShouldSkipLocale(pathname: string): boolean {
     pathname === "/api" ||
     pathname.startsWith("/_next/") ||
     pathname.startsWith("/_vercel/") ||
+    pathname === "/landing" ||
+    pathname.startsWith("/landing/") ||
     pathname === "/favicon.ico" ||
     pathname === "/manifest.webmanifest" ||
     pathname === "/manifest.json" ||
