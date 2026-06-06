@@ -7,14 +7,14 @@ import {
   Clock3,
   Gauge,
   LocateFixed,
-  MapPin,
   MapPinned,
   Navigation,
   Route,
   Signal,
   Users,
 } from "lucide-react";
-import heroImage from "@/public/ChatGPT Image Jun 6 2026.png";
+import heroImage from "@/public/Hero Image.png";
+import halteInformationImage from "@/public/Informasi Halte.png";
 import logo from "@/public/logo.svg";
 
 const serviceInformation = [
@@ -42,15 +42,6 @@ const serviceInformation = [
       "Tentukan lokasi asal dan tujuan untuk memperoleh panduan berjalan serta halte yang perlu digunakan.",
     icon: Navigation,
   },
-];
-
-const featuredStops = [
-  "Rusunawa Undip",
-  "Student Center",
-  "Fakultas Hukum & Fisip",
-  "Widya Puraya",
-  "Fakultas Psikologi",
-  "Bundaran Undip",
 ];
 
 const fleetStatuses = [
@@ -144,7 +135,7 @@ export default function LandingPage() {
         </div>
       </header>
 
-      <section className="border-b border-slate-200 bg-[#f4f4f2]">
+      <section className="border-b border-slate-200 bg-white">
         <h1 className="sr-only">
           Pantau mobilitas kampus dengan web SIMOBI
         </h1>
@@ -158,69 +149,79 @@ export default function LandingPage() {
           />
         </div>
 
-        <div className="mx-auto my-10 max-w-7xl px-4 sm:px-6 lg:px-8">
-          <div className="grid border-x border-t border-slate-200 bg-white lg:grid-cols-[0.72fr_1.28fr]">
-            <div className="border-b border-slate-200 p-6 sm:p-8 lg:border-b-0 lg:border-r">
-              <div className="flex items-center gap-3">
-                <span className="flex h-11 w-11 items-center justify-center rounded-full bg-emerald-50 text-emerald-700">
-                  <BusFront className="h-5 w-5" />
-                </span>
-                <div>
-                  <p className="text-xs font-bold uppercase tracking-[0.16em] text-slate-400">
-                    Layanan Utama
-                  </p>
-                  <h2 className="mt-1 text-xl font-black text-[#0f1a3b]">
-                    Rute Kampus UNDIP
-                  </h2>
-                </div>
+        <div className="bg-white px-4 py-16 sm:px-6 lg:px-8">
+          <div className="mx-auto max-w-7xl">
+            <div className="grid gap-6 border-b border-slate-200 pb-9 lg:grid-cols-[0.8fr_1.2fr] lg:items-end">
+              <div>
+                <p className="text-sm font-bold uppercase tracking-[0.18em] text-emerald-700">
+                  Sebelum Menuju Halte
+                </p>
+                <h2 className="mt-3 text-3xl font-black tracking-normal text-[#0f1a3b] sm:text-4xl">
+                  Periksa informasi perjalanan terlebih dahulu.
+                </h2>
               </div>
-              <p className="mt-6 text-sm font-medium leading-7 text-slate-600">
-                Jalur buggy menghubungkan area hunian, fasilitas mahasiswa,
-                fakultas, dan pusat layanan kampus.
+              <p className="max-w-2xl text-sm font-medium leading-7 text-slate-600 lg:justify-self-end">
+                Posisi pada peta berasal dari data GPS terakhir yang diterima.
+                Gunakan status armada dan waktu pembaruan untuk memastikan
+                informasi masih relevan sebelum berjalan menuju halte.
               </p>
-              <div className="mt-7 grid grid-cols-2 gap-6 border-t border-slate-200 pt-6">
-                <div>
-                  <p className="text-3xl font-black text-[#0f1a3b]">15</p>
-                  <p className="mt-1 text-xs font-semibold text-slate-500">
-                    titik halte
-                  </p>
-                </div>
-                <div>
-                  <p className="text-3xl font-black text-[#0f1a3b]">Real-time</p>
-                  <p className="mt-1 text-xs font-semibold text-slate-500">
-                    pembaruan armada
-                  </p>
-                </div>
-              </div>
             </div>
 
-            <div className="p-6 sm:p-8">
-              <div className="flex items-center justify-between gap-4">
-                <div>
-                  <p className="text-xs font-bold uppercase tracking-[0.16em] text-slate-400">
-                    Beberapa Titik Layanan
-                  </p>
-                  <p className="mt-1 text-sm font-semibold text-slate-600">
-                    Buka peta untuk melihat seluruh halte dan jalur.
-                  </p>
-                </div>
-                <MapPin className="h-6 w-6 shrink-0 text-emerald-700" />
-              </div>
-              <div className="mt-7 grid gap-x-8 gap-y-0 sm:grid-cols-2">
-                {featuredStops.map((stop, index) => (
-                  <div
-                    key={stop}
-                    className="relative flex min-h-14 items-center gap-4 border-b border-slate-200 py-3"
-                  >
-                    <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full border-2 border-emerald-600 bg-white text-[10px] font-black text-emerald-700">
-                      {String(index + 1).padStart(2, "0")}
+            <div className="mt-8 grid gap-4 md:grid-cols-3">
+              {[
+                {
+                  number: "01",
+                  title: "Cari buggy yang aktif",
+                  description:
+                    "Armada berstatus online sedang mengirim posisi dan dapat dipantau melalui peta.",
+                  icon: BusFront,
+                },
+                {
+                  number: "02",
+                  title: "Periksa pembaruan data",
+                  description:
+                    "Lihat keterangan last seen agar posisi yang ditampilkan tidak disalahartikan sebagai posisi terkini.",
+                  icon: Clock3,
+                },
+                {
+                  number: "03",
+                  title: "Tentukan halte tujuan",
+                  description:
+                    "Pilih titik naik dan turun yang paling sesuai dengan lokasi asal serta tujuan perjalanan.",
+                  icon: MapPinned,
+                },
+              ].map(({ number, title, description, icon: Icon }) => (
+                <article
+                  key={number}
+                  className="border border-slate-200 bg-slate-50 p-6"
+                >
+                  <div className="flex items-center justify-between">
+                    <span className="flex h-10 w-10 items-center justify-center rounded-full bg-white text-emerald-700 shadow-sm">
+                      <Icon className="h-5 w-5" />
                     </span>
-                    <p className="text-sm font-bold text-[#0f1a3b]">{stop}</p>
+                    <span className="text-xs font-black text-slate-400">
+                      {number}
+                    </span>
                   </div>
-                ))}
-              </div>
+                  <h3 className="mt-7 text-lg font-black text-[#0f1a3b]">
+                    {title}
+                  </h3>
+                  <p className="mt-3 text-sm font-medium leading-7 text-slate-600">
+                    {description}
+                  </p>
+                </article>
+              ))}
             </div>
           </div>
+        </div>
+
+        <div className="mx-auto mb-10 max-w-7xl px-4 sm:px-6 lg:px-8">
+          <Image
+            src={halteInformationImage}
+            alt="Informasi halte SIMOBI dan panduan memantau buggy kampus"
+            className="h-auto w-full object-contain"
+            sizes="(max-width: 1280px) 100vw, 1280px"
+          />
         </div>
       </section>
 
