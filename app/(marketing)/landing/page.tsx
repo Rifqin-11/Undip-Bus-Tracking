@@ -13,7 +13,7 @@ import {
   Signal,
   Users,
 } from "lucide-react";
-import heroImage from "@/public/Hero Image.png";
+import HeroCarousel from "@/components/marketing/HeroCarousel";
 import halteInformationImage from "@/public/Informasi Halte.png";
 import logo from "@/public/logo.svg";
 
@@ -139,15 +139,8 @@ export default function LandingPage() {
         <h1 className="sr-only">
           Pantau mobilitas kampus dengan web SIMOBI
         </h1>
-        <div className="overflow-hidden">
-          <Image
-            src={heroImage}
-            alt="Ilustrasi fitur SIMOBI untuk memantau lokasi buggy, kepadatan penumpang, rute kampus, dan notifikasi geofence"
-            className="h-auto min-h-[330px] w-full object-cover object-left sm:min-h-0"
-            sizes="100vw"
-            priority
-          />
-        </div>
+
+        <HeroCarousel />
 
         <div className="bg-white px-4 py-16 sm:px-6 lg:px-8">
           <div className="mx-auto max-w-7xl">
