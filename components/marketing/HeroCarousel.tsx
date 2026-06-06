@@ -27,7 +27,7 @@ const slides: HeroSlide[] = [
   },
 ];
 
-const AUTO_PLAY_INTERVAL_MS = 3000;
+const AUTO_PLAY_INTERVAL_MS = 5000;
 
 export default function HeroCarousel() {
   const [activeIndex, setActiveIndex] = useState(0);

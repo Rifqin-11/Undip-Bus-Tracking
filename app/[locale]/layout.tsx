@@ -31,6 +31,7 @@ export async function generateMetadata({
   const t = await getServerT(locale, "common");
 
   return {
+    metadataBase: new URL("https://simobi.my.id"),
     title: t("metadataTitle"),
     description: t("metadataDescription"),
     appleWebApp: {
@@ -39,9 +40,39 @@ export async function generateMetadata({
       title: "SIMOBI",
     },
     icons: {
-      icon: "/logo.svg",
-      shortcut: "/logo.svg",
-      apple: "/logo.svg",
+      icon: {
+        url: "/icon-192.png",
+        type: "image/png",
+        sizes: "192x192",
+      },
+      shortcut: "/icon-192.png",
+      apple: {
+        url: "/icon-192.png",
+        type: "image/png",
+        sizes: "192x192",
+      },
+    },
+    openGraph: {
+      type: "website",
+      locale: locale === "id" ? "id_ID" : "en_US",
+      url: `/${locale}`,
+      siteName: "SIMOBI",
+      title: t("metadataTitle"),
+      description: t("metadataDescription"),
+      images: [
+        {
+          url: "/og-simobi.jpg",
+          width: 1200,
+          height: 630,
+          alt: "SIMOBI Smart Mobility UNDIP",
+        },
+      ],
+    },
+    twitter: {
+      card: "summary_large_image",
+      title: t("metadataTitle"),
+      description: t("metadataDescription"),
+      images: ["/og-simobi.jpg"],
     },
   };
 }

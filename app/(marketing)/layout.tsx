@@ -13,13 +13,46 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
+  metadataBase: new URL("https://simobi.my.id"),
   title: "SIMOBI | Smart Mobility UNDIP",
   description:
-    "Landing page SIMOBI, sistem monitoring dan tracking real-time armada buggy listrik kampus UNDIP.",
+    "Pantau posisi buggy, halte, rute, kepadatan penumpang, dan kondisi layanan kampus UNDIP melalui SIMOBI.",
   icons: {
-    icon: "/logo.svg",
-    shortcut: "/logo.svg",
-    apple: "/logo.svg",
+    icon: {
+      url: "/icon-192.png",
+      type: "image/png",
+      sizes: "192x192",
+    },
+    shortcut: "/icon-192.png",
+    apple: {
+      url: "/icon-192.png",
+      type: "image/png",
+      sizes: "192x192",
+    },
+  },
+  openGraph: {
+    type: "website",
+    locale: "id_ID",
+    url: "/landing",
+    siteName: "SIMOBI",
+    title: "SIMOBI | Smart Mobility UNDIP",
+    description:
+      "Pantau posisi buggy, halte, rute, kepadatan penumpang, dan kondisi layanan kampus UNDIP.",
+    images: [
+      {
+        url: "/og-simobi.jpg",
+        width: 1200,
+        height: 630,
+        alt: "Pantau mobilitas kampus dengan web SIMOBI",
+      },
+    ],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "SIMOBI | Smart Mobility UNDIP",
+    description:
+      "Pantau posisi buggy, halte, rute, kepadatan penumpang, dan kondisi layanan kampus UNDIP.",
+    images: ["/og-simobi.jpg"],
   },
 };
 
