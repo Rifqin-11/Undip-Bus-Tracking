@@ -14,6 +14,7 @@ import {
   Signal,
   Users,
 } from "lucide-react";
+import heroImage from "@/public/ChatGPT Image Jun 6 2026.png";
 import logo from "@/public/logo.svg";
 
 const serviceInformation = [
@@ -143,37 +144,22 @@ export default function LandingPage() {
         </div>
       </header>
 
-      <section className="border-b border-slate-200 bg-[#f4f8fa]">
-        <div className="mx-auto max-w-7xl px-4 pb-0 pt-16 sm:px-6 sm:pt-20 lg:px-8">
-          <div className="max-w-5xl">
-            <p className="text-sm font-bold uppercase tracking-[0.18em] text-emerald-700">
-              Transportasi Kampus Universitas Diponegoro
-            </p>
-            <h1 className="mt-5 max-w-4xl text-5xl font-black leading-[1.04] tracking-normal text-[#0f1a3b] sm:text-6xl lg:text-7xl">
-              Informasi perjalanan buggy kampus dalam satu tempat.
-            </h1>
-            <p className="mt-6 max-w-3xl text-base font-medium leading-8 text-slate-600 sm:text-lg">
-              Pantau posisi buggy, temukan halte terdekat, dan pahami kondisi
-              layanan sebelum memulai perjalanan di lingkungan kampus UNDIP.
-            </p>
-            <div className="mt-8 flex flex-col gap-3 sm:flex-row">
-              <Link
-                href="/id"
-                className="inline-flex h-12 items-center justify-center gap-2 rounded-lg bg-[#0f1a3b] px-6 text-sm font-bold text-white transition hover:bg-slate-900"
-              >
-                Lihat Peta Perjalanan
-                <ArrowRight className="h-4 w-4" />
-              </Link>
-              <a
-                href="#rute"
-                className="inline-flex h-12 items-center justify-center rounded-lg border border-slate-300 bg-white px-6 text-sm font-bold text-[#0f1a3b] transition hover:border-[#0f1a3b]"
-              >
-                Lihat Rute dan Halte
-              </a>
-            </div>
-          </div>
+      <section className="border-b border-slate-200 bg-[#f4f4f2]">
+        <h1 className="sr-only">
+          Pantau mobilitas kampus dengan web SIMOBI
+        </h1>
+        <div className="overflow-hidden">
+          <Image
+            src={heroImage}
+            alt="Ilustrasi fitur SIMOBI untuk memantau lokasi buggy, kepadatan penumpang, rute kampus, dan notifikasi geofence"
+            className="h-auto min-h-[330px] w-full object-cover object-left sm:min-h-0"
+            sizes="100vw"
+            priority
+          />
+        </div>
 
-          <div className="mt-14 grid border-x border-t border-slate-200 bg-white lg:grid-cols-[0.72fr_1.28fr]">
+        <div className="mx-auto my-10 max-w-7xl px-4 sm:px-6 lg:px-8">
+          <div className="grid border-x border-t border-slate-200 bg-white lg:grid-cols-[0.72fr_1.28fr]">
             <div className="border-b border-slate-200 p-6 sm:p-8 lg:border-b-0 lg:border-r">
               <div className="flex items-center gap-3">
                 <span className="flex h-11 w-11 items-center justify-center rounded-full bg-emerald-50 text-emerald-700">
