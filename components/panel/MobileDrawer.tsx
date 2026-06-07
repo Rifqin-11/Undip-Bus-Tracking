@@ -224,21 +224,9 @@ export function MobileDrawer({ open, onClose, children }: MobileDrawerProps) {
 
   // ── Shape styles per snap ────────────────────────────────────────────────
   const isHalf = snap === "half";
-  const shapeAnimate = isHalf
-    ? {
-        bottom: "calc(1rem + var(--sai-bottom, 0px))",
-        left: `${CARD_MARGIN_X}px`,
-        right: `${CARD_MARGIN_X}px`,
-        borderRadius: "24px",
-        boxShadow: "0 8px 40px rgba(15,23,42,0.22)",
-      }
-    : {
-        bottom: "0px",
-        left: "0px",
-        right: "0px",
-        borderRadius: "28px 28px 0 0",
-        boxShadow: "none",
-      };
+  const shapeAnimate = {
+    boxShadow: isHalf ? "0 8px 40px rgba(15,23,42,0.22)" : "none",
+  };
 
   const showBackdrop = open && snap === "full";
 
@@ -277,6 +265,14 @@ export function MobileDrawer({ open, onClose, children }: MobileDrawerProps) {
           // Layout + shape animated via `animate` prop (spring)
           position: "fixed",
           overflow: "hidden",
+          // Apply geometry directly so standalone Safari does not retain the
+          // half-state calc()/safe-area values after expanding to full mode.
+          bottom: isHalf
+            ? "calc(1rem + var(--sai-bottom, 0px))"
+            : "0px",
+          left: isHalf ? `${CARD_MARGIN_X}px` : "0px",
+          right: isHalf ? `${CARD_MARGIN_X}px` : "0px",
+          borderRadius: isHalf ? "24px" : "28px 28px 0 0",
         }}
         animate={shapeAnimate}
         transition={SPRING}
