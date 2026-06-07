@@ -18,7 +18,7 @@ import { sanitizeGpsPoints } from "@/lib/buggy/gps-quality";
 
 const SESSION_IDLE_TIMEOUT_MS = 5 * 60 * 1000; // auto-finalize after 5 min silence
 const MIN_POINTS_TO_SAVE = 3;                   // discard micro-sessions
-const MIN_DISTANCE_KM    = 1.0;                 // discard sesi yang belum menempuh 1 km
+export const MIN_SESSION_DISTANCE_KM = 1.0;
 const OPERATIONAL_TIME_ZONE = "Asia/Jakarta";
 
 // ── Types ────────────────────────────────────────────────────────────────────
@@ -157,6 +157,17 @@ export function getOperationalSessionBucket(value: string | number | Date): {
     sessionNumber: 3,
     isScheduled: false,
   };
+}
+
+/**
+ * Completed sessions must represent an actual trip, regardless of whether the
+ * points were recorded inside or outside an operational schedule bucket.
+ */
+export function isSessionDistanceEligible(totalDistanceKm: number): boolean {
+  return (
+    Number.isFinite(totalDistanceKm) &&
+    totalDistanceKm >= MIN_SESSION_DISTANCE_KM
+  );
 }
 
 // ── Background auto-finalize ──────────────────────────────────────────────────
@@ -422,11 +433,10 @@ export async function finalizeSession(buggyId: string): Promise<void> {
     );
   }
   const totalDistanceKm = totalDistanceM / 1000;
-  const bucket = getOperationalSessionBucket(points[0].recordedAt);
 
-  if (!bucket.isScheduled && totalDistanceKm < MIN_DISTANCE_KM) {
+  if (!isSessionDistanceEligible(totalDistanceKm)) {
     console.log(
-      `[session-store] Jarak terlalu pendek (${totalDistanceKm.toFixed(3)} km < ${MIN_DISTANCE_KM} km) ` +
+      `[session-store] Jarak terlalu pendek (${totalDistanceKm.toFixed(3)} km < ${MIN_SESSION_DISTANCE_KM} km) ` +
       `untuk ${buggyId}, sesi tidak disimpan.`,
     );
     return;
@@ -464,6 +474,17 @@ export async function saveSessionPointsToDb(
       { lat: points[i - 1].lat, lng: points[i - 1].lng },
       { lat: points[i].lat, lng: points[i].lng },
     );
+  }
+  const totalDistanceKm = totalDistanceM / 1000;
+
+  // This is the final persistence boundary. Keep the guard here so every
+  // caller, including DB-synthesized auto-finalization, follows the same rule.
+  if (!isSessionDistanceEligible(totalDistanceKm)) {
+    console.log(
+      `[session-store] Jarak terlalu pendek (${totalDistanceKm.toFixed(3)} km < ${MIN_SESSION_DISTANCE_KM} km) ` +
+        `untuk ${buggyId}, sesi tidak disimpan.`,
+    );
+    return;
   }
 
   // Average / max speed (exclude 0 and null)
@@ -584,7 +605,7 @@ export async function saveSessionPointsToDb(
       ended_at: endedAt,
       duration_minutes: Number(durationMinutes.toFixed(1)),
       point_count: points.length,
-      total_distance_km: Number((totalDistanceM / 1000).toFixed(3)),
+      total_distance_km: Number(totalDistanceKm.toFixed(3)),
       avg_speed_kmh: avgSpeedKmh !== null ? Number(avgSpeedKmh.toFixed(1)) : null,
       max_speed_kmh: maxSpeedKmh !== null ? Number(maxSpeedKmh.toFixed(1)) : null,
       battery_start: batteryStart,
@@ -635,7 +656,7 @@ export async function saveSessionPointsToDb(
     } else {
       console.log(
         `[session-store] Saved session #${sessionNumber} for ${buggyId}: ` +
-          `${points.length} pts, ${(totalDistanceM / 1000).toFixed(2)} km`,
+          `${points.length} pts, ${totalDistanceKm.toFixed(2)} km`,
       );
     }
   })();

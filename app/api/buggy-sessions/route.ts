@@ -17,6 +17,7 @@ import {
   saveSessionPointsToDb,
   buildSessionSummary,
   getOperationalSessionBucket,
+  isSessionDistanceEligible,
 } from "@/lib/realtime/session-store";
 import type { SessionPoint } from "@/lib/realtime/session-store";
 import {
@@ -567,12 +568,11 @@ export async function GET(request: NextRequest) {
             path: sum.path,
         };
 
-        // Sesi pagi/siang tetap disimpan walau jarak kecil. Batas 1 km hanya
-        // dipakai untuk data di luar jam operasional agar noise/testing tidak
-        // menjadi riwayat permanen.
+        // Completed sessions are persisted only after representing a real trip.
+        // Ongoing sessions remain visible below for real-time monitoring.
         const isValidSession =
-          bucket.isScheduled ||
-          (sum.totalDistanceKm !== null && sum.totalDistanceKm >= 1.0);
+          sum.totalDistanceKm !== null &&
+          isSessionDistanceEligible(sum.totalDistanceKm);
 
         if (shouldFinalize || !isLatest) {
             // Sesi sudah terputus. Kita FINALISASIKAN ke database di background agar permanen.
