@@ -5,7 +5,7 @@ import { ChevronLeft, ChevronRight } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import heroImage from "@/public/Hero Image.png";
 import heroImageTwo from "@/public/Hero Image 2.png";
-import heroImageThree from "@/public/Hero Image 3.png"
+import heroImageThree from "@/public/Hero Image 3.png";
 
 type HeroSlide = {
   src: StaticImageData;
@@ -59,7 +59,7 @@ export default function HeroCarousel() {
 
   return (
     <div
-      className="group relative aspect-[3/1] min-h-[330px] overflow-hidden bg-[#f4f4f2] sm:min-h-0"
+      className="group relative aspect-video overflow-hidden bg-[#f4f4f2] sm:aspect-[3/1]"
       aria-roledescription="carousel"
       aria-label="Informasi utama SIMOBI"
     >
@@ -87,33 +87,33 @@ export default function HeroCarousel() {
       <button
         type="button"
         onClick={showPreviousSlide}
-        className="absolute left-3 top-1/2 z-10 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full border border-white/70 bg-white/90 text-[#0f1a3b] shadow-md transition hover:bg-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0f1a3b] sm:left-5"
+        className="absolute bottom-3 left-3 z-10 flex h-8 w-8 items-center justify-center rounded-full border border-white/70 bg-white/90 text-[#0f1a3b] shadow-md transition hover:bg-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0f1a3b] sm:bottom-auto sm:left-5 sm:top-1/2 sm:h-10 sm:w-10 sm:-translate-y-1/2"
         aria-label="Tampilkan slide sebelumnya"
         title="Slide sebelumnya"
       >
-        <ChevronLeft className="h-5 w-5" />
+        <ChevronLeft className="h-4 w-4 sm:h-5 sm:w-5" />
       </button>
 
       <button
         type="button"
         onClick={showNextSlide}
-        className="absolute right-3 top-1/2 z-10 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full border border-white/70 bg-white/90 text-[#0f1a3b] shadow-md transition hover:bg-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0f1a3b] sm:right-5"
+        className="absolute bottom-3 right-3 z-10 flex h-8 w-8 items-center justify-center rounded-full border border-white/70 bg-white/90 text-[#0f1a3b] shadow-md transition hover:bg-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0f1a3b] sm:bottom-auto sm:right-5 sm:top-1/2 sm:h-10 sm:w-10 sm:-translate-y-1/2"
         aria-label="Tampilkan slide berikutnya"
         title="Slide berikutnya"
       >
-        <ChevronRight className="h-5 w-5" />
+        <ChevronRight className="h-4 w-4 sm:h-5 sm:w-5" />
       </button>
 
-      <div className="absolute bottom-4 left-1/2 z-10 flex -translate-x-1/2 items-center gap-2 rounded-full bg-white/90 px-3 py-2 shadow-sm">
+      <div className="absolute bottom-3 left-1/2 z-10 flex -translate-x-1/2 items-center gap-1.5 rounded-full bg-white/90 px-2.5 py-1.5 shadow-sm sm:bottom-4 sm:gap-2 sm:px-3 sm:py-2">
         {slides.map((slide, index) => (
           <button
             key={slide.src.src}
             type="button"
             onClick={() => setActiveIndex(index)}
-            className={`h-2.5 rounded-full transition-all ${
+            className={`h-2 rounded-full transition-all sm:h-2.5 ${
               index === activeIndex
-                ? "w-7 bg-[#0f1a3b]"
-                : "w-2.5 bg-slate-300 hover:bg-slate-400"
+                ? "w-5 bg-[#0f1a3b] sm:w-7"
+                : "w-2 bg-slate-300 hover:bg-slate-400 sm:w-2.5"
             }`}
             aria-label={`Tampilkan slide ${index + 1}`}
             aria-current={index === activeIndex}
