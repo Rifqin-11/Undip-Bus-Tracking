@@ -60,6 +60,7 @@ const DIST = 20; // px    (was 50)
 export function MobileDrawer({ open, onClose, children }: MobileDrawerProps) {
   const { t: tCommomn } = useTranslation("common");
   const [snap, setSnap] = useState<SnapPoint>("half");
+  const [safeAreaBottom, setSafeAreaBottom] = useState(0);
 
   /**
    * HEIGHT MotionValue – drives card height for all states.
@@ -86,6 +87,29 @@ export function MobileDrawer({ open, onClose, children }: MobileDrawerProps) {
   /** Helper – full mode height in px (allows spring animation without dvh unit issues) */
   const fullHeightPx = () =>
     typeof window !== "undefined" ? window.innerHeight * 0.85 : 700;
+
+  useEffect(() => {
+    const updateSafeAreaBottom = () => {
+      const probe = document.createElement("div");
+      probe.style.position = "fixed";
+      probe.style.visibility = "hidden";
+      probe.style.paddingBottom = "env(safe-area-inset-bottom, 0px)";
+      document.body.appendChild(probe);
+
+      const value = getComputedStyle(probe).paddingBottom;
+      probe.remove();
+      setSafeAreaBottom(Number.parseFloat(value) || 0);
+    };
+
+    updateSafeAreaBottom();
+    window.addEventListener("resize", updateSafeAreaBottom);
+    window.visualViewport?.addEventListener("resize", updateSafeAreaBottom);
+
+    return () => {
+      window.removeEventListener("resize", updateSafeAreaBottom);
+      window.visualViewport?.removeEventListener("resize", updateSafeAreaBottom);
+    };
+  }, []);
 
   // ── Sync open prop ↔ animate in / out ────────────────────────────────────────
   useEffect(() => {
@@ -224,9 +248,27 @@ export function MobileDrawer({ open, onClose, children }: MobileDrawerProps) {
 
   // ── Shape styles per snap ────────────────────────────────────────────────
   const isHalf = snap === "half";
-  const shapeAnimate = {
-    boxShadow: isHalf ? "0 8px 40px rgba(15,23,42,0.22)" : "none",
-  };
+  const shapeAnimate = isHalf
+    ? {
+        bottom: 16 + safeAreaBottom,
+        left: CARD_MARGIN_X,
+        right: CARD_MARGIN_X,
+        borderTopLeftRadius: 24,
+        borderTopRightRadius: 24,
+        borderBottomLeftRadius: 24,
+        borderBottomRightRadius: 24,
+        boxShadow: "0 8px 40px rgba(15,23,42,0.22)",
+      }
+    : {
+        bottom: 0,
+        left: 0,
+        right: 0,
+        borderTopLeftRadius: 28,
+        borderTopRightRadius: 28,
+        borderBottomLeftRadius: 0,
+        borderBottomRightRadius: 0,
+        boxShadow: "none",
+      };
 
   const showBackdrop = open && snap === "full";
 
@@ -265,14 +307,6 @@ export function MobileDrawer({ open, onClose, children }: MobileDrawerProps) {
           // Layout + shape animated via `animate` prop (spring)
           position: "fixed",
           overflow: "hidden",
-          // Apply geometry directly so standalone Safari does not retain the
-          // half-state calc()/safe-area values after expanding to full mode.
-          bottom: isHalf
-            ? "calc(1rem + var(--sai-bottom, 0px))"
-            : "0px",
-          left: isHalf ? `${CARD_MARGIN_X}px` : "0px",
-          right: isHalf ? `${CARD_MARGIN_X}px` : "0px",
-          borderRadius: isHalf ? "24px" : "28px 28px 0 0",
         }}
         animate={shapeAnimate}
         transition={SPRING}
