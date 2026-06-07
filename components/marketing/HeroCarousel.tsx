@@ -59,7 +59,7 @@ export default function HeroCarousel() {
 
   return (
     <div
-      className="group relative aspect-video overflow-hidden bg-[#f4f4f2] sm:aspect-[3/1]"
+      className="group relative aspect-[2/1] overflow-hidden bg-[#f4f4f2] sm:aspect-[3/1]"
       aria-roledescription="carousel"
       aria-label="Informasi utama SIMOBI"
     >
@@ -77,7 +77,7 @@ export default function HeroCarousel() {
             src={slide.src}
             alt={slide.alt}
             fill
-            className="object-cover object-left"
+            className="object-contain object-center sm:object-cover sm:object-left"
             sizes="100vw"
             priority={index === 0}
           />
