@@ -8,8 +8,11 @@ import {
   createAdminClient,
   getLatestBuggyTelemetryTableName,
 } from "@/lib/supabase/server";
-import { findNearestPathIndex } from "@/lib/transit/buggy-route-utils";
-import { getHalteLocations } from "@/lib/transit/halte-runtime";
+import {
+  findNearestRoutePoint,
+  findNearestPathIndex,
+  resolveCurrentHalteIndexFromRouteCursor,
+} from "@/lib/transit/buggy-route-utils";
 import { resolveBuggyConnectionStatus } from "@/lib/buggy/connection-status";
 import type { Buggy } from "@/types/buggy";
 
@@ -20,6 +23,7 @@ type LatestBuggyTelemetryRow = {
   lat: number | null;
   lng: number | null;
   speed_kmh: number | null;
+  heading?: number | null;
   passengers?: number | null;
   capacity?: number | null;
   recorded_at: string | null;
@@ -42,25 +46,6 @@ function toTimeLabel(value: string): string {
     hour: "2-digit",
     minute: "2-digit",
   }).format(date);
-}
-
-function resolveNearestHalteIndex(lat: number, lng: number): number {
-  const haltes = getHalteLocations();
-  if (haltes.length === 0) return 0;
-
-  let bestIndex = 0;
-  let bestDistance = Number.POSITIVE_INFINITY;
-
-  for (let i = 0; i < haltes.length; i += 1) {
-    const halte = haltes[i];
-    const distance = Math.hypot(halte.lat - lat, halte.lng - lng);
-    if (distance < bestDistance) {
-      bestDistance = distance;
-      bestIndex = i;
-    }
-  }
-
-  return bestIndex;
 }
 
 function resolveCrowdLevel(passengers: number, capacity: number): Buggy["crowdLevel"] {
@@ -165,6 +150,12 @@ export async function mergeLatestBuggyTelemetry(
     const connectionStatus =
       resolveBuggyConnectionStatus(lastSeenSecondsAgo);
 
+    const routePoint = findNearestRoutePoint(row.lat, row.lng, undefined, {
+      headingDegrees: row.heading,
+    });
+    const pathCursor =
+      routePoint?.index ?? findNearestPathIndex(row.lat, row.lng);
+
     return {
       ...buggy,
       isActive:
@@ -182,11 +173,11 @@ export async function mergeLatestBuggyTelemetry(
       crowdLevel: resolveCrowdLevel(passengers, capacity),
       tag: "GPS Nyata",
       updatedAt: toTimeLabel(row.recorded_at),
-      currentStopIndex: resolveNearestHalteIndex(row.lat, row.lng),
-      pathCursor: findNearestPathIndex(row.lat, row.lng),
+      currentStopIndex: resolveCurrentHalteIndexFromRouteCursor(pathCursor),
+      pathCursor,
       position: {
-        lat: row.lat,
-        lng: row.lng,
+        lat: routePoint?.lat ?? row.lat,
+        lng: routePoint?.lng ?? row.lng,
       },
     };
   });

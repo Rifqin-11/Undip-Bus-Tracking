@@ -97,6 +97,8 @@ function snapLivePositionsToRoute(buggies: Buggy[]): Buggy[] {
     const nearest = findNearestRoutePoint(
       buggy.position.lat,
       buggy.position.lng,
+      undefined,
+      { preferredIndex: buggy.pathCursor },
     );
 
     if (!nearest || nearest.distanceMeters > LIVE_ROUTE_SNAP_MAX_METERS) {
