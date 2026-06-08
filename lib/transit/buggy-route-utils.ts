@@ -13,8 +13,15 @@ export type LatLng = {
   lng: number;
 };
 
-const ROUTE_START_NAME = "SA-MWA & FSM Barat";
+const ROUTE_START_NAME = "Rusunawa Undip";
 const OPERATIONAL_STOP_ORDER = [
+  "Rusunawa Undip",
+  "Pos Satpam Astina Undip",
+  "Student Center",
+  "Teknik Arsitektur",
+  "Fakultas Hukum & Fisip",
+  "Sekolah Vokasi & FIB",
+  "Widya Puraya",
   "SA-MWA & FSM Barat",
   "Fakultas Psikologi",
   "Fakultas Ekonomika dan Bisnis",
@@ -23,19 +30,19 @@ const OPERATIONAL_STOP_ORDER = [
   "Fakultas Peternakan dan Pertanian",
   "UPT Laboratorium Terpadu",
   "Bundaran Undip",
-  "Rusunawa Undip",
-  "Pos Satpam Astina Undip",
-  "Student Center",
-  "Teknik Arsitektur",
-  "Fakultas Hukum & Fisip",
-  "Sekolah Vokasi & FIB",
-  "Widya Puraya",
 ] as const;
 
-// Anchor mengikuti urutan OFFICIAL_ROUTE_PATH dan dibuat unwrapped mulai dari
-// SA-MWA. Psikologi berada di cabang opsional; jika dilewati, progres dapat
-// langsung bergerak dari SA-MWA ke anchor FEB tanpa mengubah urutan halte lain.
+// Anchor mengikuti urutan OFFICIAL_ROUTE_PATH. Rusunawa menjadi halte pertama
+// operasional; Psikologi berada di cabang opsional sehingga progres dapat
+// langsung bergerak dari SA-MWA ke anchor FEB saat cabang tersebut dilewati.
 const OPERATIONAL_STOP_ROUTE_ANCHORS: Record<string, number> = {
+  "Rusunawa Undip": 0,
+  "Pos Satpam Astina Undip": 18,
+  "Student Center": 21,
+  "Teknik Arsitektur": 27,
+  "Fakultas Hukum & Fisip": 32,
+  "Sekolah Vokasi & FIB": 37,
+  "Widya Puraya": 47,
   "SA-MWA & FSM Barat": 53,
   "Fakultas Psikologi": 68,
   "Fakultas Ekonomika dan Bisnis": 73,
@@ -44,13 +51,6 @@ const OPERATIONAL_STOP_ROUTE_ANCHORS: Record<string, number> = {
   "Fakultas Peternakan dan Pertanian": 84,
   "UPT Laboratorium Terpadu": 92,
   "Bundaran Undip": 94,
-  "Rusunawa Undip": 111,
-  "Pos Satpam Astina Undip": 129,
-  "Student Center": 132,
-  "Teknik Arsitektur": 138,
-  "Fakultas Hukum & Fisip": 143,
-  "Sekolah Vokasi & FIB": 148,
-  "Widya Puraya": 158,
 };
 
 function normalizeLoopIndex(index: number, length: number): number {
