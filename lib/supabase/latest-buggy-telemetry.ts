@@ -12,6 +12,7 @@ import {
   findNearestRoutePoint,
   findNearestPathIndex,
   resolveCurrentHalteIndexFromRouteCursor,
+  resolveRouteCursorFromHalteIndex,
 } from "@/lib/transit/buggy-route-utils";
 import { resolveBuggyConnectionStatus } from "@/lib/buggy/connection-status";
 import type { Buggy } from "@/types/buggy";
@@ -24,6 +25,8 @@ type LatestBuggyTelemetryRow = {
   lng: number | null;
   speed_kmh: number | null;
   heading?: number | null;
+  path_cursor?: number | null;
+  current_stop_index?: number | null;
   passengers?: number | null;
   capacity?: number | null;
   recorded_at: string | null;
@@ -152,9 +155,16 @@ export async function mergeLatestBuggyTelemetry(
 
     const routePoint = findNearestRoutePoint(row.lat, row.lng, undefined, {
       headingDegrees: row.heading,
+      preferredIndex:
+        typeof row.path_cursor === "number"
+          ? row.path_cursor
+          : (resolveRouteCursorFromHalteIndex(buggy.currentStopIndex) ??
+            buggy.pathCursor),
     });
     const pathCursor =
-      routePoint?.index ?? findNearestPathIndex(row.lat, row.lng);
+      typeof row.path_cursor === "number"
+        ? row.path_cursor
+        : routePoint?.index ?? findNearestPathIndex(row.lat, row.lng);
 
     return {
       ...buggy,
@@ -173,7 +183,10 @@ export async function mergeLatestBuggyTelemetry(
       crowdLevel: resolveCrowdLevel(passengers, capacity),
       tag: "GPS Nyata",
       updatedAt: toTimeLabel(row.recorded_at),
-      currentStopIndex: resolveCurrentHalteIndexFromRouteCursor(pathCursor),
+      currentStopIndex:
+        typeof row.current_stop_index === "number"
+          ? row.current_stop_index
+          : resolveCurrentHalteIndexFromRouteCursor(pathCursor),
       pathCursor,
       position: {
         lat: routePoint?.lat ?? row.lat,

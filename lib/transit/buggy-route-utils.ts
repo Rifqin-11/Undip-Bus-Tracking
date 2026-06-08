@@ -58,10 +58,9 @@ function normalizeLoopIndex(index: number, length: number): number {
   return ((index % length) + length) % length;
 }
 
-function circularDistance(a: number, b: number, length: number): number {
+function forwardDistance(a: number, b: number, length: number): number {
   if (length <= 0) return 0;
-  const delta = Math.abs(a - b);
-  return Math.min(delta, length - delta);
+  return normalizeLoopIndex(a - b, length);
 }
 
 export function haversineMeters(a: LatLng, b: LatLng): number {
@@ -184,7 +183,7 @@ export function findNearestRoutePoint(
     const preferredIndexPenalty =
       typeof options.preferredIndex === "number" &&
       Number.isFinite(options.preferredIndex)
-        ? circularDistance(index, options.preferredIndex, routePath.length) * 5
+        ? forwardDistance(index, options.preferredIndex, routePath.length) * 8
         : 0;
     const score = distanceMeters + headingPenalty + preferredIndexPenalty;
 
@@ -255,6 +254,15 @@ export function resolveCurrentHalteIndexFromRouteCursor(
 
   const currentIndex = haltes.findIndex((halte) => halte.name === currentName);
   return currentIndex >= 0 ? currentIndex : 0;
+}
+
+export function resolveRouteCursorFromHalteIndex(
+  halteIndex: number,
+  haltes: HaltePoint[] = getHalteLocations(),
+): number | undefined {
+  const halte = haltes[normalizeLoopIndex(halteIndex, haltes.length)];
+  if (!halte) return undefined;
+  return OPERATIONAL_STOP_ROUTE_ANCHORS[halte.name];
 }
 
 /** Lazy — menggunakan data halte runtime (DB) jika tersedia, fallback ke static */

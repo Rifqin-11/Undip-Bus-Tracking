@@ -8,7 +8,10 @@ import { OFFICIAL_ROUTE_PATH } from "@/lib/transit/buggy-data";
 import { getHalteLocations } from "@/lib/transit/halte-runtime";
 import {
   findNearestPathIndex,
+  findNearestRoutePoint,
   haversineMeters,
+  resolveCurrentHalteIndexFromRouteCursor,
+  resolveRouteCursorFromHalteIndex,
 } from "@/lib/transit/buggy-route-utils";
 import { normalizeGsmStatus } from "@/lib/buggy/gsm-status";
 import { resolveBuggyConnectionStatus } from "@/lib/buggy/connection-status";
@@ -22,6 +25,7 @@ export type BuggyTelemetryInput = {
   lat: number;
   lng: number;
   speedKmh?: number;
+  heading?: number;
   passengers?: number;
   capacity?: number;
   etaMinutes?: number;
@@ -320,6 +324,7 @@ function parseTelemetryPayload(payload: unknown): BuggyTelemetryInput[] | null {
       lat: item.lat,
       lng: item.lng,
       speedKmh: isFiniteNumber(item.speedKmh) ? item.speedKmh : undefined,
+      heading: isFiniteNumber(item.heading) ? item.heading : undefined,
       passengers: isFiniteNumber(item.passengers) ? item.passengers : undefined,
       capacity: isFiniteNumber(item.capacity) ? item.capacity : undefined,
       etaMinutes: isFiniteNumber(item.etaMinutes) ? item.etaMinutes : undefined,
@@ -422,6 +427,12 @@ function autoRegisterBuggy(buggyId: string, point: BuggyTelemetryInput): Buggy {
   const stopIndex = resolveNearestHalteIndexFromPosition(point.lat, point.lng);
   const haltes = getHalteLocations();
 
+  const routePoint = findNearestRoutePoint(point.lat, point.lng, undefined, {
+    headingDegrees: point.heading,
+  });
+  const pathCursor =
+    routePoint?.index ?? findNearestPathIndex(point.lat, point.lng);
+
   return {
     id: buggyId,
     code,
@@ -436,10 +447,16 @@ function autoRegisterBuggy(buggyId: string, point: BuggyTelemetryInput): Buggy {
     capacity: point.capacity ?? 8,
     tag: point.tag ?? "GPS Nyata",
     updatedAt: timestampToUpdatedAt(point.timestamp),
-    currentStopIndex: stopIndex,
+    currentStopIndex:
+      routePoint !== null
+        ? resolveCurrentHalteIndexFromRouteCursor(pathCursor)
+        : stopIndex,
     stops: haltes.map((h) => h.name),
-    pathCursor: findNearestPathIndex(point.lat, point.lng),
-    position: { lat: point.lat, lng: point.lng },
+    pathCursor,
+    position: {
+      lat: routePoint?.lat ?? point.lat,
+      lng: routePoint?.lng ?? point.lng,
+    },
     gsm: point.gsm,
   };
 }
@@ -481,18 +498,24 @@ function ingestTelemetry(
     );
     const speedKmh = Math.max(0, point.speedKmh ?? existing.speedKmh);
     const etaMinutes = Math.max(1, point.etaMinutes ?? existing.etaMinutes);
-    const lastSeenAt = telemetryLastSeenById[buggyId] ?? 0;
-    const isColdStart =
-      lastSeenAt <= 0 || now - lastSeenAt > ACTIVE_TELEMETRY_WINDOW_MS;
     const shouldForceResync = point.forceResync === true;
 
+    const routePoint = findNearestRoutePoint(point.lat, point.lng, undefined, {
+      headingDegrees: point.heading,
+      preferredIndex: shouldForceResync
+        ? undefined
+        : (resolveRouteCursorFromHalteIndex(existing.currentStopIndex) ??
+          existing.pathCursor),
+    });
+    const nextPathCursor =
+      routePoint?.index ?? findNearestPathIndex(point.lat, point.lng);
     const nextCurrentStopIndex = Number.isFinite(point.currentStopIndex)
       ? normalizeLoopIndex(
           Math.max(0, Math.round(point.currentStopIndex as number)),
           getHalteLocations().length,
         )
-      : shouldForceResync || isColdStart
-        ? resolveNearestHalteIndexFromPosition(point.lat, point.lng)
+      : routePoint
+        ? resolveCurrentHalteIndexFromRouteCursor(nextPathCursor)
         : resolveCurrentStopIndexFromPosition(
             point.lat,
             point.lng,
@@ -502,8 +525,11 @@ function ingestTelemetry(
     byId.set(buggyId, {
       ...existing,
       isActive: true,
-      position: { lat: point.lat, lng: point.lng },
-      pathCursor: findNearestPathIndex(point.lat, point.lng),
+      position: {
+        lat: routePoint?.lat ?? point.lat,
+        lng: routePoint?.lng ?? point.lng,
+      },
+      pathCursor: nextPathCursor,
       speedKmh,
       passengers,
       capacity,

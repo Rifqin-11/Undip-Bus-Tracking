@@ -314,6 +314,11 @@ export async function POST(request: NextRequest) {
     );
   }
 
+  const liveBuggy =
+    typeof numericBuggyId === "number"
+      ? getBuggyByNumericId(numericBuggyId)
+      : undefined;
+
   const receivedAt = new Date().toISOString();
   const telemetryRow = {
     buggy_id: resolvedBuggyId,
@@ -339,6 +344,8 @@ export async function POST(request: NextRequest) {
     source: typeof source === "string" ? source : "gps_beacon",
     recorded_at: recordedAt,
     received_at: receivedAt,
+    path_cursor: liveBuggy?.pathCursor ?? null,
+    current_stop_index: liveBuggy?.currentStopIndex ?? null,
   };
 
   if (supabase) {
@@ -360,6 +367,8 @@ export async function POST(request: NextRequest) {
         };
         delete fallbackTelemetryRow.devices_id;
         delete fallbackTelemetryRow.received_at;
+        delete fallbackTelemetryRow.path_cursor;
+        delete fallbackTelemetryRow.current_stop_index;
         const { error: fallbackError } = await supabase
           .from(getLatestBuggyTelemetryTableName())
           .upsert(fallbackTelemetryRow, { onConflict: "buggy_id" });
