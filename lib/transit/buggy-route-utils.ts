@@ -14,7 +14,44 @@ export type LatLng = {
 };
 
 const ROUTE_START_NAME = "SA-MWA & FSM Barat";
-const HALTE_ROUTE_MATCH_RADIUS_METERS = 30;
+const OPERATIONAL_STOP_ORDER = [
+  "SA-MWA & FSM Barat",
+  "Fakultas Psikologi",
+  "Fakultas Ekonomika dan Bisnis",
+  "Fakultas Kesehatan Masyarakat",
+  "Fakultas Perikanan dan Kelautan",
+  "Fakultas Peternakan dan Pertanian",
+  "UPT Laboratorium Terpadu",
+  "Bundaran Undip",
+  "Rusunawa Undip",
+  "Pos Satpam Astina Undip",
+  "Student Center",
+  "Teknik Arsitektur",
+  "Fakultas Hukum & Fisip",
+  "Sekolah Vokasi & FIB",
+  "Widya Puraya",
+] as const;
+
+// Anchor mengikuti urutan OFFICIAL_ROUTE_PATH dan dibuat unwrapped mulai dari
+// SA-MWA. Psikologi berada di cabang opsional; jika dilewati, progres dapat
+// langsung bergerak dari SA-MWA ke anchor FEB tanpa mengubah urutan halte lain.
+const OPERATIONAL_STOP_ROUTE_ANCHORS: Record<string, number> = {
+  "SA-MWA & FSM Barat": 53,
+  "Fakultas Psikologi": 68,
+  "Fakultas Ekonomika dan Bisnis": 73,
+  "Fakultas Kesehatan Masyarakat": 77,
+  "Fakultas Perikanan dan Kelautan": 80,
+  "Fakultas Peternakan dan Pertanian": 84,
+  "UPT Laboratorium Terpadu": 92,
+  "Bundaran Undip": 94,
+  "Rusunawa Undip": 111,
+  "Pos Satpam Astina Undip": 129,
+  "Student Center": 132,
+  "Teknik Arsitektur": 138,
+  "Fakultas Hukum & Fisip": 143,
+  "Sekolah Vokasi & FIB": 148,
+  "Widya Puraya": 158,
+};
 
 function normalizeLoopIndex(index: number, length: number): number {
   if (length <= 0) return 0;
@@ -169,12 +206,15 @@ function buildRouteOrderedStopNames(
   haltes: HaltePoint[] = HALTE_LOCATIONS,
   routeStartName: string = ROUTE_START_NAME,
 ): string[] {
-  const routeStops = [...haltes]
-    .sort(
-      (a, b) =>
-        findFirstPathIndexNearHalte(a) - findFirstPathIndexNearHalte(b),
-    )
-    .map((halte) => halte.name);
+  const availableNames = new Set(haltes.map((halte) => halte.name));
+  const configuredStops = OPERATIONAL_STOP_ORDER.filter((name) =>
+    availableNames.has(name),
+  );
+  const configuredNames = new Set<string>(configuredStops);
+  const unconfiguredStops = haltes
+    .map((halte) => halte.name)
+    .filter((name) => !configuredNames.has(name));
+  const routeStops = [...configuredStops, ...unconfiguredStops];
 
   const routeStartIndex = routeStops.findIndex(
     (stopName) => stopName === routeStartName,
@@ -190,24 +230,6 @@ function buildRouteOrderedStopNames(
   ];
 }
 
-function findFirstPathIndexNearHalte(
-  halte: Pick<HaltePoint, "lat" | "lng">,
-  routePath: [number, number][] = OFFICIAL_ROUTE_PATH,
-): number {
-  if (routePath.length === 0) return 0;
-
-  for (let i = 0; i < routePath.length; i += 1) {
-    const [lat, lng] = routePath[i];
-    if (
-      haversineMeters(halte, { lat, lng }) <= HALTE_ROUTE_MATCH_RADIUS_METERS
-    ) {
-      return i;
-    }
-  }
-
-  return findNearestPathIndex(halte.lat, halte.lng, routePath);
-}
-
 export function resolveCurrentHalteIndexFromRouteCursor(
   pathCursor: number,
   haltes: HaltePoint[] = getHalteLocations(),
@@ -215,21 +237,24 @@ export function resolveCurrentHalteIndexFromRouteCursor(
   if (haltes.length === 0) return 0;
 
   const routeLength = Math.max(OFFICIAL_ROUTE_PATH.length, 1);
-  const normalizedCursor = normalizeLoopIndex(Math.round(pathCursor), routeLength);
-  const indexedHaltes = haltes
-    .map((halte, halteIndex) => ({
-      halteIndex,
-      routeIndex: findFirstPathIndexNearHalte(halte),
-    }))
-    .sort((a, b) => a.routeIndex - b.routeIndex);
+  const normalizedCursor = normalizeLoopIndex(
+    Math.round(pathCursor),
+    routeLength,
+  );
+  const unwrappedCursor =
+    normalizedCursor < OPERATIONAL_STOP_ROUTE_ANCHORS[ROUTE_START_NAME]
+      ? normalizedCursor + routeLength
+      : normalizedCursor;
 
-  let current = indexedHaltes[indexedHaltes.length - 1];
-  for (const candidate of indexedHaltes) {
-    if (candidate.routeIndex > normalizedCursor) break;
-    current = candidate;
+  let currentName = ROUTE_START_NAME;
+  for (const stopName of OPERATIONAL_STOP_ORDER) {
+    const anchor = OPERATIONAL_STOP_ROUTE_ANCHORS[stopName];
+    if (anchor > unwrappedCursor) break;
+    currentName = stopName;
   }
 
-  return current?.halteIndex ?? 0;
+  const currentIndex = haltes.findIndex((halte) => halte.name === currentName);
+  return currentIndex >= 0 ? currentIndex : 0;
 }
 
 /** Lazy — menggunakan data halte runtime (DB) jika tersedia, fallback ke static */
