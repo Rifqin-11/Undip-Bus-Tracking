@@ -14,7 +14,7 @@ export type LatLng = {
 };
 
 const ROUTE_START_NAME = "SA-MWA & FSM Barat";
-const HALTE_ROUTE_MATCH_RADIUS_METERS = 120;
+const HALTE_ROUTE_MATCH_RADIUS_METERS = 30;
 
 function normalizeLoopIndex(index: number, length: number): number {
   if (length <= 0) return 0;
