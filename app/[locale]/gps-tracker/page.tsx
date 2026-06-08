@@ -236,11 +236,18 @@ export default function GpsTrackerPage() {
   );
   const isTracking = trackStatus === "tracking";
   const isBusy = trackStatus === "requesting";
+  const formatTrackerTime = useCallback(() =>
+    new Intl.DateTimeFormat("id-ID", {
+      hour: "2-digit",
+      minute: "2-digit",
+      second: "2-digit",
+      timeZone: "Asia/Jakarta",
+    }).format(new Date()), []);
 
   const addLog = useCallback((message: string) => {
-    const time = new Date().toLocaleTimeString("id-ID");
+    const time = formatTrackerTime();
     setLog((prev) => [`[${time}] ${message}`, ...prev].slice(0, 60));
-  }, []);
+  }, [formatTrackerTime]);
 
   useEffect(() => {
     fetch("/api/haltes", { cache: "no-store" })
@@ -360,13 +367,13 @@ export default function GpsTrackerPage() {
 
       setMqttStatus("connected");
       setSendCount((count) => count + 1);
-      setLastSent(new Date().toLocaleTimeString("id-ID"));
+      setLastSent(formatTrackerTime());
       setLatestPayloads((prev) => [
         payload,
         ...prev.filter((item) => item.buggyId !== payload.buggyId),
       ]);
     },
-    [connectMqtt, mqttTopicPrefix],
+    [connectMqtt, formatTrackerTime, mqttTopicPrefix],
   );
 
   const buildPayload = useCallback(

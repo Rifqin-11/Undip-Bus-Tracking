@@ -1,10 +1,10 @@
 /**
  * Server-Sent Events stream for live buggy snapshots.
  *
- * Polls the process-local live store and emits only when position or connection
- * state changes. The hook can fall back to normal polling if SSE is unavailable.
+ * Polls the shared API snapshot and emits only when position or connection
+ * state changes. This keeps SSE consistent with `/api/buggy` refreshes.
  */
-import { getBuggyLiveSnapshot } from "@/lib/realtime/buggy-live-store";
+import { getBuggyApiSnapshot } from "@/lib/realtime/buggy-api-snapshot";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -25,24 +25,36 @@ export async function GET(request: Request) {
       let closed = false;
       let lastUpdatedAt = -1;
       let lastConnectionFlags = "";
+      let sending = false;
 
-      const sendSnapshot = () => {
-        if (closed) return;
-        const snapshot = getBuggyLiveSnapshot();
+      const sendSnapshot = async () => {
+        if (closed || sending) return;
+        sending = true;
 
-        // Lacak perubahan status koneksi secara terpisah dari updatedAt agar
-        // client tetap menerima update saat telemetry berhenti masuk.
-        const connectionFlags = snapshot.buggies
-          .map((b) => `${b.id}:${b.connectionStatus}:${b.lastSeenSecondsAgo}`)
-          .join("|");
-        const hasChanged =
-          snapshot.updatedAt !== lastUpdatedAt ||
-          connectionFlags !== lastConnectionFlags;
+        try {
+          const snapshot = await getBuggyApiSnapshot();
 
-        if (!hasChanged) return;
-        lastUpdatedAt = snapshot.updatedAt;
-        lastConnectionFlags = connectionFlags;
-        controller.enqueue(formatSseMessage(snapshot));
+          // Lacak perubahan status koneksi secara terpisah dari updatedAt agar
+          // client tetap menerima update saat telemetry berhenti masuk.
+          const connectionFlags = snapshot.buggies
+            .map((b) => `${b.id}:${b.connectionStatus}:${b.lastSeenSecondsAgo}`)
+            .join("|");
+          const hasChanged =
+            snapshot.updatedAt !== lastUpdatedAt ||
+            connectionFlags !== lastConnectionFlags;
+
+          if (!hasChanged || closed) return;
+          lastUpdatedAt = snapshot.updatedAt;
+          lastConnectionFlags = connectionFlags;
+          controller.enqueue(formatSseMessage(snapshot));
+        } catch (err) {
+          if (closed) return;
+          const message =
+            err instanceof Error ? err.message : "Failed to build buggy stream";
+          controller.enqueue(formatSseEvent("error", { message }));
+        } finally {
+          sending = false;
+        }
       };
 
       const sendHeartbeat = () => {
@@ -52,7 +64,7 @@ export async function GET(request: Request) {
 
       const pollInterval = setInterval(sendSnapshot, 1_000);
       const heartbeatInterval = setInterval(sendHeartbeat, 15_000);
-      sendSnapshot();
+      void sendSnapshot();
 
       const close = () => {
         if (closed) return;

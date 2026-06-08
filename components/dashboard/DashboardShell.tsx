@@ -55,6 +55,7 @@ import { useLocale } from "@/lib/i18n/client";
 import { localizePath } from "@/lib/i18n/routing";
 import { getDashboardPermissions } from "@/lib/auth/dashboard-permissions";
 import { isBuggyOffline } from "@/lib/buggy/connection-status";
+import { fmtTime } from "@/lib/utils/format-time";
 import { LogoutIcon, BellIcon, LoginIcon } from "@/components/ui/Icons";
 import { PenIcon } from "lucide-react";
 
@@ -788,7 +789,7 @@ export default function DashboardShell() {
       addToast({
         tone: event.type === "ENTER" ? "success" : "warning",
         title: `${event.buggyName} ${actionLabel}`,
-        description: `${event.geofenceName} • ${new Date(event.timestamp).toLocaleTimeString(locale === "id" ? "id-ID" : "en-US")}`,
+        description: `${event.geofenceName} • ${fmtTime(event.timestamp)}`,
       });
 
       if (
@@ -805,7 +806,6 @@ export default function DashboardShell() {
     [
       addToast,
       browserNotificationEnabled,
-      locale,
       settings.geofenceEventAlertsEnabled,
     ],
   );

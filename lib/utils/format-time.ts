@@ -4,22 +4,40 @@
  * These functions avoid duplicating Indonesian date/time formatting rules across
  * panels, exports, and history details.
  */
+const APP_TIME_ZONE = "Asia/Jakarta";
+
 export function fmtDate(iso: string): string {
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return "-";
-  return d.toLocaleDateString("id-ID", { day: "2-digit", month: "short", year: "numeric" });
+  return d.toLocaleDateString("id-ID", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+    timeZone: APP_TIME_ZONE,
+  });
 }
 
 export function fmtTime(iso: string): string {
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return "-";
-  return d.toLocaleTimeString("id-ID", { hour12: false, hour: "2-digit", minute: "2-digit" });
+  return d.toLocaleTimeString("id-ID", {
+    hour12: false,
+    hour: "2-digit",
+    minute: "2-digit",
+    timeZone: APP_TIME_ZONE,
+  });
 }
 
 export function fmtTimestamp(value: string | number): string {
   const d = typeof value === "number" ? new Date(value) : new Date(value);
   if (Number.isNaN(d.getTime())) return "-";
-  return d.toLocaleTimeString("id-ID", { hour12: false, hour: "2-digit", minute: "2-digit", second: "2-digit" });
+  return d.toLocaleTimeString("id-ID", {
+    hour12: false,
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    timeZone: APP_TIME_ZONE,
+  });
 }
 
 export function fmtDuration(minutes: number | null): string {

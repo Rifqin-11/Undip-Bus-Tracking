@@ -13,6 +13,7 @@ import { getHalteLocations } from "@/lib/transit/halte-runtime";
 import { bootstrapFromDatabase } from "@/lib/supabase/data-loader";
 import { CENTER_UNDIP } from "@/lib/transit/buggy-data";
 import { getErrorMessage } from "@/lib/utils/error-message";
+import { fmtTime } from "@/lib/utils/format-time";
 import type { Buggy } from "@/types/buggy";
 
 type BuggyRow = {
@@ -135,7 +136,7 @@ export async function POST(request: Request) {
       passengers: 0,
       capacity: data.capacity,
       tag: "GPS Nyata",
-      updatedAt: new Date().toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" }),
+      updatedAt: fmtTime(new Date().toISOString()),
       currentStopIndex: 0,
       stops: getHalteLocations().map(h => h.name),
       pathCursor: 0,

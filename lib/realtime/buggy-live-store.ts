@@ -12,6 +12,7 @@ import {
 } from "@/lib/transit/buggy-route-utils";
 import { normalizeGsmStatus } from "@/lib/buggy/gsm-status";
 import { resolveBuggyConnectionStatus } from "@/lib/buggy/connection-status";
+import { fmtTime } from "@/lib/utils/format-time";
 import type { Buggy, CrowdLevel } from "@/types/buggy";
 
 export type BuggyLiveSource = "seed" | "ingest_snapshot" | "ingest_telemetry";
@@ -256,19 +257,14 @@ function normalizeBuggyId(id: string | number): string {
 }
 
 function timestampToUpdatedAt(timestamp: string | number | undefined): string {
-  let date: Date;
-  if (typeof timestamp === "number") {
-    date = new Date(timestamp);
-  } else if (typeof timestamp === "string") {
-    date = new Date(timestamp);
-  } else {
-    date = new Date();
-  }
-  if (Number.isNaN(date.getTime())) date = new Date();
-  return date.toLocaleTimeString("id-ID", {
-    hour: "2-digit",
-    minute: "2-digit",
-  });
+  const date =
+    typeof timestamp === "number" || typeof timestamp === "string"
+      ? new Date(timestamp)
+      : new Date();
+
+  return fmtTime(
+    Number.isNaN(date.getTime()) ? new Date().toISOString() : date.toISOString(),
+  );
 }
 
 function isFiniteNumber(value: unknown): value is number {
