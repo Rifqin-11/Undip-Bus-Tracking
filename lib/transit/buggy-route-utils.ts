@@ -52,6 +52,65 @@ export function findNearestPathIndex(
   return bestIndex;
 }
 
+export function findNearestRoutePoint(
+  lat: number,
+  lng: number,
+  routePath: [number, number][] = OFFICIAL_ROUTE_PATH,
+): { lat: number; lng: number; index: number; distanceMeters: number } | null {
+  if (routePath.length === 0) return null;
+  if (routePath.length === 1) {
+    const [pointLat, pointLng] = routePath[0];
+    return {
+      lat: pointLat,
+      lng: pointLng,
+      index: 0,
+      distanceMeters: haversineMeters({ lat, lng }, { lat: pointLat, lng: pointLng }),
+    };
+  }
+
+  const metersPerDegreeLat = 111_320;
+  const metersPerDegreeLng =
+    metersPerDegreeLat * Math.cos((lat * Math.PI) / 180);
+
+  let best: { lat: number; lng: number; index: number; distanceMeters: number } | null = null;
+
+  for (let i = 0; i < routePath.length - 1; i += 1) {
+    const [startLat, startLng] = routePath[i];
+    const [endLat, endLng] = routePath[i + 1];
+    const ax = (startLng - lng) * metersPerDegreeLng;
+    const ay = (startLat - lat) * metersPerDegreeLat;
+    const bx = (endLng - lng) * metersPerDegreeLng;
+    const by = (endLat - lat) * metersPerDegreeLat;
+    const dx = bx - ax;
+    const dy = by - ay;
+    const lengthSquared = dx * dx + dy * dy;
+    const t =
+      lengthSquared > 0
+        ? Math.max(0, Math.min(1, -(ax * dx + ay * dy) / lengthSquared))
+        : 0;
+    const projectedX = ax + t * dx;
+    const projectedY = ay + t * dy;
+    const projectedLat = lat + projectedY / metersPerDegreeLat;
+    const projectedLng = lng + projectedX / metersPerDegreeLng;
+    const distanceMeters = haversineMeters(
+      { lat, lng },
+      { lat: projectedLat, lng: projectedLng },
+    );
+    const index = t >= 0.5 ? i + 1 : i;
+
+    if (!best || distanceMeters < best.distanceMeters) {
+      best = {
+        lat: projectedLat,
+        lng: projectedLng,
+        index,
+        distanceMeters,
+      };
+    }
+  }
+
+  return best;
+}
+
 function buildRouteOrderedStopNames(
   haltes: HaltePoint[] = HALTE_LOCATIONS,
   routeStartName: string = ROUTE_START_NAME,
