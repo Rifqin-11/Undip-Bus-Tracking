@@ -9,10 +9,7 @@ import {
   getLatestBuggyTelemetryTableName,
 } from "@/lib/supabase/server";
 import {
-  findNearestRoutePoint,
   findNearestPathIndex,
-  resolveCurrentHalteIndexFromRouteCursor,
-  resolveRouteCursorFromHalteIndex,
 } from "@/lib/transit/buggy-route-utils";
 import { resolveBuggyConnectionStatus } from "@/lib/buggy/connection-status";
 import type { Buggy } from "@/types/buggy";
@@ -153,18 +150,10 @@ export async function mergeLatestBuggyTelemetry(
     const connectionStatus =
       resolveBuggyConnectionStatus(lastSeenSecondsAgo);
 
-    const routePoint = findNearestRoutePoint(row.lat, row.lng, undefined, {
-      headingDegrees: row.heading,
-      preferredIndex:
-        typeof row.path_cursor === "number"
-          ? row.path_cursor
-          : (resolveRouteCursorFromHalteIndex(buggy.currentStopIndex) ??
-            buggy.pathCursor),
-    });
     const pathCursor =
       typeof row.path_cursor === "number"
         ? row.path_cursor
-        : routePoint?.index ?? findNearestPathIndex(row.lat, row.lng);
+        : findNearestPathIndex(row.lat, row.lng);
 
     return {
       ...buggy,
@@ -186,11 +175,11 @@ export async function mergeLatestBuggyTelemetry(
       currentStopIndex:
         typeof row.current_stop_index === "number"
           ? row.current_stop_index
-          : resolveCurrentHalteIndexFromRouteCursor(pathCursor),
+          : buggy.currentStopIndex,
       pathCursor,
       position: {
-        lat: routePoint?.lat ?? row.lat,
-        lng: routePoint?.lng ?? row.lng,
+        lat: row.lat,
+        lng: row.lng,
       },
     };
   });

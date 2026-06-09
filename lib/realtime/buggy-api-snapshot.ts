@@ -10,7 +10,6 @@ import { getBuggyLiveSnapshot } from "@/lib/realtime/buggy-live-store";
 import { bootstrapFromDatabase } from "@/lib/supabase/data-loader";
 import { mergeLatestBuggyTelemetry } from "@/lib/supabase/latest-buggy-telemetry";
 import { createAdminClient } from "@/lib/supabase/server";
-import { findNearestRoutePoint } from "@/lib/transit/buggy-route-utils";
 import type { Buggy, CrowdLevel } from "@/types/buggy";
 
 type BuggyMasterRow = {
@@ -23,8 +22,6 @@ type BuggyMasterRow = {
 };
 
 type BuggyLiveSource = "seed" | "ingest_snapshot" | "ingest_telemetry";
-
-const LIVE_ROUTE_SNAP_MAX_METERS = 120;
 
 export type BuggyApiSnapshot = {
   source: BuggyLiveSource;
@@ -92,30 +89,6 @@ async function overlayBuggyMasterData(buggies: Buggy[]): Promise<Buggy[]> {
   });
 }
 
-function snapLivePositionsToRoute(buggies: Buggy[]): Buggy[] {
-  return buggies.map((buggy) => {
-    const nearest = findNearestRoutePoint(
-      buggy.position.lat,
-      buggy.position.lng,
-      undefined,
-      { preferredIndex: buggy.pathCursor },
-    );
-
-    if (!nearest || nearest.distanceMeters > LIVE_ROUTE_SNAP_MAX_METERS) {
-      return buggy;
-    }
-
-    return {
-      ...buggy,
-      pathCursor: nearest.index,
-      position: {
-        lat: nearest.lat,
-        lng: nearest.lng,
-      },
-    };
-  });
-}
-
 export async function getBuggyApiSnapshot(): Promise<BuggyApiSnapshot> {
   await bootstrapFromDatabase();
 
@@ -127,6 +100,6 @@ export async function getBuggyApiSnapshot(): Promise<BuggyApiSnapshot> {
   return {
     source: hasLatestTelemetry ? "ingest_telemetry" : snapshot.source,
     updatedAt: latest.updatedAt ?? snapshot.updatedAt,
-    buggies: snapLivePositionsToRoute(latest.buggies),
+    buggies: latest.buggies,
   };
 }

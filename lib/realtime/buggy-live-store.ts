@@ -8,10 +8,7 @@ import { OFFICIAL_ROUTE_PATH } from "@/lib/transit/buggy-data";
 import { getHalteLocations } from "@/lib/transit/halte-runtime";
 import {
   findNearestPathIndex,
-  findNearestRoutePoint,
   haversineMeters,
-  resolveCurrentHalteIndexFromRouteCursor,
-  resolveRouteCursorFromHalteIndex,
 } from "@/lib/transit/buggy-route-utils";
 import { normalizeGsmStatus } from "@/lib/buggy/gsm-status";
 import { resolveBuggyConnectionStatus } from "@/lib/buggy/connection-status";
@@ -427,11 +424,7 @@ function autoRegisterBuggy(buggyId: string, point: BuggyTelemetryInput): Buggy {
   const stopIndex = resolveNearestHalteIndexFromPosition(point.lat, point.lng);
   const haltes = getHalteLocations();
 
-  const routePoint = findNearestRoutePoint(point.lat, point.lng, undefined, {
-    headingDegrees: point.heading,
-  });
-  const pathCursor =
-    routePoint?.index ?? findNearestPathIndex(point.lat, point.lng);
+  const pathCursor = findNearestPathIndex(point.lat, point.lng);
 
   return {
     id: buggyId,
@@ -447,16 +440,10 @@ function autoRegisterBuggy(buggyId: string, point: BuggyTelemetryInput): Buggy {
     capacity: point.capacity ?? 8,
     tag: point.tag ?? "GPS Nyata",
     updatedAt: timestampToUpdatedAt(point.timestamp),
-    currentStopIndex:
-      routePoint !== null
-        ? resolveCurrentHalteIndexFromRouteCursor(pathCursor)
-        : stopIndex,
+    currentStopIndex: stopIndex,
     stops: haltes.map((h) => h.name),
     pathCursor,
-    position: {
-      lat: routePoint?.lat ?? point.lat,
-      lng: routePoint?.lng ?? point.lng,
-    },
+    position: { lat: point.lat, lng: point.lng },
     gsm: point.gsm,
   };
 }
@@ -499,23 +486,14 @@ function ingestTelemetry(
     const speedKmh = Math.max(0, point.speedKmh ?? existing.speedKmh);
     const etaMinutes = Math.max(1, point.etaMinutes ?? existing.etaMinutes);
     const shouldForceResync = point.forceResync === true;
-
-    const routePoint = findNearestRoutePoint(point.lat, point.lng, undefined, {
-      headingDegrees: point.heading,
-      preferredIndex: shouldForceResync
-        ? undefined
-        : (resolveRouteCursorFromHalteIndex(existing.currentStopIndex) ??
-          existing.pathCursor),
-    });
-    const nextPathCursor =
-      routePoint?.index ?? findNearestPathIndex(point.lat, point.lng);
+    const nextPathCursor = findNearestPathIndex(point.lat, point.lng);
     const nextCurrentStopIndex = Number.isFinite(point.currentStopIndex)
       ? normalizeLoopIndex(
           Math.max(0, Math.round(point.currentStopIndex as number)),
           getHalteLocations().length,
         )
-      : routePoint
-        ? resolveCurrentHalteIndexFromRouteCursor(nextPathCursor)
+      : shouldForceResync
+        ? resolveNearestHalteIndexFromPosition(point.lat, point.lng)
         : resolveCurrentStopIndexFromPosition(
             point.lat,
             point.lng,
@@ -525,10 +503,7 @@ function ingestTelemetry(
     byId.set(buggyId, {
       ...existing,
       isActive: true,
-      position: {
-        lat: routePoint?.lat ?? point.lat,
-        lng: routePoint?.lng ?? point.lng,
-      },
+      position: { lat: point.lat, lng: point.lng },
       pathCursor: nextPathCursor,
       speedKmh,
       passengers,

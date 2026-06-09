@@ -58,11 +58,6 @@ function normalizeLoopIndex(index: number, length: number): number {
   return ((index % length) + length) % length;
 }
 
-function forwardDistance(a: number, b: number, length: number): number {
-  if (length <= 0) return 0;
-  return normalizeLoopIndex(a - b, length);
-}
-
 export function haversineMeters(a: LatLng, b: LatLng): number {
   const radius = 6_371_000;
   const phi1 = (a.lat * Math.PI) / 180;
@@ -73,22 +68,6 @@ export function haversineMeters(a: LatLng, b: LatLng): number {
     Math.sin(dPhi / 2) ** 2 +
     Math.cos(phi1) * Math.cos(phi2) * Math.sin(dLambda / 2) ** 2;
   return radius * 2 * Math.atan2(Math.sqrt(x), Math.sqrt(1 - x));
-}
-
-function angularDeltaDegrees(a: number, b: number): number {
-  const delta = Math.abs((((a - b) % 360) + 540) % 360 - 180);
-  return Number.isFinite(delta) ? delta : 180;
-}
-
-function bearingDegrees(from: LatLng, to: LatLng): number {
-  const phi1 = (from.lat * Math.PI) / 180;
-  const phi2 = (to.lat * Math.PI) / 180;
-  const dLambda = ((to.lng - from.lng) * Math.PI) / 180;
-  const y = Math.sin(dLambda) * Math.cos(phi2);
-  const x =
-    Math.cos(phi1) * Math.sin(phi2) -
-    Math.sin(phi1) * Math.cos(phi2) * Math.cos(dLambda);
-  return ((Math.atan2(y, x) * 180) / Math.PI + 360) % 360;
 }
 
 export function findNearestPathIndex(
@@ -109,96 +88,6 @@ export function findNearestPathIndex(
   }
 
   return bestIndex;
-}
-
-export function findNearestRoutePoint(
-  lat: number,
-  lng: number,
-  routePath: [number, number][] = OFFICIAL_ROUTE_PATH,
-  options: {
-    headingDegrees?: number | null;
-    preferredIndex?: number;
-  } = {},
-): { lat: number; lng: number; index: number; distanceMeters: number } | null {
-  if (routePath.length === 0) return null;
-  if (routePath.length === 1) {
-    const [pointLat, pointLng] = routePath[0];
-    return {
-      lat: pointLat,
-      lng: pointLng,
-      index: 0,
-      distanceMeters: haversineMeters(
-        { lat, lng },
-        { lat: pointLat, lng: pointLng },
-      ),
-    };
-  }
-
-  const metersPerDegreeLat = 111_320;
-  const metersPerDegreeLng =
-    metersPerDegreeLat * Math.cos((lat * Math.PI) / 180);
-
-  let best:
-    | {
-        lat: number;
-        lng: number;
-        index: number;
-        distanceMeters: number;
-        score: number;
-      }
-    | null = null;
-
-  for (let i = 0; i < routePath.length - 1; i += 1) {
-    const [startLat, startLng] = routePath[i];
-    const [endLat, endLng] = routePath[i + 1];
-    const ax = (startLng - lng) * metersPerDegreeLng;
-    const ay = (startLat - lat) * metersPerDegreeLat;
-    const bx = (endLng - lng) * metersPerDegreeLng;
-    const by = (endLat - lat) * metersPerDegreeLat;
-    const dx = bx - ax;
-    const dy = by - ay;
-    const lengthSquared = dx * dx + dy * dy;
-    const t =
-      lengthSquared > 0
-        ? Math.max(0, Math.min(1, -(ax * dx + ay * dy) / lengthSquared))
-        : 0;
-    const projectedX = ax + t * dx;
-    const projectedY = ay + t * dy;
-    const projectedLat = lat + projectedY / metersPerDegreeLat;
-    const projectedLng = lng + projectedX / metersPerDegreeLng;
-    const distanceMeters = haversineMeters(
-      { lat, lng },
-      { lat: projectedLat, lng: projectedLng },
-    );
-    const index = t >= 0.5 ? i + 1 : i;
-    const segmentHeading = bearingDegrees(
-      { lat: startLat, lng: startLng },
-      { lat: endLat, lng: endLng },
-    );
-    const headingPenalty =
-      typeof options.headingDegrees === "number" &&
-      Number.isFinite(options.headingDegrees)
-        ? angularDeltaDegrees(options.headingDegrees, segmentHeading) * 2
-        : 0;
-    const preferredIndexPenalty =
-      typeof options.preferredIndex === "number" &&
-      Number.isFinite(options.preferredIndex)
-        ? forwardDistance(index, options.preferredIndex, routePath.length) * 8
-        : 0;
-    const score = distanceMeters + headingPenalty + preferredIndexPenalty;
-
-    if (!best || score < best.score) {
-      best = {
-        lat: projectedLat,
-        lng: projectedLng,
-        index,
-        distanceMeters,
-        score,
-      };
-    }
-  }
-
-  return best;
 }
 
 function buildRouteOrderedStopNames(
@@ -254,15 +143,6 @@ export function resolveCurrentHalteIndexFromRouteCursor(
 
   const currentIndex = haltes.findIndex((halte) => halte.name === currentName);
   return currentIndex >= 0 ? currentIndex : 0;
-}
-
-export function resolveRouteCursorFromHalteIndex(
-  halteIndex: number,
-  haltes: HaltePoint[] = getHalteLocations(),
-): number | undefined {
-  const halte = haltes[normalizeLoopIndex(halteIndex, haltes.length)];
-  if (!halte) return undefined;
-  return OPERATIONAL_STOP_ROUTE_ANCHORS[halte.name];
 }
 
 /** Lazy — menggunakan data halte runtime (DB) jika tersedia, fallback ke static */
