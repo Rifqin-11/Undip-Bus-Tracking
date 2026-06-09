@@ -90,6 +90,124 @@ export function findNearestPathIndex(
   return bestIndex;
 }
 
+function bearingDegrees(from: LatLng, to: LatLng): number {
+  const phi1 = (from.lat * Math.PI) / 180;
+  const phi2 = (to.lat * Math.PI) / 180;
+  const lambdaDelta = ((to.lng - from.lng) * Math.PI) / 180;
+  const y = Math.sin(lambdaDelta) * Math.cos(phi2);
+  const x =
+    Math.cos(phi1) * Math.sin(phi2) -
+    Math.sin(phi1) * Math.cos(phi2) * Math.cos(lambdaDelta);
+  return normalizeLoopIndex((Math.atan2(y, x) * 180) / Math.PI, 360);
+}
+
+function headingDifference(a: number, b: number): number {
+  const delta = Math.abs(normalizeLoopIndex(a - b, 360));
+  return Math.min(delta, 360 - delta);
+}
+
+function projectPointToSegmentMeters(
+  point: LatLng,
+  start: LatLng,
+  end: LatLng,
+): { distanceMeters: number; progress: number } {
+  const metersPerLatitudeDegree = 111_320;
+  const metersPerLongitudeDegree =
+    metersPerLatitudeDegree * Math.cos((point.lat * Math.PI) / 180);
+  const startX = (start.lng - point.lng) * metersPerLongitudeDegree;
+  const startY = (start.lat - point.lat) * metersPerLatitudeDegree;
+  const endX = (end.lng - point.lng) * metersPerLongitudeDegree;
+  const endY = (end.lat - point.lat) * metersPerLatitudeDegree;
+  const segmentX = endX - startX;
+  const segmentY = endY - startY;
+  const segmentLengthSquared = segmentX ** 2 + segmentY ** 2;
+  const progress =
+    segmentLengthSquared > 0
+      ? Math.max(
+          0,
+          Math.min(
+            1,
+            -(startX * segmentX + startY * segmentY) /
+              segmentLengthSquared,
+          ),
+        )
+      : 0;
+  const projectedX = startX + segmentX * progress;
+  const projectedY = startY + segmentY * progress;
+
+  return {
+    distanceMeters: Math.hypot(projectedX, projectedY),
+    progress,
+  };
+}
+
+/**
+ * Menentukan bagian rute satu arah tanpa mengubah koordinat GPS asli.
+ * Heading membedakan ruas yang berdekatan tetapi berlawanan arah, sedangkan
+ * cursor sebelumnya mencegah perpindahan mendadak ke cabang rute lain.
+ */
+export function findHeadingAwarePathIndex(
+  lat: number,
+  lng: number,
+  heading?: number | null,
+  previousCursor?: number | null,
+  routePath: [number, number][] = OFFICIAL_ROUTE_PATH,
+): number {
+  if (routePath.length <= 1) return 0;
+
+  const point = { lat, lng };
+  const hasHeading = typeof heading === "number" && Number.isFinite(heading);
+  const hasPreviousCursor =
+    typeof previousCursor === "number" && Number.isFinite(previousCursor);
+  const normalizedPreviousCursor = hasPreviousCursor
+    ? normalizeLoopIndex(Math.round(previousCursor), routePath.length)
+    : 0;
+  let bestCursor = findNearestPathIndex(lat, lng, routePath);
+  let bestScore = Number.POSITIVE_INFINITY;
+
+  for (let index = 0; index < routePath.length; index += 1) {
+    const nextIndex = normalizeLoopIndex(index + 1, routePath.length);
+    const start = { lat: routePath[index][0], lng: routePath[index][1] };
+    const end = {
+      lat: routePath[nextIndex][0],
+      lng: routePath[nextIndex][1],
+    };
+    const projection = projectPointToSegmentMeters(point, start, end);
+    const candidateCursor =
+      projection.progress >= 0.5 ? nextIndex : index;
+    let score = projection.distanceMeters;
+
+    if (hasHeading) {
+      const routeHeading = bearingDegrees(start, end);
+      score += headingDifference(heading, routeHeading) * 0.8;
+    }
+
+    if (hasPreviousCursor) {
+      const forwardSteps = normalizeLoopIndex(
+        candidateCursor - normalizedPreviousCursor,
+        routePath.length,
+      );
+      const backwardSteps = normalizeLoopIndex(
+        normalizedPreviousCursor - candidateCursor,
+        routePath.length,
+      );
+
+      if (backwardSteps < forwardSteps) {
+        score += 90 + backwardSteps * 8;
+      } else if (forwardSteps > 12) {
+        score += (forwardSteps - 12) * 4;
+      }
+    }
+
+    if (score < bestScore) {
+      bestScore = score;
+      bestCursor = candidateCursor;
+    }
+  }
+
+  return bestCursor;
+}
+
 function buildRouteOrderedStopNames(
   haltes: HaltePoint[] = HALTE_LOCATIONS,
   routeStartName: string = ROUTE_START_NAME,

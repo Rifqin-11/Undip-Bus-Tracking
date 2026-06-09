@@ -9,7 +9,8 @@ import {
   getLatestBuggyTelemetryTableName,
 } from "@/lib/supabase/server";
 import {
-  findNearestPathIndex,
+  findHeadingAwarePathIndex,
+  resolveCurrentHalteIndexFromRouteCursor,
 } from "@/lib/transit/buggy-route-utils";
 import { resolveBuggyConnectionStatus } from "@/lib/buggy/connection-status";
 import type { Buggy } from "@/types/buggy";
@@ -153,7 +154,18 @@ export async function mergeLatestBuggyTelemetry(
     const pathCursor =
       typeof row.path_cursor === "number"
         ? row.path_cursor
-        : findNearestPathIndex(row.lat, row.lng);
+        : findHeadingAwarePathIndex(
+            row.lat,
+            row.lng,
+            typeof row.speed_kmh === "number" && row.speed_kmh >= 2
+              ? row.heading
+              : undefined,
+            buggy.pathCursor,
+          );
+    const currentStopIndex =
+      typeof row.current_stop_index === "number"
+        ? row.current_stop_index
+        : resolveCurrentHalteIndexFromRouteCursor(pathCursor);
 
     return {
       ...buggy,
@@ -172,10 +184,7 @@ export async function mergeLatestBuggyTelemetry(
       crowdLevel: resolveCrowdLevel(passengers, capacity),
       tag: "GPS Nyata",
       updatedAt: toTimeLabel(row.recorded_at),
-      currentStopIndex:
-        typeof row.current_stop_index === "number"
-          ? row.current_stop_index
-          : buggy.currentStopIndex,
+      currentStopIndex,
       pathCursor,
       position: {
         lat: row.lat,

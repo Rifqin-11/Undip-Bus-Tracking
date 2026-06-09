@@ -4,11 +4,11 @@
  * Holds the latest in-memory buggy state for map snapshots and SSE responses.
  * Durable history still lives in Supabase; this store optimizes realtime reads.
  */
-import { OFFICIAL_ROUTE_PATH } from "@/lib/transit/buggy-data";
 import { getHalteLocations } from "@/lib/transit/halte-runtime";
 import {
+  findHeadingAwarePathIndex,
   findNearestPathIndex,
-  haversineMeters,
+  resolveCurrentHalteIndexFromRouteCursor,
 } from "@/lib/transit/buggy-route-utils";
 import { normalizeGsmStatus } from "@/lib/buggy/gsm-status";
 import { resolveBuggyConnectionStatus } from "@/lib/buggy/connection-status";
@@ -70,173 +70,11 @@ function nowMs(): number {
   return Date.now();
 }
 
-const HALTE_ARRIVAL_RADIUS_METERS = 20;
-const HALTE_SNAP_RADIUS_METERS = 120;
-const HALTE_SNAP_HYSTERESIS_METERS = 15;
-// Keep progression directional to avoid jumping to opposite-side nearby haltes.
-const MAX_SKIP_AHEAD_STOPS = 0;
 const ACTIVE_TELEMETRY_WINDOW_MS = 15_000;
-const RESYNC_THRESHOLD_STOPS = 3;
-const RESYNC_MAX_GEO_DISTANCE_METERS = 50;
-
-/** Computed lazily so it reflects DB-overridden halte data. */
-function getHaltePathCursors(): number[] {
-  return getHalteLocations().map((halte) =>
-    findNearestPathIndex(halte.lat, halte.lng),
-  );
-}
 
 function normalizeLoopIndex(index: number, length: number): number {
   if (length <= 0) return 0;
   return ((index % length) + length) % length;
-}
-
-function circularDistance(a: number, b: number, length: number): number {
-  if (length <= 0) return 0;
-  const delta = Math.abs(a - b);
-  return Math.min(delta, length - delta);
-}
-
-function resolveNearestHalteIndexFromPosition(
-  lat: number,
-  lng: number,
-): number {
-  return resolveNearestHalteCandidate(lat, lng).index;
-}
-
-function resolveNearestHalteCandidate(
-  lat: number,
-  lng: number,
-): { index: number; geoDistanceMeters: number } {
-  const haltes = getHalteLocations();
-  const halteCount = haltes.length;
-  if (halteCount <= 0) {
-    return { index: 0, geoDistanceMeters: Number.POSITIVE_INFINITY };
-  }
-
-  const pointCursor = findNearestPathIndex(lat, lng);
-  const routeCursorCount = OFFICIAL_ROUTE_PATH.length;
-  const haltePathCursors = getHaltePathCursors();
-
-  let bestIndex = 0;
-  let bestCursorDistance = Number.POSITIVE_INFINITY;
-  let bestGeoDistance = Number.POSITIVE_INFINITY;
-
-  for (let i = 0; i < halteCount; i += 1) {
-    const halteCursor = haltePathCursors[i] ?? 0;
-    const cursorDistance = circularDistance(
-      pointCursor,
-      halteCursor,
-      routeCursorCount,
-    );
-    const geoDistance = haversineMeters(
-      { lat, lng },
-      { lat: haltes[i].lat, lng: haltes[i].lng },
-    );
-
-    if (
-      cursorDistance < bestCursorDistance ||
-      (cursorDistance === bestCursorDistance && geoDistance < bestGeoDistance)
-    ) {
-      bestCursorDistance = cursorDistance;
-      bestGeoDistance = geoDistance;
-      bestIndex = i;
-    }
-  }
-
-  return { index: bestIndex, geoDistanceMeters: bestGeoDistance };
-}
-
-function findArrivedNextHalteIndex(
-  lat: number,
-  lng: number,
-  currentStopIndex: number,
-  radiusMeters: number = HALTE_ARRIVAL_RADIUS_METERS,
-  maxSkipAheadStops: number = MAX_SKIP_AHEAD_STOPS,
-): number | null {
-  const haltes = getHalteLocations();
-  const halteCount = haltes.length;
-  if (halteCount <= 0) return null;
-
-  const current = normalizeLoopIndex(currentStopIndex, halteCount);
-  const maxStep = Math.min(halteCount - 1, maxSkipAheadStops + 1);
-  let bestIndex: number | null = null;
-  let bestStep = Number.POSITIVE_INFINITY;
-  let bestDistance = Number.POSITIVE_INFINITY;
-
-  for (let step = 1; step <= maxStep; step += 1) {
-    const halteIndex = normalizeLoopIndex(current + step, halteCount);
-    const halte = haltes[halteIndex];
-    const distance = haversineMeters(
-      { lat, lng },
-      { lat: halte.lat, lng: halte.lng },
-    );
-
-    if (distance > radiusMeters) continue;
-    if (step < bestStep || (step === bestStep && distance < bestDistance)) {
-      bestStep = step;
-      bestDistance = distance;
-      bestIndex = halteIndex;
-    }
-  }
-
-  return bestIndex;
-}
-
-function resolveCurrentStopIndexFromPosition(
-  lat: number,
-  lng: number,
-  existingStopIndex: number,
-): number {
-  const haltes = getHalteLocations();
-  const halteCount = haltes.length;
-  if (halteCount <= 0) return 0;
-
-  const arrivedIndex = findArrivedNextHalteIndex(lat, lng, existingStopIndex);
-  if (arrivedIndex !== null) return arrivedIndex;
-
-  const current = normalizeLoopIndex(existingStopIndex, halteCount);
-  const nearestCandidate = resolveNearestHalteCandidate(lat, lng);
-  const nearestIndex = nearestCandidate.index;
-  const currentHalte = haltes[current];
-  const distanceToCurrentHalte = currentHalte
-    ? haversineMeters({ lat, lng }, { lat: currentHalte.lat, lng: currentHalte.lng })
-    : Number.POSITIVE_INFINITY;
-
-  // GPS pings can occasionally skip several stop transitions while the server
-  // still remembers the previous stop. If the latest coordinate is clearly near
-  // another halte, snap to it immediately instead of waiting for a full refresh.
-  if (
-    nearestIndex !== current &&
-    nearestCandidate.geoDistanceMeters <= HALTE_SNAP_RADIUS_METERS &&
-    nearestCandidate.geoDistanceMeters + HALTE_SNAP_HYSTERESIS_METERS <
-      distanceToCurrentHalte
-  ) {
-    return nearestIndex;
-  }
-
-  const forwardSteps =
-    (((nearestIndex - current) % halteCount) + halteCount) % halteCount;
-  const maxForwardResync = Math.floor(halteCount / 2);
-
-  if (
-    forwardSteps >= RESYNC_THRESHOLD_STOPS &&
-    forwardSteps <= maxForwardResync
-  ) {
-    const nearestHalte = haltes[nearestIndex];
-    const geoDistanceToNearestHalte = nearestHalte
-      ? haversineMeters(
-          { lat, lng },
-          { lat: nearestHalte.lat, lng: nearestHalte.lng },
-        )
-      : Number.POSITIVE_INFINITY;
-
-    if (geoDistanceToNearestHalte <= RESYNC_MAX_GEO_DISTANCE_METERS) {
-      return nearestIndex;
-    }
-  }
-
-  return current;
 }
 
 function resolveCrowdLevel(passengers: number, capacity: number): CrowdLevel {
@@ -421,10 +259,18 @@ function autoRegisterBuggy(buggyId: string, point: BuggyTelemetryInput): Buggy {
   const numericMatch = buggyId.match(/(\d+)$/);
   const num = numericMatch ? parseInt(numericMatch[1], 10) : 99;
   const code = `B${String(num).padStart(2, "0")}`;
-  const stopIndex = resolveNearestHalteIndexFromPosition(point.lat, point.lng);
   const haltes = getHalteLocations();
-
-  const pathCursor = findNearestPathIndex(point.lat, point.lng);
+  const usableHeading =
+    (point.speedKmh ?? 0) >= 2 ? point.heading : undefined;
+  const pathCursor = findHeadingAwarePathIndex(
+    point.lat,
+    point.lng,
+    usableHeading,
+  );
+  const stopIndex = resolveCurrentHalteIndexFromRouteCursor(
+    pathCursor,
+    haltes,
+  );
 
   return {
     id: buggyId,
@@ -486,19 +332,22 @@ function ingestTelemetry(
     const speedKmh = Math.max(0, point.speedKmh ?? existing.speedKmh);
     const etaMinutes = Math.max(1, point.etaMinutes ?? existing.etaMinutes);
     const shouldForceResync = point.forceResync === true;
-    const nextPathCursor = findNearestPathIndex(point.lat, point.lng);
+    const usableHeading = speedKmh >= 2 ? point.heading : undefined;
+    const nextPathCursor = findHeadingAwarePathIndex(
+      point.lat,
+      point.lng,
+      usableHeading,
+      shouldForceResync ? undefined : existing.pathCursor,
+    );
     const nextCurrentStopIndex = Number.isFinite(point.currentStopIndex)
       ? normalizeLoopIndex(
           Math.max(0, Math.round(point.currentStopIndex as number)),
           getHalteLocations().length,
         )
-      : shouldForceResync
-        ? resolveNearestHalteIndexFromPosition(point.lat, point.lng)
-        : resolveCurrentStopIndexFromPosition(
-            point.lat,
-            point.lng,
-            existing.currentStopIndex,
-          );
+      : resolveCurrentHalteIndexFromRouteCursor(
+          nextPathCursor,
+          getHalteLocations(),
+        );
 
     byId.set(buggyId, {
       ...existing,
