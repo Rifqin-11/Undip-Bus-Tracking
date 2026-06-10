@@ -10,6 +10,7 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 const encoder = new TextEncoder();
+const STREAM_POLL_INTERVAL_MS = 5_000;
 
 function formatSseMessage(data: unknown): Uint8Array {
   return encoder.encode(`data: ${JSON.stringify(data)}\n\n`);
@@ -62,7 +63,7 @@ export async function GET(request: Request) {
         controller.enqueue(formatSseEvent("ping", { ts: Date.now() }));
       };
 
-      const pollInterval = setInterval(sendSnapshot, 1_000);
+      const pollInterval = setInterval(sendSnapshot, STREAM_POLL_INTERVAL_MS);
       const heartbeatInterval = setInterval(sendHeartbeat, 15_000);
       void sendSnapshot();
 

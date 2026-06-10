@@ -29,6 +29,14 @@ export type BuggyApiSnapshot = {
   buggies: Buggy[];
 };
 
+const SNAPSHOT_CACHE_TTL_MS = 3_000;
+
+declare global {
+  var __BUGGY_API_SNAPSHOT_CACHE__:
+    | { cachedAt: number; snapshot: BuggyApiSnapshot }
+    | undefined;
+}
+
 function resolveCrowdLevel(passengers: number, capacity: number): CrowdLevel {
   const ratio = capacity > 0 ? passengers / capacity : 0;
   if (ratio >= 0.85) return "PENUH";
@@ -90,6 +98,12 @@ async function overlayBuggyMasterData(buggies: Buggy[]): Promise<Buggy[]> {
 }
 
 export async function getBuggyApiSnapshot(): Promise<BuggyApiSnapshot> {
+  const cached = globalThis.__BUGGY_API_SNAPSHOT_CACHE__;
+  const now = Date.now();
+  if (cached && now - cached.cachedAt < SNAPSHOT_CACHE_TTL_MS) {
+    return cached.snapshot;
+  }
+
   await bootstrapFromDatabase();
 
   const snapshot = getBuggyLiveSnapshot();
@@ -97,9 +111,16 @@ export async function getBuggyApiSnapshot(): Promise<BuggyApiSnapshot> {
   const latest = await mergeLatestBuggyTelemetry(masterSyncedBuggies);
   const hasLatestTelemetry = latest.mergedCount > 0;
 
-  return {
+  const apiSnapshot = {
     source: hasLatestTelemetry ? "ingest_telemetry" : snapshot.source,
     updatedAt: latest.updatedAt ?? snapshot.updatedAt,
     buggies: latest.buggies,
   };
+
+  globalThis.__BUGGY_API_SNAPSHOT_CACHE__ = {
+    cachedAt: now,
+    snapshot: apiSnapshot,
+  };
+
+  return apiSnapshot;
 }

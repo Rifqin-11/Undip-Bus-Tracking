@@ -105,6 +105,7 @@ function isSchemaColumnError(message: string): boolean {
 function getJakartaDateParts(value: string | number | Date): {
   date: string;
   hour: number;
+  minute: number;
 } {
   const date = new Date(value);
   const parts = new Intl.DateTimeFormat("en-CA", {
@@ -113,6 +114,7 @@ function getJakartaDateParts(value: string | number | Date): {
     month: "2-digit",
     day: "2-digit",
     hour: "2-digit",
+    minute: "2-digit",
     hour12: false,
   }).formatToParts(date);
   const partMap = Object.fromEntries(
@@ -122,6 +124,7 @@ function getJakartaDateParts(value: string | number | Date): {
   return {
     date: `${partMap.year}-${partMap.month}-${partMap.day}`,
     hour: Number(partMap.hour ?? 0),
+    minute: Number(partMap.minute ?? 0),
   };
 }
 
@@ -131,9 +134,10 @@ export function getOperationalSessionBucket(value: string | number | Date): {
   sessionNumber: number;
   isScheduled: boolean;
 } {
-  const { date, hour } = getJakartaDateParts(value);
+  const { date, hour, minute } = getJakartaDateParts(value);
+  const minutesSinceMidnight = hour * 60 + minute;
 
-  if (hour >= 6 && hour < 12) {
+  if (minutesSinceMidnight >= 6 * 60 && minutesSinceMidnight < 12 * 60) {
     return {
       date,
       key: `${date}:morning`,
@@ -142,7 +146,10 @@ export function getOperationalSessionBucket(value: string | number | Date): {
     };
   }
 
-  if (hour >= 13 && hour < 17) {
+  if (
+    minutesSinceMidnight >= 13 * 60 &&
+    minutesSinceMidnight <= 17 * 60 + 30
+  ) {
     return {
       date,
       key: `${date}:afternoon`,

@@ -27,12 +27,20 @@ type UseBuggyLiveFeedState = {
   connected: boolean;
 };
 
+const BUGGY_POLL_INTERVAL_MS = 5_000;
+
 function resolveFeedMode(): BuggyFeedMode {
   const raw = (process.env.NEXT_PUBLIC_BUGGY_FEED_MODE ?? "poll")
     .trim()
     .toLowerCase();
-  if (raw === "poll") return "poll";
-  return "sse";
+
+  if (raw === "sse") {
+    console.warn(
+      "NEXT_PUBLIC_BUGGY_FEED_MODE=sse is disabled on Vercel free tier. Falling back to polling.",
+    );
+  }
+
+  return "poll";
 }
 
 async function fetchSnapshot(signal?: AbortSignal): Promise<BuggyLiveSnapshot> {
@@ -101,7 +109,7 @@ export function useBuggyLiveFeed(): UseBuggyLiveFeedState {
             err instanceof Error ? err.message : "Polling realtime feed failed";
           setError(message);
         }
-      }, 1_000);
+      }, BUGGY_POLL_INTERVAL_MS);
 
       return () => {
         disposed = true;

@@ -189,7 +189,6 @@ export function HistoryPanel({
     null,
   );
 
-  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const hasInitializedDateRef = useRef(false);
 
   // ── Data fetching ──────────────────────────────────────────────────────────
@@ -237,10 +236,6 @@ export function HistoryPanel({
 
   useEffect(() => {
     void load();
-    intervalRef.current = setInterval(() => void load(true), 10_000);
-    return () => {
-      if (intervalRef.current) clearInterval(intervalRef.current);
-    };
   }, [load]);
 
   // ── Derived data ───────────────────────────────────────────────────────────
