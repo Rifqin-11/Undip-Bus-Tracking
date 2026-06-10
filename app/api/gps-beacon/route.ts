@@ -87,6 +87,21 @@ function shouldInsertHistoryPoint(
   );
 }
 
+function markHistoryPointInserted(
+  historyKey: string,
+  lat: number,
+  lng: number,
+  speedKmh: number,
+  insertedAtMs: number,
+) {
+  lastHistoryInsertPerBuggy[historyKey] = {
+    insertedAtMs,
+    lat,
+    lng,
+    speedKmh,
+  };
+}
+
 /**
  * POST /api/gps-beacon
  *
@@ -397,21 +412,23 @@ export async function POST(request: NextRequest) {
       now,
     )
   ) {
-    // Segera perbarui cache agar request padat tidak spam insert raw history.
-    lastHistoryInsertPerBuggy[resolvedBuggyId] = {
-      insertedAtMs: now,
-      lat: incomingPosition.lat,
-      lng: incomingPosition.lng,
-      speedKmh: incomingSpeedKmh,
-    };
-
     if (supabase) {
       const tableName = getBuggyHistoryTableName();
       const historyRow = {
-        ...telemetryRow,
+        buggy_id: telemetryRow.buggy_id,
+        buggy_numeric_id: telemetryRow.buggy_numeric_id,
+        devices_id: telemetryRow.devices_id,
+        lat: telemetryRow.lat,
+        lng: telemetryRow.lng,
+        accuracy: telemetryRow.accuracy,
+        speed_kmh: telemetryRow.speed_kmh,
+        heading: telemetryRow.heading,
+        altitude: telemetryRow.altitude,
+        battery_level: telemetryRow.battery_level,
+        passengers: telemetryRow.passengers,
+        source: telemetryRow.source,
+        recorded_at: telemetryRow.recorded_at,
       };
-      delete (historyRow as Record<string, unknown>).gsm;
-      delete (historyRow as Record<string, unknown>).received_at;
 
       const { error } = await supabase.from(tableName).insert(historyRow);
 
@@ -426,11 +443,35 @@ export async function POST(request: NextRequest) {
 
           if (fallbackError) {
             console.warn("Supabase history insert failed:", fallbackError.message);
+          } else {
+            markHistoryPointInserted(
+              resolvedBuggyId,
+              incomingPosition.lat,
+              incomingPosition.lng,
+              incomingSpeedKmh,
+              now,
+            );
           }
         } else {
           console.warn("Supabase history insert failed:", error.message);
         }
+      } else {
+        markHistoryPointInserted(
+          resolvedBuggyId,
+          incomingPosition.lat,
+          incomingPosition.lng,
+          incomingSpeedKmh,
+          now,
+        );
       }
+    } else {
+      markHistoryPointInserted(
+        resolvedBuggyId,
+        incomingPosition.lat,
+        incomingPosition.lng,
+        incomingSpeedKmh,
+        now,
+      );
     }
   }
 
