@@ -569,7 +569,8 @@ export async function saveSessionPointsToDb(
   }
 
   const tableName = getBuggySessionTableName();
-  const dedupeKey = `${buggyId}|${startedAt}|${endedAt}`;
+  const sessionNumber = forcedSessionNumber ?? bucket.sessionNumber;
+  const dedupeKey = `${buggyId}|${sessionDate}|${sessionNumber}`;
   const inflight = getSaveInflightMap();
 
   const running = inflight.get(dedupeKey);
@@ -579,13 +580,15 @@ export async function saveSessionPointsToDb(
   }
 
   const persistPromise = (async () => {
-    // Hard guard idempotensi: jika sesi dengan rentang waktu yang sama sudah ada, skip.
+    // Hard guard idempotensi: one operational bucket should produce one durable
+    // session per buggy. Synthetic reconstruction can shift started_at slightly,
+    // so bucket identity is more stable than exact timestamps.
     const { data: existingRows, error: existingError } = await supabase
       .from(tableName)
       .select("id")
       .eq("buggy_id", buggyId)
-      .eq("started_at", startedAt)
-      .eq("ended_at", endedAt)
+      .eq("session_date", sessionDate)
+      .eq("session_number", sessionNumber)
       .limit(1);
 
     if (existingError) {
@@ -596,12 +599,10 @@ export async function saveSessionPointsToDb(
 
     if (Array.isArray(existingRows) && existingRows.length > 0) {
       console.log(
-        `[session-store] Skip duplicate session for ${buggyId} (${startedAt} -> ${endedAt})`,
+        `[session-store] Skip duplicate session for ${buggyId} (${sessionDate} #${sessionNumber})`,
       );
       return;
     }
-
-    const sessionNumber = forcedSessionNumber ?? bucket.sessionNumber;
 
     const sessionRow = {
       buggy_id: buggyId,

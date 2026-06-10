@@ -97,8 +97,11 @@ export async function proxy(request: NextRequest) {
   const isGpsTrackerPage = pathname.startsWith("/gps-tracker");
   const isAdminApi = pathname.startsWith("/api/admin");
   const isGeofenceApi = pathname.startsWith("/api/geofences");
+  const isHistoryMaintenanceApi = pathname.startsWith(
+    "/api/buggy-sessions/maintenance",
+  );
   const isHistoryApi =
-    pathname.startsWith("/api/buggy-sessions") ||
+    (pathname.startsWith("/api/buggy-sessions") && !isHistoryMaintenanceApi) ||
     pathname.startsWith("/api/buggy-history");
   const isProtectedRoute =
     isGpsTrackerPage ||

@@ -40,9 +40,6 @@ import {
   Route,
 } from "lucide-react";
 import type { Buggy } from "@/types/buggy";
-import type { BuggySession } from "@/types/buggy-session";
-import { HALTE_LOCATIONS } from "@/lib/transit/buggy-data";
-import { haversineMeters } from "@/lib/transit/buggy-route-utils";
 
 type AdminStatisticsPanelProps = {
   buggies: Buggy[];
@@ -52,9 +49,37 @@ type StatTone = "navy" | "emerald" | "amber" | "rose" | "slate";
 type ChartDatum = { label: string; value: number; helper?: string };
 const IDLE_SPEED_THRESHOLD_KMH = 1;
 
-function formatDelta(current: number, previous: number, newLabel: string): string {
-  if (previous <= 0) return current > 0 ? newLabel : "0%";
-  const delta = ((current - previous) / previous) * 100;
+type AdminStatisticsData = {
+  currentMonth: {
+    totalTrips: number;
+    totalDistanceKm: number;
+    avgSpeedKmh: number;
+    totalDurationMin: number;
+    totalPassengers: number;
+    avgBatteryUsed: number | null;
+    avgPassengersPerDay: number;
+  };
+  trends: {
+    trips: number;
+    distance: number;
+    passengers: number;
+  };
+  dailySeries: Array<{
+    date: string;
+    trips: number;
+    distanceKm: number;
+    durationMin: number;
+  }>;
+  hourlyPassengerDemand: ChartDatum[];
+  delayTrend: {
+    targetDuration: number;
+    data: ChartDatum[];
+  };
+};
+
+function formatTrend(delta: number, newLabel: string): string {
+  if (!Number.isFinite(delta)) return "0%";
+  if (delta === 100) return newLabel;
   const prefix = delta >= 0 ? "+" : "";
   return `${prefix}${delta.toFixed(0)}%`;
 }
@@ -169,46 +194,6 @@ function AnimatedStatNumber({
 }) {
   const animatedValue = useAnimatedNumber(value, durationMs);
   return <>{formatter(animatedValue)}</>;
-}
-
-function getNearestHalteName(lat: number, lng: number, unknownArea: string) {
-  if (HALTE_LOCATIONS.length === 0) return unknownArea;
-
-  let nearest = HALTE_LOCATIONS[0];
-  let nearestDistance = haversineMeters({ lat, lng }, nearest);
-
-  for (const halte of HALTE_LOCATIONS.slice(1)) {
-    const distance = haversineMeters({ lat, lng }, halte);
-    if (distance < nearestDistance) {
-      nearest = halte;
-      nearestDistance = distance;
-    }
-  }
-
-  return nearest.name;
-}
-
-function getMedian(values: number[]) {
-  if (values.length === 0) return 0;
-  const sorted = [...values].sort((a, b) => a - b);
-  const middle = Math.floor(sorted.length / 2);
-  return sorted.length % 2
-    ? sorted[middle]
-    : (sorted[middle - 1] + sorted[middle]) / 2;
-}
-
-function getSessionPassengerLoad(session: BuggySession): number {
-  const peak = session.passengerPeak;
-  if (typeof peak === "number" && Number.isFinite(peak) && peak > 0) {
-    return peak;
-  }
-
-  const average = session.passengerAvg;
-  if (typeof average === "number" && Number.isFinite(average) && average > 0) {
-    return average;
-  }
-
-  return 0;
 }
 
 function SmoothAreaChart({
@@ -369,7 +354,7 @@ export function AdminStatisticsPanel({ buggies }: AdminStatisticsPanelProps) {
   const localeTag = locale === "id" ? "id-ID" : "en-US";
   const now = useMemo(() => new Date(), []);
 
-  const [sessions, setSessions] = useState<BuggySession[]>([]);
+  const [statistics, setStatistics] = useState<AdminStatisticsData | null>(null);
   const [isLoadingSessions, setIsLoadingSessions] = useState(true);
   const [selectedMonth, setSelectedMonth] = useState<string>(
     now.toISOString().slice(0, 7), // "YYYY-MM"
@@ -377,13 +362,14 @@ export function AdminStatisticsPanel({ buggies }: AdminStatisticsPanelProps) {
 
   useEffect(() => {
     async function load() {
+      setIsLoadingSessions(true);
       try {
-        const res = await fetch("/api/buggy-sessions?limit=5000", {
+        const res = await fetch(`/api/admin/statistics?date=${selectedMonth}`, {
           cache: "no-store",
         });
         if (res.ok) {
           const payload = await res.json();
-          setSessions(payload.sessions || []);
+          setStatistics(payload.data ?? null);
         }
       } catch {
         // ignore
@@ -392,23 +378,7 @@ export function AdminStatisticsPanel({ buggies }: AdminStatisticsPanelProps) {
       }
     }
     load();
-  }, []);
-
-  // Filter sessions by selected month
-  const filteredSessions = useMemo(() => {
-    return sessions.filter((s) => s.sessionDate.startsWith(selectedMonth));
-  }, [sessions, selectedMonth]);
-
-  const previousMonth = useMemo(() => {
-    const year = parseInt(selectedMonth.substring(0, 4), 10);
-    const month = parseInt(selectedMonth.substring(5, 7), 10);
-    const date = new Date(year, month - 2, 1);
-    return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
   }, [selectedMonth]);
-
-  const previousMonthSessions = useMemo(() => {
-    return sessions.filter((s) => s.sessionDate.startsWith(previousMonth));
-  }, [sessions, previousMonth]);
 
   const elapsedDaysInMonth = Math.max(1, now.getDate()); // Approximate if viewing current month
 
@@ -430,13 +400,12 @@ export function AdminStatisticsPanel({ buggies }: AdminStatisticsPanelProps) {
     (sum, buggy) => sum + Math.max(0, buggy.passengers),
     0,
   );
-  const historicalPassengerTotal = filteredSessions.reduce(
-    (sum, session) => sum + getSessionPassengerLoad(session),
-    0,
-  );
+  const historicalPassengerTotal =
+    statistics?.currentMonth.totalPassengers ?? 0;
   const displayTotalPassengers =
     historicalPassengerTotal > 0 ? historicalPassengerTotal : totalPassengers;
   const averagePassengersPerDay =
+    statistics?.currentMonth.avgPassengersPerDay ??
     displayTotalPassengers / elapsedDaysInMonth;
   const activeRate =
     buggies.length > 0 ? (activeBuggies.length / buggies.length) * 100 : 0;
@@ -453,178 +422,63 @@ export function AdminStatisticsPanel({ buggies }: AdminStatisticsPanelProps) {
     if (!fastest || buggy.speedKmh > fastest.speedKmh) return buggy;
     return fastest;
   }, null);
-  // Real operational stats from filtered sessions
-  const totalPerjalanan = filteredSessions.length;
-  const previousTotalPerjalanan = previousMonthSessions.length;
-  const totalJarakKm = filteredSessions.reduce(
-    (sum, s) => sum + (s.totalDistanceKm || 0),
-    0,
-  );
-  const previousTotalJarakKm = previousMonthSessions.reduce(
-    (sum, s) => sum + (s.totalDistanceKm || 0),
-    0,
-  );
-  const totalWaktuMenit = filteredSessions.reduce(
-    (sum, s) => sum + (s.durationMinutes || 0),
-    0,
-  );
-
-  const averageSpeedKmh =
-    totalWaktuMenit > 0 ? totalJarakKm / (totalWaktuMenit / 60) : 0;
+  const totalPerjalanan = statistics?.currentMonth.totalTrips ?? 0;
+  const totalJarakKm = statistics?.currentMonth.totalDistanceKm ?? 0;
+  const totalWaktuMenit = statistics?.currentMonth.totalDurationMin ?? 0;
+  const averageSpeedKmh = statistics?.currentMonth.avgSpeedKmh ?? 0;
   const averageDistancePerTrip =
     totalPerjalanan > 0 ? totalJarakKm / totalPerjalanan : 0;
   const averageDurationPerTrip =
     totalPerjalanan > 0 ? totalWaktuMenit / totalPerjalanan : 0;
   const sessionsPerBuggy =
     buggies.length > 0 ? totalPerjalanan / buggies.length : 0;
-  const averageBatteryUsed = (() => {
-    const batterySessions = filteredSessions.filter(
-      (s) => typeof s.batteryUsed === "number",
-    );
-    if (batterySessions.length === 0) return null;
-    return (
-      batterySessions.reduce(
-        (sum, session) => sum + Math.max(0, session.batteryUsed ?? 0),
-        0,
-      ) / batterySessions.length
-    );
-  })();
+  const averageBatteryUsed = statistics?.currentMonth.avgBatteryUsed ?? null;
 
   // Daily Trend Data
   const dailyTrends = useMemo(() => {
-    const year = parseInt(selectedMonth.substring(0, 4));
-    const month = parseInt(selectedMonth.substring(5, 7));
-    const daysInMonth = new Date(year, month, 0).getDate();
-
-    const trends = Array.from({ length: daysInMonth }, (_, i) => ({
-      day: i + 1,
-      count: 0,
+    return (statistics?.dailySeries ?? []).map((item) => ({
+      day: Number.parseInt(item.date.slice(8, 10), 10),
+      count: item.trips,
     }));
-
-    filteredSessions.forEach((s) => {
-      const dayStr = s.sessionDate.substring(8, 10);
-      const day = parseInt(dayStr, 10);
-      if (day >= 1 && day <= daysInMonth) {
-        trends[day - 1].count++;
-      }
-    });
-
-    return trends;
-  }, [filteredSessions, selectedMonth]);
+  }, [statistics]);
 
   const busiestDay = dailyTrends.reduce(
     (best, item) => (item.count > best.count ? item : best),
     { day: 0, count: 0 },
   );
 
-  const hourlyPassengerDemand = useMemo(() => {
-    const buckets = Array.from({ length: 24 }, (_, hour) => ({
-      label: `${String(hour).padStart(2, "0")}:00`,
-      value: 0,
-    }));
-
-    for (const session of filteredSessions) {
-      const startedAt = new Date(session.startedAt);
-      if (Number.isNaN(startedAt.getTime())) continue;
-      const hour = startedAt.getHours();
-      buckets[hour].value += getSessionPassengerLoad(session);
-    }
-
-    const currentHour = new Date().getHours();
-    buckets[currentHour].value += totalPassengers;
-
-    return buckets.map((item) => ({
-      ...item,
-      value: Math.round(item.value),
-    }));
-  }, [filteredSessions, totalPassengers]);
+  const hourlyPassengerDemand = useMemo(
+    () =>
+      statistics?.hourlyPassengerDemand ??
+      Array.from({ length: 24 }, (_, hour) => ({
+        label: `${String(hour).padStart(2, "0")}:00`,
+        value: 0,
+      })),
+    [statistics],
+  );
 
   const peakPassengerHour = hourlyPassengerDemand.reduce(
     (best, item) => (item.value > best.value ? item : best),
     hourlyPassengerDemand[0] ?? { label: "-", value: 0 },
   );
 
-  const delayTrend = useMemo(() => {
-    const validDurations = filteredSessions
-      .map((session) => session.durationMinutes ?? 0)
-      .filter((duration) => duration > 0);
-    const typicalDuration = getMedian(validDurations);
-    const targetDuration = typicalDuration > 0 ? typicalDuration * 1.15 : 0;
-    const buckets = Array.from({ length: 24 }, (_, hour) => ({
-      label: `${String(hour).padStart(2, "0")}:00`,
-      value: 0,
-    }));
-
-    if (targetDuration === 0) return { data: buckets, targetDuration };
-
-    for (const session of filteredSessions) {
-      const startedAt = new Date(session.startedAt);
-      const duration = session.durationMinutes ?? 0;
-      if (Number.isNaN(startedAt.getTime()) || duration <= targetDuration) {
-        continue;
-      }
-
-      buckets[startedAt.getHours()].value += duration - targetDuration;
-    }
-
-    return {
-      data: buckets.map((item) => ({
-        ...item,
-        value: Number(item.value.toFixed(1)),
+  const delayTrend =
+    statistics?.delayTrend ??
+    {
+      targetDuration: 0,
+      data: Array.from({ length: 24 }, (_, hour) => ({
+        label: `${String(hour).padStart(2, "0")}:00`,
+        value: 0,
       })),
-      targetDuration,
     };
-  }, [filteredSessions]);
 
   const peakDelay = delayTrend.data.reduce(
     (best, item) => (item.value > best.value ? item : best),
     delayTrend.data[0] ?? { label: "-", value: 0 },
   );
 
-  const areaTrafficRanking = useMemo(() => {
-    const areaCounts = new Map<string, number>();
-
-    for (const session of filteredSessions) {
-      const sampledPoints = session.path.filter((_, index) => index % 4 === 0);
-      for (const [lat, lng] of sampledPoints) {
-        if (!Number.isFinite(lat) || !Number.isFinite(lng)) continue;
-        const areaName = getNearestHalteName(lat, lng, t("unknownArea"));
-        areaCounts.set(areaName, (areaCounts.get(areaName) ?? 0) + 1);
-      }
-    }
-
-    return Array.from(areaCounts.entries())
-      .map(([label, value]) => ({
-        label,
-        value,
-        helper: `${value.toLocaleString(localeTag)} ${t("points")}`,
-      }))
-      .sort((a, b) => b.value - a.value);
-  }, [filteredSessions, localeTag, t]);
-
-  const dominantStopRanking = useMemo(() => {
-    const stopCounts = new Map<string, number>();
-
-    for (const session of filteredSessions) {
-      const points = session.path;
-      if (points.length === 0) continue;
-
-      const endpointCandidates = [points[0], points[points.length - 1]];
-      for (const [lat, lng] of endpointCandidates) {
-        if (!Number.isFinite(lat) || !Number.isFinite(lng)) continue;
-        const stopName = getNearestHalteName(lat, lng, t("unknownArea"));
-        stopCounts.set(stopName, (stopCounts.get(stopName) ?? 0) + 1);
-      }
-    }
-
-    return Array.from(stopCounts.entries())
-      .map(([label, value]) => ({
-        label,
-        value,
-        helper: `${value.toLocaleString(localeTag)} ${t("stops")}`,
-      }))
-      .sort((a, b) => b.value - a.value);
-  }, [filteredSessions, localeTag, t]);
+  const areaTrafficRanking: ChartDatum[] = [];
+  const dominantStopRanking: ChartDatum[] = [];
 
   const mostVisitedArea = areaTrafficRanking[0];
   const dominantStop = dominantStopRanking[0];
@@ -832,7 +686,7 @@ export function AdminStatisticsPanel({ buggies }: AdminStatisticsPanelProps) {
                   )}
                 </span>
                 <span className="rounded-full bg-slate-100 px-1.5 py-0.5 text-[9px] font-bold text-slate-600">
-                  {formatDelta(totalPerjalanan, previousTotalPerjalanan, t("new"))}
+                  {formatTrend(statistics?.trends.trips ?? 0, t("new"))}
                 </span>
               </div>
             </div>
@@ -860,7 +714,7 @@ export function AdminStatisticsPanel({ buggies }: AdminStatisticsPanelProps) {
                   </span>
                 </span>
                 <span className="rounded-full bg-slate-100 px-1.5 py-0.5 text-[9px] font-bold text-slate-600">
-                  {formatDelta(totalJarakKm, previousTotalJarakKm, t("new"))}
+                  {formatTrend(statistics?.trends.distance ?? 0, t("new"))}
                 </span>
               </div>
             </div>
@@ -1056,7 +910,7 @@ export function AdminStatisticsPanel({ buggies }: AdminStatisticsPanelProps) {
             <Skeleton className="h-14 w-full rounded-md" />
           </div>
         ) : null}
-        {!isLoadingSessions && filteredSessions.length > 0 && (
+        {!isLoadingSessions && totalPerjalanan > 0 && (
           <div className="rounded-[22px] border border-slate-200/70 bg-white/85 p-3.5">
             <div className="mb-3 flex items-center justify-between gap-2">
               <p className="text-[9px] font-bold uppercase tracking-widest text-slate-500">

@@ -14,7 +14,6 @@ import {
   getBuggyHistoryTableName,
 } from "@/lib/supabase/server";
 import {
-  saveSessionPointsToDb,
   buildSessionSummary,
   getOperationalSessionBucket,
   isSessionDistanceEligible,
@@ -433,11 +432,6 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ sessions: [], count: 0 });
   }
 
-  // Background Cleanup: Auto-hapus data mentah GPS (buggy_history) yang usianya lebih dari 7 hari.
-  // Dilakukan tanpa blocking thread (fire-and-forget) agar dashboard tetap kencang.
-  const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 3600 * 1000).toISOString();
-  supabase.from(getBuggyHistoryTableName()).delete().lt("recorded_at", sevenDaysAgo).then(() => {});
-
   const tableName = getBuggySessionTableName();
 
   let query = supabase
@@ -520,12 +514,11 @@ export async function GET(request: NextRequest) {
   }
 
   const synthesizedOngoing: BuggySession[] = [];
-  const saves: Promise<void>[] = [];
 
   // 3. Gabungkan titik jadi sesi on-the-fly (Sintesis)
   // This makes the history UI resilient when the buggy has not sent a formal
   // sessionEnd event yet; active trips still appear immediately.
-  for (const [bId, { numericId, pts }] of pointsByBuggy.entries()) {
+  for (const [bId, { pts }] of pointsByBuggy.entries()) {
     const groups = groupPointsIntoSessions(pts);
     
     for (let i = 0; i < groups.length; i++) {
@@ -575,9 +568,7 @@ export async function GET(request: NextRequest) {
           isSessionDistanceEligible(sum.totalDistanceKm);
 
         if (shouldFinalize || !isLatest) {
-            // Sesi sudah terputus. Kita FINALISASIKAN ke database di background agar permanen.
             if (group.length >= 3 && isValidSession) {
-                saves.push(saveSessionPointsToDb(bId, numericId, group, bucket.sessionNumber).catch(e => console.error("Auto-finalize error:", e)));
                 completed.push(syntheticSession);
             }
         } else {
@@ -587,11 +578,6 @@ export async function GET(request: NextRequest) {
             synthesizedOngoing.push(syntheticSession);
         }
     }
-  }
-
-  // Eksekusi auto-finalize ke DB secara background tanpa memblokir request pengguna
-  if (saves.length > 0) {
-      Promise.allSettled(saves);
   }
 
   // Ongoing sessions digabung dengan completed

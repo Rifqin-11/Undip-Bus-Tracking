@@ -21,6 +21,7 @@ type SessionRow = {
   duration_minutes?: number | string | null;
   avg_speed_kmh?: number | string | null;
   point_count?: number | string | null;
+  battery_used?: number | string | null;
   passenger_avg?: number | string | null;
   passenger_peak?: number | string | null;
   passenger_samples?: number | string | null;
@@ -34,6 +35,22 @@ function toNumber(value: number | string | null | undefined): number {
 function calculateTrend(current: number, previous: number) {
   if (previous === 0) return current > 0 ? 100 : 0;
   return ((current - previous) / previous) * 100;
+}
+
+function getMedian(values: number[]) {
+  if (values.length === 0) return 0;
+  const sorted = [...values].sort((a, b) => a - b);
+  const middle = Math.floor(sorted.length / 2);
+  return sorted.length % 2
+    ? sorted[middle]
+    : (sorted[middle - 1] + sorted[middle]) / 2;
+}
+
+function getSessionPassengerLoad(row: SessionRow) {
+  return Math.max(
+    0,
+    toNumber(row.passenger_peak) || toNumber(row.passenger_avg),
+  );
 }
 
 export async function GET(request: Request) {
@@ -58,7 +75,7 @@ export async function GET(request: Request) {
 
     const { data: currentMonthData, error: currentMonthError } = await supabase
       .from(tableName)
-      .select("buggy_id, started_at, total_distance_km, duration_minutes, avg_speed_kmh, point_count, passenger_avg, passenger_peak, passenger_samples")
+      .select("buggy_id, started_at, total_distance_km, duration_minutes, avg_speed_kmh, point_count, battery_used, passenger_avg, passenger_peak, passenger_samples")
       .gte("started_at", firstDayOfMonth)
       .lte("started_at", lastDayOfMonth);
 
@@ -70,7 +87,7 @@ export async function GET(request: Request) {
 
     const { data: lastMonthData, error: lastMonthError } = await supabase
       .from(tableName)
-      .select("buggy_id, started_at, total_distance_km, duration_minutes, avg_speed_kmh, point_count, passenger_avg, passenger_peak, passenger_samples")
+      .select("buggy_id, started_at, total_distance_km, duration_minutes, avg_speed_kmh, point_count, battery_used, passenger_avg, passenger_peak, passenger_samples")
       .gte("started_at", firstDayOfLastMonth)
       .lte("started_at", lastDayOfLastMonth);
 
@@ -82,24 +99,30 @@ export async function GET(request: Request) {
     let totalSpeed = 0;
     let speedCount = 0;
     let totalPassengers = 0;
+    let totalBatteryUsed = 0;
+    let batteryUsedCount = 0;
 
     const tripsThisMonth = currentMonthData?.length || 0;
 
     for (const row of (currentMonthData || []) as SessionRow[]) {
       totalDistanceKm += toNumber(row.total_distance_km);
       totalDurationMin += toNumber(row.duration_minutes);
+      const batteryUsed = toNumber(row.battery_used);
+      if (batteryUsed > 0) {
+        totalBatteryUsed += batteryUsed;
+        batteryUsedCount++;
+      }
       const avgSpeed = toNumber(row.avg_speed_kmh);
       if (avgSpeed > 0) {
         totalSpeed += avgSpeed;
         speedCount++;
       }
-      totalPassengers += Math.max(
-        0,
-        toNumber(row.passenger_peak) || toNumber(row.passenger_avg),
-      );
+      totalPassengers += getSessionPassengerLoad(row);
     }
 
     const avgSpeedThisMonth = speedCount > 0 ? totalSpeed / speedCount : 0;
+    const avgBatteryUsedThisMonth =
+      batteryUsedCount > 0 ? totalBatteryUsed / batteryUsedCount : null;
 
     // --- Kalkulasi Data Bulan Lalu ---
     let totalDistanceLastMonth = 0;
@@ -108,10 +131,7 @@ export async function GET(request: Request) {
 
     for (const row of (lastMonthData || []) as SessionRow[]) {
       totalDistanceLastMonth += toNumber(row.total_distance_km);
-      totalPassengersLastMonth += Math.max(
-        0,
-        toNumber(row.passenger_peak) || toNumber(row.passenger_avg),
-      );
+      totalPassengersLastMonth += getSessionPassengerLoad(row);
     }
 
     const distanceTrend = calculateTrend(totalDistanceKm, totalDistanceLastMonth);
@@ -176,6 +196,32 @@ export async function GET(request: Request) {
         distanceKm: Number(item.distanceKm.toFixed(1)),
         durationMin: Math.round(item.durationMin),
       }));
+    const hourlyPassengerDemand = Array.from({ length: 24 }, (_, hour) => ({
+      label: `${String(hour).padStart(2, "0")}:00`,
+      value: 0,
+    }));
+    const durationValues = (currentMonthData || [])
+      .map((row) => toNumber((row as SessionRow).duration_minutes))
+      .filter((duration) => duration > 0);
+    const typicalDuration = getMedian(durationValues);
+    const targetDuration = typicalDuration > 0 ? typicalDuration * 1.15 : 0;
+    const delayTrend = Array.from({ length: 24 }, (_, hour) => ({
+      label: `${String(hour).padStart(2, "0")}:00`,
+      value: 0,
+    }));
+
+    for (const row of (currentMonthData || []) as SessionRow[]) {
+      const startedAt = row.started_at ? new Date(row.started_at) : null;
+      if (!startedAt || Number.isNaN(startedAt.getTime())) continue;
+
+      const hour = startedAt.getUTCHours();
+      hourlyPassengerDemand[hour].value += getSessionPassengerLoad(row);
+
+      const duration = toNumber(row.duration_minutes);
+      if (targetDuration > 0 && duration > targetDuration) {
+        delayTrend[hour].value += duration - targetDuration;
+      }
+    }
 
     return NextResponse.json({
       success: true,
@@ -187,6 +233,10 @@ export async function GET(request: Request) {
           avgSpeedKmh: Number(avgSpeedThisMonth.toFixed(1)),
           totalDurationMin: Math.round(totalDurationMin),
           totalPassengers: Math.round(totalPassengers),
+          avgBatteryUsed:
+            avgBatteryUsedThisMonth !== null
+              ? Number(avgBatteryUsedThisMonth.toFixed(1))
+              : null,
           avgPassengersPerDay: Number(
             (totalPassengers / Math.max(1, new Date().getUTCDate())).toFixed(1),
           ),
@@ -203,6 +253,17 @@ export async function GET(request: Request) {
         },
         dailySeries,
         topBuggies,
+        hourlyPassengerDemand: hourlyPassengerDemand.map((item) => ({
+          ...item,
+          value: Math.round(item.value),
+        })),
+        delayTrend: {
+          targetDuration: Number(targetDuration.toFixed(1)),
+          data: delayTrend.map((item) => ({
+            ...item,
+            value: Number(item.value.toFixed(1)),
+          })),
+        },
       }
     }, {
       headers: PRIVATE_SEMI_STATIC_CACHE_HEADERS,
