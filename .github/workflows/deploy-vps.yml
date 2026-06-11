@@ -1,0 +1,26 @@
+name: Deploy SIMOBI to VPS
+
+on:
+  push:
+    branches:
+      - main
+
+concurrency:
+  group: simobi-production
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Setup SSH
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.VPS_SSH_KEY }}" > ~/.ssh/simobi_github_actions
+          chmod 600 ~/.ssh/simobi_github_actions
+          ssh-keyscan -H ${{ secrets.VPS_HOST }} >> ~/.ssh/known_hosts
+
+      - name: Deploy to VPS
+        run: |
+          ssh -i ~/.ssh/simobi_github_actions root@${{ secrets.VPS_HOST }} "bash /var/www/simobi/deploy.sh"
