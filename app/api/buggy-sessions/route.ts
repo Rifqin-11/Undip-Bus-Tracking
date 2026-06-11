@@ -232,7 +232,7 @@ function groupPointsIntoSessions(points: SessionPoint[]): SessionPoint[][] {
     const lastBucket = getOperationalSessionBucket(lastPt.recordedAt);
     const currentBucket = getOperationalSessionBucket(pt.recordedAt);
     
-    // Sesi pagi (06-12) dan siang (13-17:30) digabung berdasarkan bucket waktu,
+    // Sesi pagi (05-12) dan siang (13-17:30) digabung berdasarkan bucket waktu,
     // meskipun ada jeda ping. Di luar jam operasional, gap > 5 menit tetap
     // dianggap sesi lain agar data testing/off-hour tidak menyatu terlalu jauh.
     if (

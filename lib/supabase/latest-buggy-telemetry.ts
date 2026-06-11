@@ -13,6 +13,7 @@ import {
   resolveCurrentHalteIndexFromRouteCursor,
 } from "@/lib/transit/buggy-route-utils";
 import { resolveBuggyConnectionStatus } from "@/lib/buggy/connection-status";
+import { normalizeGsmStatus } from "@/lib/buggy/gsm-status";
 import type { Buggy } from "@/types/buggy";
 
 type LatestBuggyTelemetryRow = {
@@ -27,6 +28,7 @@ type LatestBuggyTelemetryRow = {
   current_stop_index?: number | null;
   passengers?: number | null;
   capacity?: number | null;
+  gsm?: unknown;
   recorded_at: string | null;
   received_at?: string | null;
   updated_at?: string | null;
@@ -166,6 +168,7 @@ export async function mergeLatestBuggyTelemetry(
       typeof row.current_stop_index === "number"
         ? row.current_stop_index
         : resolveCurrentHalteIndexFromRouteCursor(pathCursor);
+    const gsm = normalizeGsmStatus(row.gsm) ?? buggy.gsm;
 
     return {
       ...buggy,
@@ -186,6 +189,7 @@ export async function mergeLatestBuggyTelemetry(
       updatedAt: toTimeLabel(row.recorded_at),
       currentStopIndex,
       pathCursor,
+      gsm,
       position: {
         lat: row.lat,
         lng: row.lng,

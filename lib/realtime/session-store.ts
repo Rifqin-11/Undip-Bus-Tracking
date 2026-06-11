@@ -137,7 +137,7 @@ export function getOperationalSessionBucket(value: string | number | Date): {
   const { date, hour, minute } = getJakartaDateParts(value);
   const minutesSinceMidnight = hour * 60 + minute;
 
-  if (minutesSinceMidnight >= 6 * 60 && minutesSinceMidnight < 12 * 60) {
+  if (minutesSinceMidnight >= 5 * 60 && minutesSinceMidnight < 12 * 60) {
     return {
       date,
       key: `${date}:morning`,

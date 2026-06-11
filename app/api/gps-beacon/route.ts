@@ -11,6 +11,7 @@ import {
   ingestBuggyPayload,
   getBuggyByNumericId,
   adminDeactivateBuggyInStore,
+  adminUpdateBuggyInStore,
 } from "@/lib/realtime/buggy-live-store";
 import {
   createAdminClient,
@@ -127,9 +128,12 @@ export async function POST(request: NextRequest) {
   const bodyRecord = isRecord(body) ? body : {};
   const b = isRecord(bodyRecord.data) ? bodyRecord.data : bodyRecord;
   const isSessionEnd = b.sessionEnd === true;
+  const normalizedGsm = normalizeGsmStatus(b.gsm);
+  const isStatusOnly = b.statusOnly === true || (!isSessionEnd && !("lat" in b) && !("lng" in b) && Boolean(normalizedGsm));
 
   if (
     !isSessionEnd &&
+    !isStatusOnly &&
     (typeof b.lat !== "number" || typeof b.lng !== "number")
   ) {
     return NextResponse.json(
@@ -159,7 +163,6 @@ export async function POST(request: NextRequest) {
     sessionStart,
     sessionEnd,
     source,
-    gsm,
   } = b;
 
   const incomingDevicesId =
@@ -287,7 +290,75 @@ export async function POST(request: NextRequest) {
     }
   }
 
-  const normalizedGsm = normalizeGsmStatus(gsm);
+  if (isStatusOnly) {
+    const receivedAt = new Date().toISOString();
+    if (normalizedGsm) {
+      adminUpdateBuggyInStore(resolvedBuggyId, { gsm: normalizedGsm });
+    }
+
+    let statusTelemetryUpdated = false;
+    if (supabase && normalizedGsm) {
+      const statusPatch = {
+        devices_id: incomingDevicesId,
+        gsm: normalizedGsm,
+        received_at: receivedAt,
+        updated_at: receivedAt,
+      };
+      const { data, error } = await supabase
+        .from(getLatestBuggyTelemetryTableName())
+        .update(statusPatch)
+        .eq("buggy_id", resolvedBuggyId)
+        .select("buggy_id")
+        .maybeSingle();
+
+      if (error) {
+        if (isSchemaColumnError(error.message)) {
+          const fallbackPatch: Record<string, unknown> = { ...statusPatch };
+          delete fallbackPatch.devices_id;
+          delete fallbackPatch.received_at;
+          const { data: fallbackData, error: fallbackError } = await supabase
+            .from(getLatestBuggyTelemetryTableName())
+            .update(fallbackPatch)
+            .eq("buggy_id", resolvedBuggyId)
+            .select("buggy_id")
+            .maybeSingle();
+
+          if (fallbackError) {
+            console.warn(
+              "Supabase status telemetry update failed:",
+              fallbackError.message,
+            );
+          } else {
+            statusTelemetryUpdated = Boolean(fallbackData);
+          }
+        } else {
+          console.warn("Supabase status telemetry update failed:", error.message);
+        }
+      } else {
+        statusTelemetryUpdated = Boolean(data);
+      }
+    }
+
+    return NextResponse.json({
+      ok: true,
+      statusOnly: true,
+      statusTelemetryUpdated,
+      devicesId: incomingDevicesId,
+      buggyId: resolvedBuggyId,
+      buggyNumericId: numericBuggyId,
+      identitySource,
+      gsm: normalizedGsm
+        ? {
+            apn: normalizedGsm.apn,
+            signalPercent: normalizedGsm.signalPercent,
+            networkConnected: normalizedGsm.networkConnected,
+            gprsConnected: normalizedGsm.gprsConnected,
+            mqttStateText: normalizedGsm.mqttStateText,
+          }
+        : null,
+    });
+  }
+
   const incomingSpeedKmh =
     typeof speedKmh === "number"
       ? speedKmh
