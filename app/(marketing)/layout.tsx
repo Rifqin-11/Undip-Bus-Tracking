@@ -35,7 +35,7 @@ export const metadata: Metadata = {
     locale: "id_ID",
     url: "/landing",
     siteName: "SIMOBI",
-    title: "SIMOBI | Smart Mobility UNDIP",
+    title: "SIMOBI | Sistem Monitoring Buggy",
     description:
       "Pantau posisi buggy, halte, rute, kepadatan penumpang, dan kondisi layanan kampus UNDIP.",
     images: [
