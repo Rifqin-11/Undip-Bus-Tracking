@@ -260,11 +260,33 @@ export default function DashboardShell() {
 
   const selectedAdminBuggy = useMemo(() => {
     if (!selectedAdminBuggyId) return null;
-    return (
+    const adminBuggy =
       dataManagementBuggies.find((buggy) => buggy.id === selectedAdminBuggyId) ??
-      visibleBuggies[0] ??
-      null
-    );
+      null;
+    const liveBuggy =
+      visibleBuggies.find((buggy) => buggy.id === selectedAdminBuggyId) ?? null;
+
+    if (adminBuggy && liveBuggy) {
+      return {
+        ...adminBuggy,
+        isActive: liveBuggy.isActive,
+        etaMinutes: liveBuggy.etaMinutes,
+        speedKmh: liveBuggy.speedKmh,
+        crowdLevel: liveBuggy.crowdLevel,
+        passengers: liveBuggy.passengers,
+        tag: liveBuggy.tag,
+        updatedAt: liveBuggy.updatedAt,
+        connectionStatus: liveBuggy.connectionStatus,
+        lastSeenAt: liveBuggy.lastSeenAt,
+        lastSeenSecondsAgo: liveBuggy.lastSeenSecondsAgo,
+        currentStopIndex: liveBuggy.currentStopIndex,
+        pathCursor: liveBuggy.pathCursor,
+        position: liveBuggy.position,
+        gsm: liveBuggy.gsm ?? adminBuggy.gsm,
+      };
+    }
+
+    return adminBuggy ?? liveBuggy ?? visibleBuggies[0] ?? null;
   }, [dataManagementBuggies, selectedAdminBuggyId, visibleBuggies]);
 
   const { userPosition, getLatestUserPosition } = useUserPosition();

@@ -11,6 +11,7 @@ import { createAdminClient } from "@/lib/supabase/server";
 import { adminAddBuggyToStore } from "@/lib/realtime/buggy-live-store";
 import { getHalteLocations } from "@/lib/transit/halte-runtime";
 import { bootstrapFromDatabase } from "@/lib/supabase/data-loader";
+import { mergeLatestBuggyTelemetry } from "@/lib/supabase/latest-buggy-telemetry";
 import { CENTER_UNDIP } from "@/lib/transit/buggy-data";
 import { getErrorMessage } from "@/lib/utils/error-message";
 import { fmtTime } from "@/lib/utils/format-time";
@@ -75,7 +76,8 @@ export async function GET() {
     }
 
     const buggies = ((data ?? []) as BuggyRow[]).map(mapBuggyRow);
-    return NextResponse.json({ buggies });
+    const merged = await mergeLatestBuggyTelemetry(buggies);
+    return NextResponse.json({ buggies: merged.buggies });
   } catch (err) {
     return NextResponse.json({ error: getErrorMessage(err) }, { status: 500 });
   }
