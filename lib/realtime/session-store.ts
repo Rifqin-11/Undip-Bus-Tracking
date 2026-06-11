@@ -244,6 +244,13 @@ export function startSession(
   console.log(`[session-store] Session started for ${buggyId}`);
 }
 
+export function touchSession(buggyId: string): void {
+  const session = getSessionMap().get(buggyId);
+  if (session) {
+    session.lastPingAt = Date.now();
+  }
+}
+
 /**
  * Add a GPS point to the active session.
  * If there is no active session (e.g. server restart), one is created automatically.

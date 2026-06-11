@@ -22,6 +22,7 @@ import {
   startSession,
   addPoint,
   finalizeSession,
+  touchSession,
 } from "@/lib/realtime/session-store";
 import { bootstrapFromDatabase } from "@/lib/supabase/data-loader";
 import { normalizeGsmStatus } from "@/lib/buggy/gsm-status";
@@ -175,6 +176,7 @@ export async function POST(request: NextRequest) {
     passengers,
     sessionStart,
     sessionEnd,
+    stationaryHeartbeat,
     source,
   } = b;
 
@@ -492,7 +494,10 @@ export async function POST(request: NextRequest) {
   // Best effort persistence for admin trip history (do not block live ingest).
   const now = Date.now();
 
+  const shouldPersistGpsPoint = stationaryHeartbeat !== true;
+
   if (
+    shouldPersistGpsPoint &&
     shouldInsertHistoryPoint(
       resolvedBuggyId,
       incomingPosition.lat,
@@ -569,22 +574,26 @@ export async function POST(request: NextRequest) {
     startSession(resolvedBuggyId, numericBuggyId);
   }
 
-  addPoint(resolvedBuggyId, numericBuggyId, {
-    lat: Number(lat),
-    lng: Number(lng),
-    speedKmh: incomingSpeedKmh,
-    passengers: normalizedPassengers,
-    accuracy: typeof accuracy === "number" ? accuracy : null,
-    heading: typeof heading === "number" ? heading : null,
-    altitude: typeof altitude === "number" ? altitude : null,
-    batteryLevel:
-      typeof batteryLevel === "number" &&
-      batteryLevel >= 0 &&
-      batteryLevel <= 100
-        ? Math.round(batteryLevel)
-        : null,
-    recordedAt,
-  });
+  if (shouldPersistGpsPoint) {
+    addPoint(resolvedBuggyId, numericBuggyId, {
+      lat: Number(lat),
+      lng: Number(lng),
+      speedKmh: incomingSpeedKmh,
+      passengers: normalizedPassengers,
+      accuracy: typeof accuracy === "number" ? accuracy : null,
+      heading: typeof heading === "number" ? heading : null,
+      altitude: typeof altitude === "number" ? altitude : null,
+      batteryLevel:
+        typeof batteryLevel === "number" &&
+        batteryLevel >= 0 &&
+        batteryLevel <= 100
+          ? Math.round(batteryLevel)
+          : null,
+      recordedAt,
+    });
+  } else {
+    touchSession(resolvedBuggyId);
+  }
 
   return NextResponse.json({
     ok: true,
@@ -593,6 +602,7 @@ export async function POST(request: NextRequest) {
     buggyId: resolvedBuggyId,
     buggyNumericId: numericBuggyId,
     identitySource,
+    stationaryHeartbeat: stationaryHeartbeat === true,
     position: { lat: Number(lat), lng: Number(lng) },
     gsm: normalizedGsm
       ? {
