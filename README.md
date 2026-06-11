@@ -159,7 +159,7 @@ curl -X POST https://your-domain.example/api/push/check-nearby \
   -H "Authorization: Bearer $PUSH_WORKER_TOKEN"
 ```
 
-For Vercel Cron, set `CRON_SECRET` instead of or in addition to `PUSH_WORKER_TOKEN`, and schedule `/api/push/check-nearby`. Browser PWAs cannot reliably read fresh background location while closed, so the server uses the last user position synced by the active web app
+For Vercel Cron, set `CRON_SECRET` instead of or in addition to `PUSH_WORKER_TOKEN`, and schedule `/api/push/check-nearby`. Browser PWAs cannot reliably read fresh background location while closed, so the server uses the last user position synced by the active web app.
 
 ## Main App Areas
 
