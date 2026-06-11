@@ -103,6 +103,19 @@ function markHistoryPointInserted(
   };
 }
 
+function normalizePassengerCount(
+  value: unknown,
+  capacity: number | null | undefined,
+): number | null {
+  if (typeof value !== "number" || !Number.isFinite(value)) return null;
+  const safeCapacity =
+    typeof capacity === "number" && Number.isFinite(capacity) && capacity > 0
+      ? Math.round(capacity)
+      : 22;
+
+  return Math.min(safeCapacity, Math.max(0, Math.round(value)));
+}
+
 /**
  * POST /api/gps-beacon
  *
@@ -366,6 +379,14 @@ export async function POST(request: NextRequest) {
         ? speed
         : 0;
   const recordedAt = new Date().toISOString();
+  const existingLiveBuggy =
+    typeof numericBuggyId === "number"
+      ? getBuggyByNumericId(numericBuggyId)
+      : undefined;
+  const normalizedPassengers = normalizePassengerCount(
+    passengers,
+    existingLiveBuggy?.capacity,
+  );
 
   // The same accepted point updates four operational views:
   // 1) in-memory live map, 2) latest telemetry row, 3) raw history points,
@@ -382,7 +403,7 @@ export async function POST(request: NextRequest) {
         heading: typeof heading === "number" ? heading : undefined,
         altitude: typeof altitude === "number" ? altitude : undefined,
         etaMinutes: typeof etaMinutes === "number" ? etaMinutes : undefined,
-        passengers: typeof passengers === "number" ? passengers : undefined,
+        passengers: normalizedPassengers ?? undefined,
         forceResync: forceResync === true,
         tag: typeof source === "string" ? source : "gps_beacon",
         timestamp: recordedAt,
@@ -422,10 +443,7 @@ export async function POST(request: NextRequest) {
       batteryLevel <= 100
         ? Math.round(batteryLevel)
         : null,
-    passengers:
-      typeof passengers === "number" && Number.isFinite(passengers)
-        ? Math.max(0, Math.round(passengers))
-        : null,
+    passengers: normalizedPassengers,
     gsm: normalizedGsm,
     source: typeof source === "string" ? source : "gps_beacon",
     recorded_at: recordedAt,
@@ -555,10 +573,7 @@ export async function POST(request: NextRequest) {
     lat: Number(lat),
     lng: Number(lng),
     speedKmh: incomingSpeedKmh,
-    passengers:
-      typeof passengers === "number" && Number.isFinite(passengers)
-        ? Math.max(0, Math.round(passengers))
-        : null,
+    passengers: normalizedPassengers,
     accuracy: typeof accuracy === "number" ? accuracy : null,
     heading: typeof heading === "number" ? heading : null,
     altitude: typeof altitude === "number" ? altitude : null,

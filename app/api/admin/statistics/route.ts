@@ -15,8 +15,12 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 type SessionRow = {
+  id?: string | null;
   buggy_id?: string | null;
+  session_date?: string | null;
+  session_number?: number | string | null;
   started_at?: string | null;
+  ended_at?: string | null;
   total_distance_km?: number | string | null;
   duration_minutes?: number | string | null;
   avg_speed_kmh?: number | string | null;
@@ -25,6 +29,11 @@ type SessionRow = {
   passenger_avg?: number | string | null;
   passenger_peak?: number | string | null;
   passenger_samples?: number | string | null;
+};
+
+type BuggyCapacityRow = {
+  id: string | null;
+  capacity: number | string | null;
 };
 
 function toNumber(value: number | string | null | undefined): number {
@@ -53,6 +62,86 @@ function getSessionPassengerLoad(row: SessionRow) {
   );
 }
 
+function getSessionKey(row: SessionRow): string {
+  const buggyId = row.buggy_id ?? "unknown";
+  const startedAt = row.started_at ? new Date(row.started_at) : null;
+  const date =
+    row.session_date ??
+    (startedAt && !Number.isNaN(startedAt.getTime())
+      ? startedAt.toISOString().slice(0, 10)
+      : "unknown");
+  const sessionNumber = String(row.session_number ?? "");
+
+  return sessionNumber
+    ? `${buggyId}:${date}:${sessionNumber}`
+    : `${buggyId}:${row.started_at ?? ""}:${row.ended_at ?? ""}`;
+}
+
+function compareSessionQuality(a: SessionRow, b: SessionRow): number {
+  const aDistance = toNumber(a.total_distance_km);
+  const bDistance = toNumber(b.total_distance_km);
+  if (aDistance !== bDistance) return aDistance - bDistance;
+
+  const aPoints = toNumber(a.point_count);
+  const bPoints = toNumber(b.point_count);
+  if (aPoints !== bPoints) return aPoints - bPoints;
+
+  const aDuration = toNumber(a.duration_minutes);
+  const bDuration = toNumber(b.duration_minutes);
+  if (aDuration !== bDuration) return aDuration - bDuration;
+
+  const aEndedAt = a.ended_at ? new Date(a.ended_at).getTime() : 0;
+  const bEndedAt = b.ended_at ? new Date(b.ended_at).getTime() : 0;
+  return (Number.isFinite(aEndedAt) ? aEndedAt : 0) -
+    (Number.isFinite(bEndedAt) ? bEndedAt : 0);
+}
+
+function dedupeSessions(rows: SessionRow[]): SessionRow[] {
+  const byKey = new Map<string, SessionRow>();
+
+  for (const row of rows) {
+    const key = getSessionKey(row);
+    const existing = byKey.get(key);
+    if (!existing || compareSessionQuality(row, existing) > 0) {
+      byKey.set(key, row);
+    }
+  }
+
+  return Array.from(byKey.values());
+}
+
+function getCapacityForRow(
+  row: SessionRow,
+  capacityByBuggyId: Map<string, number>,
+): number {
+  const capacity =
+    row.buggy_id && capacityByBuggyId.has(row.buggy_id)
+      ? capacityByBuggyId.get(row.buggy_id)
+      : undefined;
+  return Math.max(1, capacity ?? 22);
+}
+
+function getBoundedSessionPassengerLoad(
+  row: SessionRow,
+  capacityByBuggyId: Map<string, number>,
+): number {
+  return Math.min(getSessionPassengerLoad(row), getCapacityForRow(row, capacityByBuggyId));
+}
+
+function getJakartaHour(value: string | null | undefined): number | null {
+  if (!value) return null;
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return null;
+
+  const hour = new Intl.DateTimeFormat("en-US", {
+    timeZone: "Asia/Jakarta",
+    hour: "2-digit",
+    hour12: false,
+  }).format(date);
+  const parsed = Number(hour);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
 export async function GET(request: Request) {
   const adminGuard = await requireAdmin();
   if (!adminGuard.authorized) return adminGuard.response;
@@ -67,6 +156,20 @@ export async function GET(request: Request) {
     }
 
     const tableName = getBuggySessionTableName();
+    const { data: buggyCapacityData, error: buggyCapacityError } = await supabase
+      .from("buggies")
+      .select("id, capacity");
+
+    if (buggyCapacityError) throw buggyCapacityError;
+
+    const capacityByBuggyId = new Map(
+      ((buggyCapacityData ?? []) as BuggyCapacityRow[])
+        .filter((row) => typeof row.id === "string" && row.id.length > 0)
+        .map((row) => [
+          row.id as string,
+          Math.max(1, Math.round(toNumber(row.capacity) || 22)),
+        ]),
+    );
 
     // Dapatkan awal dan akhir bulan ini berdasarkan parameter date atau bulan saat ini
     const now = dateParam ? new Date(dateParam + "-01T00:00:00Z") : new Date();
@@ -75,7 +178,7 @@ export async function GET(request: Request) {
 
     const { data: currentMonthData, error: currentMonthError } = await supabase
       .from(tableName)
-      .select("buggy_id, started_at, total_distance_km, duration_minutes, avg_speed_kmh, point_count, battery_used, passenger_avg, passenger_peak, passenger_samples")
+      .select("id, buggy_id, session_date, session_number, started_at, ended_at, total_distance_km, duration_minutes, avg_speed_kmh, point_count, battery_used, passenger_avg, passenger_peak, passenger_samples")
       .gte("started_at", firstDayOfMonth)
       .lte("started_at", lastDayOfMonth);
 
@@ -87,11 +190,14 @@ export async function GET(request: Request) {
 
     const { data: lastMonthData, error: lastMonthError } = await supabase
       .from(tableName)
-      .select("buggy_id, started_at, total_distance_km, duration_minutes, avg_speed_kmh, point_count, battery_used, passenger_avg, passenger_peak, passenger_samples")
+      .select("id, buggy_id, session_date, session_number, started_at, ended_at, total_distance_km, duration_minutes, avg_speed_kmh, point_count, battery_used, passenger_avg, passenger_peak, passenger_samples")
       .gte("started_at", firstDayOfLastMonth)
       .lte("started_at", lastDayOfLastMonth);
 
     if (lastMonthError) throw lastMonthError;
+
+    const currentSessions = dedupeSessions((currentMonthData || []) as SessionRow[]);
+    const previousSessions = dedupeSessions((lastMonthData || []) as SessionRow[]);
 
     // --- Kalkulasi Data Bulan Ini ---
     let totalDistanceKm = 0;
@@ -102,9 +208,9 @@ export async function GET(request: Request) {
     let totalBatteryUsed = 0;
     let batteryUsedCount = 0;
 
-    const tripsThisMonth = currentMonthData?.length || 0;
+    const tripsThisMonth = currentSessions.length;
 
-    for (const row of (currentMonthData || []) as SessionRow[]) {
+    for (const row of currentSessions) {
       totalDistanceKm += toNumber(row.total_distance_km);
       totalDurationMin += toNumber(row.duration_minutes);
       const batteryUsed = toNumber(row.battery_used);
@@ -117,7 +223,7 @@ export async function GET(request: Request) {
         totalSpeed += avgSpeed;
         speedCount++;
       }
-      totalPassengers += getSessionPassengerLoad(row);
+      totalPassengers += getBoundedSessionPassengerLoad(row, capacityByBuggyId);
     }
 
     const avgSpeedThisMonth = speedCount > 0 ? totalSpeed / speedCount : 0;
@@ -127,11 +233,11 @@ export async function GET(request: Request) {
     // --- Kalkulasi Data Bulan Lalu ---
     let totalDistanceLastMonth = 0;
     let totalPassengersLastMonth = 0;
-    const tripsLastMonth = lastMonthData?.length || 0;
+    const tripsLastMonth = previousSessions.length;
 
-    for (const row of (lastMonthData || []) as SessionRow[]) {
+    for (const row of previousSessions) {
       totalDistanceLastMonth += toNumber(row.total_distance_km);
-      totalPassengersLastMonth += getSessionPassengerLoad(row);
+      totalPassengersLastMonth += getBoundedSessionPassengerLoad(row, capacityByBuggyId);
     }
 
     const distanceTrend = calculateTrend(totalDistanceKm, totalDistanceLastMonth);
@@ -150,7 +256,7 @@ export async function GET(request: Request) {
       { buggyId: string; trips: number; distanceKm: number; durationMin: number }
     >();
 
-    for (const row of (currentMonthData || []) as SessionRow[]) {
+    for (const row of currentSessions) {
       const startedAt = row.started_at ? new Date(row.started_at) : null;
       const dayKey =
         startedAt && !Number.isNaN(startedAt.getTime())
@@ -200,8 +306,8 @@ export async function GET(request: Request) {
       label: `${String(hour).padStart(2, "0")}:00`,
       value: 0,
     }));
-    const durationValues = (currentMonthData || [])
-      .map((row) => toNumber((row as SessionRow).duration_minutes))
+    const durationValues = currentSessions
+      .map((row) => toNumber(row.duration_minutes))
       .filter((duration) => duration > 0);
     const typicalDuration = getMedian(durationValues);
     const targetDuration = typicalDuration > 0 ? typicalDuration * 1.15 : 0;
@@ -210,18 +316,33 @@ export async function GET(request: Request) {
       value: 0,
     }));
 
-    for (const row of (currentMonthData || []) as SessionRow[]) {
-      const startedAt = row.started_at ? new Date(row.started_at) : null;
-      if (!startedAt || Number.isNaN(startedAt.getTime())) continue;
+    const hourlyPassengerByBuggy = Array.from(
+      { length: 24 },
+      () => new Map<string, number>(),
+    );
 
-      const hour = startedAt.getUTCHours();
-      hourlyPassengerDemand[hour].value += getSessionPassengerLoad(row);
+    for (const row of currentSessions) {
+      const hour = getJakartaHour(row.started_at);
+      if (hour === null) continue;
+
+      const buggyId = row.buggy_id ?? "unknown";
+      const boundedLoad = getBoundedSessionPassengerLoad(row, capacityByBuggyId);
+      const currentHourlyLoad = hourlyPassengerByBuggy[hour].get(buggyId) ?? 0;
+      hourlyPassengerByBuggy[hour].set(
+        buggyId,
+        Math.max(currentHourlyLoad, boundedLoad),
+      );
 
       const duration = toNumber(row.duration_minutes);
       if (targetDuration > 0 && duration > targetDuration) {
         delayTrend[hour].value += duration - targetDuration;
       }
     }
+
+    hourlyPassengerByBuggy.forEach((loadsByBuggy, hour) => {
+      hourlyPassengerDemand[hour].value = Array.from(loadsByBuggy.values())
+        .reduce((sum, value) => sum + value, 0);
+    });
 
     return NextResponse.json({
       success: true,
@@ -247,9 +368,9 @@ export async function GET(request: Request) {
           passengers: Number(passengersTrend.toFixed(1)),
         },
         dataQuality: {
-          passengerMetric: "session_summary",
+          passengerMetric: "deduped_session_peak",
           passengerNote:
-            "Data penumpang dihitung dari passenger_peak/passenger_avg pada ringkasan sesi.",
+            "Data penumpang dihitung dari passenger_peak/passenger_avg per sesi unik dan dibatasi sesuai kapasitas buggy.",
         },
         dailySeries,
         topBuggies,
