@@ -30,17 +30,11 @@ type UseBuggyLiveFeedState = {
 const BUGGY_POLL_INTERVAL_MS = 5_000;
 
 function resolveFeedMode(): BuggyFeedMode {
-  const raw = (process.env.NEXT_PUBLIC_BUGGY_FEED_MODE ?? "poll")
+  const raw = (process.env.NEXT_PUBLIC_BUGGY_FEED_MODE ?? "sse")
     .trim()
     .toLowerCase();
 
-  if (raw === "sse") {
-    console.warn(
-      "NEXT_PUBLIC_BUGGY_FEED_MODE=sse is disabled on Vercel free tier. Falling back to polling.",
-    );
-  }
-
-  return "poll";
+  return raw === "poll" ? "poll" : "sse";
 }
 
 async function fetchSnapshot(signal?: AbortSignal): Promise<BuggyLiveSnapshot> {
@@ -67,11 +61,12 @@ async function fetchSnapshot(signal?: AbortSignal): Promise<BuggyLiveSnapshot> {
 }
 
 export function useBuggyLiveFeed(): UseBuggyLiveFeedState {
-  const mode = useMemo(() => resolveFeedMode(), []);
+  const requestedMode = useMemo(() => resolveFeedMode(), []);
+  const [mode, setMode] = useState<BuggyFeedMode>(requestedMode);
   const [source, setSource] = useState<BuggyLiveSource>("seed");
   const [liveBuggies, setLiveBuggies] = useState<Buggy[] | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [connected, setConnected] = useState(mode === "poll");
+  const [connected, setConnected] = useState(requestedMode === "poll");
 
   useEffect(() => {
     let disposed = false;
@@ -131,6 +126,7 @@ export function useBuggyLiveFeed(): UseBuggyLiveFeedState {
         const snapshot = JSON.parse(event.data) as BuggyLiveSnapshot;
         if (!snapshot || !Array.isArray(snapshot.buggies)) return;
         applySnapshot(snapshot);
+        setError(null);
       } catch {
         // ignore malformed event payload
       }
@@ -138,7 +134,9 @@ export function useBuggyLiveFeed(): UseBuggyLiveFeedState {
     eventSource.onerror = () => {
       if (disposed) return;
       setConnected(false);
-      setError("SSE disconnected. Waiting for automatic reconnect.");
+      setError("SSE disconnected. Falling back to polling.");
+      eventSource.close();
+      setMode("poll");
     };
 
     return () => {

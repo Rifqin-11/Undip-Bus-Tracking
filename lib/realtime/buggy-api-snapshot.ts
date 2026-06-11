@@ -37,6 +37,10 @@ declare global {
     | undefined;
 }
 
+export function invalidateBuggyApiSnapshotCache(): void {
+  globalThis.__BUGGY_API_SNAPSHOT_CACHE__ = undefined;
+}
+
 function resolveCrowdLevel(passengers: number, capacity: number): CrowdLevel {
   const ratio = capacity > 0 ? passengers / capacity : 0;
   if (ratio >= 0.85) return "PENUH";
@@ -97,10 +101,16 @@ async function overlayBuggyMasterData(buggies: Buggy[]): Promise<Buggy[]> {
   });
 }
 
-export async function getBuggyApiSnapshot(): Promise<BuggyApiSnapshot> {
+export async function getBuggyApiSnapshot(
+  options: { forceRefresh?: boolean } = {},
+): Promise<BuggyApiSnapshot> {
   const cached = globalThis.__BUGGY_API_SNAPSHOT_CACHE__;
   const now = Date.now();
-  if (cached && now - cached.cachedAt < SNAPSHOT_CACHE_TTL_MS) {
+  if (
+    !options.forceRefresh &&
+    cached &&
+    now - cached.cachedAt < SNAPSHOT_CACHE_TTL_MS
+  ) {
     return cached.snapshot;
   }
 

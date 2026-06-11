@@ -180,7 +180,7 @@ For Vercel Cron, set `CRON_SECRET` instead of or in addition to `PUSH_WORKER_TOK
 - Protects telemetry ingest endpoints using a required bearer token.
 - Uses a standalone MQTT bridge worker so realtime ingestion is not tied to Vercel serverless runtime.
 - Persists GPS history to PostgreSQL while keeping a fast live snapshot for map rendering.
-- Supports polling by default with an optional SSE stream route.
+- Uses event-driven SSE on VPS with 5-second polling as a browser fallback.
 - Uses Google Maps JavaScript API for map rendering, markers, route paths, and halte context.
 - Uses i18next for locale-aware routing and translated dashboard copy.
 - Designed with compact glass-style UI panels for operational dashboards.
