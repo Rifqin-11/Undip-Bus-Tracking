@@ -124,7 +124,6 @@ export default function DashboardShell() {
   const { t } = useTranslation("admin");
   const { t: tCommon } = useTranslation("common");
   const { t: tNav } = useTranslation("navigation");
-  const { t: tAuth } = useTranslation("auth");
   const realtimeFeed = useBuggyLiveFeed();
   const { settings, updateSetting, resetSettings } = useAdminSettings();
   const {
@@ -302,29 +301,6 @@ export default function DashboardShell() {
     setAuthModalOpen(true);
   }, [locale]);
 
-  const requireDirectionLogin = useCallback(() => {
-    if (userLoading) {
-      addToast({
-        tone: "info",
-        title: tCommon("loading"),
-        description: "Tunggu sebentar lalu coba lagi.",
-        duration: 3_000,
-      });
-      return false;
-    }
-
-    if (isAuthenticated) return true;
-
-    addToast({
-      tone: "warning",
-      title: tAuth("signInRequired"),
-      description: tAuth("signInRouteSearch"),
-      duration: 5_000,
-    });
-    openLogin();
-    return false;
-  }, [addToast, isAuthenticated, openLogin, tAuth, tCommon, userLoading]);
-
   const {
     fromInput,
     setFromInput,
@@ -342,7 +318,6 @@ export default function DashboardShell() {
     haltes: HALTE_LOCATIONS,
     routePath: OFFICIAL_ROUTE_PATH,
     getLatestUserPosition,
-    requireAuth: requireDirectionLogin,
     onSearchComplete: (_result, nearest) => {
       if (nearest) {
         setSelectedBuggyId(nearest.id);
