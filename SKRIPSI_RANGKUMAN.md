@@ -34,7 +34,7 @@ Sistem ini bukan hanya aplikasi peta, tetapi juga dashboard operasional yang men
 
 | Peran | Akses dan Fungsi |
 | --- | --- |
-| Pengguna umum | Melihat peta buggy, halte, rute, ETA, detail buggy, rekomendasi halte terdekat, dan fitur favorit jika sudah login. |
+| Pengguna umum | Melihat peta buggy, halte, rute, ETA, detail buggy, rekomendasi halte terdekat, dan fitur favorit jika sudah login. Pencarian rute/directions dapat digunakan tanpa login karena termasuk fitur publik. |
 | Driver | Melihat dashboard terbatas sesuai buggy yang ditugaskan, termasuk statistik dan riwayat perjalanan khusus buggy tersebut. Driver tidak mendapat akses penuh seperti admin. |
 | Admin | Mengelola buggy, halte, geofence, akun, notifikasi, statistik operasional, dan riwayat perjalanan. |
 
@@ -58,7 +58,7 @@ Fitur utama:
 - Daftar buggy dengan status koneksi, meliputi `Online`, `Signal unstable`, `Connection lost`, dan `Offline`.
 - Detail buggy, termasuk kapasitas, penumpang, kecepatan, ETA, halte saat ini, dan halte berikutnya.
 - Marker buggy tetap ditampilkan pada posisi terakhir ketika data GPS belum diperbarui.
-- Pencarian rute dari lokasi pengguna menuju tujuan.
+- Pencarian rute/directions dari lokasi pengguna menuju tujuan tanpa wajib login.
 - Rekomendasi halte terdekat.
 - Notifikasi browser dan Web Push ketika buggy mendekati halte terdekat pengguna.
 - Favorit buggy dan halte untuk pengguna yang sudah login.
@@ -68,8 +68,8 @@ Perbedaan tampilan berdasarkan role:
 
 | Role | Tampilan pada dashboard |
 | --- | --- |
-| Guest | Melihat peta, halte, dan buggy yang online. Login dibuka melalui auth modal. |
-| Pengguna umum | Melihat fitur publik, rute, favorit, dan buggy online. |
+| Guest | Melihat peta, halte, buggy yang online, detail buggy, rekomendasi halte, dan pencarian rute/directions. Login dibuka melalui auth modal untuk fitur personal. |
+| Pengguna umum | Melihat fitur publik, rute, favorit, dan buggy online. Favorit tetap membutuhkan akun/login. |
 | Driver | Melihat buggy yang ditugaskan, statistik, riwayat perjalanan, dan detail operasional read-only. |
 | Admin | Melihat seluruh panel operasional serta fitur pengelolaan data. |
 
@@ -133,7 +133,7 @@ Fitur utama:
 | PWA dan push notification | Web App Manifest, Service Worker, Web Push API, VAPID, `web-push` |
 | Peta | Google Maps JavaScript API |
 | Internasionalisasi | i18next, react-i18next, routing `/id` dan `/en` |
-| Deployment model | Web app di Vercel, MQTT bridge sebagai worker/service terpisah |
+| Deployment model | Web app production di VPS dengan PM2, MQTT bridge sebagai worker/service terpisah |
 
 Script utama pada `package.json`:
 
@@ -203,7 +203,7 @@ Penjelasan arsitektur:
 4. Endpoint ingest memvalidasi token, memuat data master buggy/halte dari Supabase, memperbarui live store, dan menyimpan telemetry ke database.
 5. Endpoint ingest membaca assignment aktif `devicesId -> buggy_id`. Jika fleet sedang di-hide, payload tidak diterapkan ke live map.
 6. Payload `buggy/{deviceId}/status` dapat memperbarui status GSM/MQTT tanpa harus menyertakan GPS dan tanpa menulis histori perjalanan.
-7. Frontend membaca data terbaru melalui `GET /api/buggy`.
+7. Frontend membaca data terbaru melalui SSE event-driven `GET /api/buggy/stream` dengan fallback `GET /api/buggy`.
 8. UI menampilkan posisi buggy pada Google Maps dan panel dashboard.
 9. Saat pengguna mengaktifkan notifikasi, browser membuat Web Push subscription melalui service worker dan menyimpannya ke tabel `notification_subscriptions`.
 10. Endpoint worker `/api/push/check-nearby` mengecek posisi buggy aktif terhadap halte terdekat dari posisi terakhir pengguna, lalu mengirim Web Push jika kondisi radius terpenuhi.
@@ -246,6 +246,8 @@ Mode feed:
 
 - `sse`: menggunakan `GET /api/buggy/stream` sebagai Server-Sent Events event-driven. Mode ini menjadi mode utama pada deployment VPS dengan PM2 `fork` satu instance.
 - `poll`: mengambil data `GET /api/buggy` setiap 5 detik. Mode ini dipakai sebagai fallback jika koneksi SSE terputus atau jika aplikasi dijalankan pada platform serverless/free tier.
+
+Pada deployment VPS dengan PM2 `fork` satu instance, SSE event-driven menjadi mode utama karena proses Node.js dapat mempertahankan koneksi stream dan broadcast in-memory. Jika aplikasi dijalankan pada platform serverless atau stream terputus di browser, fallback polling tetap tersedia.
 
 Pada deployment serverless, data in-memory tidak selalu stabil. Karena itu `GET /api/buggy` dan stream SSE tetap menggabungkan snapshot live store dengan telemetry terbaru dari Supabase melalui `lib/supabase/latest-buggy-telemetry.ts`.
 
@@ -806,7 +808,8 @@ Route UI lama `/admin` dan `/driver` tidak lagi memiliki halaman dashboard terpi
 
 Aturan akses penting:
 
-- User yang belum login diarahkan ke halaman login.
+- Fitur publik seperti peta, detail buggy, halte, dan pencarian rute/directions dapat digunakan tanpa login.
+- User yang belum login diarahkan ke halaman login hanya ketika membuka fitur yang memang dilindungi, seperti admin, driver/history terbatas, favorit, atau pengaturan akun.
 - `/gps-tracker` hanya dapat diakses admin.
 - API admin hanya dapat diakses admin.
 - API history dapat diakses admin dan driver, tetapi driver hanya menerima data buggy yang ditugaskan melalui filter server-side.
@@ -978,7 +981,7 @@ Runtime aplikasi Next.js berada di repo `real_web`, terutama folder:
 - `types`
 - `data`
 
-MQTT bridge production dan simulator tidak dijadikan bagian dari runtime Next.js. Keduanya dipisahkan sebagai worker/service terpisah karena bridge harus berjalan terus-menerus untuk subscribe MQTT, sedangkan Vercel serverless tidak cocok untuk proses long-running.
+Web production berjalan di VPS menggunakan PM2. Model ini dipilih karena aplikasi membutuhkan proses Node.js yang dapat berjalan terus, mempertahankan koneksi SSE, dan menerima broadcast telemetry secara event-driven. MQTT bridge production dan simulator tidak dijadikan bagian dari runtime Next.js. Keduanya dipisahkan sebagai worker/service terpisah karena bridge harus berjalan terus-menerus untuk subscribe MQTT.
 
 Boundary penting:
 
@@ -986,12 +989,12 @@ Boundary penting:
 - Database dan Auth: Supabase.
 - MQTT bridge: worker/service terpisah untuk subscribe MQTT.
 - PWA service worker: file browser-side `public/sw.js` untuk Web Push, bukan MQTT bridge.
-- Push checker: endpoint server `/api/push/check-nearby` yang dapat dipanggil oleh Vercel Cron atau scheduler eksternal.
-- Session maintenance: endpoint server `/api/buggy-sessions/maintenance` yang dapat dipanggil Vercel Cron dan dilindungi `CRON_SECRET`.
+- Push checker: endpoint server `/api/push/check-nearby` yang dapat dipanggil oleh cron VPS, scheduler eksternal, atau Vercel Cron jika deployment kembali ke Vercel.
+- Session maintenance: endpoint server `/api/buggy-sessions/maintenance` yang dapat dipanggil cron VPS atau scheduler eksternal dan dilindungi `CRON_SECRET`.
 - MQTT broker: service terpisah.
 - Simulator GPS: halaman `/gps-tracker` dan/atau bridge simulator.
 
-Pada paket Vercel Free/Hobby, cron tidak dapat dijadwalkan lebih dari sekali per hari. Karena itu konfigurasi `vercel.json` memakai jadwal harian untuk maintenance sesi. Jika kebutuhan operasional membutuhkan interval lebih rapat, scheduler eksternal atau plan Vercel yang lebih tinggi dapat digunakan.
+Pada deployment VPS, scheduler dapat dijalankan melalui cron server atau service worker terpisah sehingga interval maintenance tidak bergantung pada batas Vercel Free/Hobby. Jika deployment dikembalikan ke Vercel Free/Hobby, cron bawaan Vercel tetap memiliki batas interval sehingga scheduler eksternal atau plan yang lebih tinggi dapat dipertimbangkan.
 
 ---
 
@@ -1103,10 +1106,10 @@ Batasan yang sebaiknya dijelaskan secara jujur di skripsi:
 
 - Hardware final dapat digantikan simulator selama tahap pengujian.
 - MQTT bridge harus berjalan sebagai service terpisah.
-- Live store in-memory tidak menjadi satu-satunya sumber kebenaran pada deployment serverless; data terbaru dibaca dari tabel `latest_buggy_telemetry` di Supabase sebagai fallback.
+- Live store in-memory tidak menjadi satu-satunya sumber kebenaran; data terbaru tetap dibaca dari tabel `latest_buggy_telemetry` di Supabase sebagai fallback, terutama ketika proses restart atau pada deployment serverless.
 - Pada area dengan sinyal SIM800 lemah, sistem tetap menampilkan posisi terakhir buggy dan status koneksi. Namun, posisi aktual buggy tetap bergantung pada kapan telemetry terakhir berhasil diterima server.
 - Notifikasi Web Push PWA memakai posisi terakhir pengguna yang berhasil disinkronkan saat aplikasi aktif. Browser web tidak menjamin pembacaan lokasi real-time ketika aplikasi tertutup total.
-- Endpoint `/api/push/check-nearby` perlu dipanggil secara berkala oleh scheduler seperti Vercel Cron atau worker eksternal agar push notification dapat dikirim otomatis.
+- Endpoint `/api/push/check-nearby` perlu dipanggil secara berkala oleh scheduler seperti cron VPS, Vercel Cron, atau worker eksternal agar push notification dapat dikirim otomatis.
 - Statistik penumpang historis kini tersedia melalui kolom `passenger_avg`, `passenger_peak`, dan `passenger_samples` pada `buggy_session_history`. Endpoint statistik sudah melakukan deduplikasi sesi dan pembatasan kapasitas, tetapi kualitas metrik tetap bergantung pada akurasi sensor jumlah penumpang.
 - Alert geofence dan alert buggy offline terlalu lama sudah tersedia pada dashboard admin, tetapi event geofence belum disimpan permanen sebagai tabel audit terpisah.
 - Data baterai masih dapat diterima pada payload telemetry, tetapi belum dijadikan indikator utama pada detail operasional karena belum menjadi data yang digunakan secara konsisten.
@@ -1139,8 +1142,8 @@ Pengembangan berikutnya yang dapat ditulis sebagai saran:
 
 ## 20. Ringkasan Singkat untuk Ditempel ke AI Lain
 
-SIMOBI adalah sistem monitoring real-time armada buggy listrik kampus UNDIP berbasis Next.js 16, React 19, TypeScript, Supabase PostgreSQL/Auth, Google Maps API, MQTT, dan PWA Web Push Notification. Sistem memiliki tiga peran pengguna: pengguna umum, driver, dan admin. Aplikasi memakai satu dashboard utama berbasis role pada route `/id` dan `/en`, dengan `DashboardShell` sebagai pusat UI dan `dashboard-permissions` sebagai helper penentu akses. Pengguna umum dapat melihat peta buggy, halte, ETA, rute, detail buggy, status koneksi, posisi terakhir buggy, favorit, serta menerima notifikasi ketika buggy mendekati halte terdekat dari posisi terakhir pengguna. Driver melihat panel terbatas sesuai buggy yang ditugaskan, termasuk statistik dan riwayat sesi untuk buggy tersebut. Admin melihat panel operasional penuh untuk mengelola buggy, hide/unhide fleet, assignment device GPS fisik ke buggy, halte, geofence, akun, notifikasi, statistik, riwayat perjalanan, alert geofence, dan alert buggy offline terlalu lama.
+SIMOBI adalah sistem monitoring real-time armada buggy listrik kampus UNDIP berbasis Next.js 16, React 19, TypeScript, Supabase PostgreSQL/Auth, Google Maps API, MQTT, dan PWA Web Push Notification. Sistem memiliki tiga peran pengguna: pengguna umum, driver, dan admin. Aplikasi memakai satu dashboard utama berbasis role pada route `/id` dan `/en`, dengan `DashboardShell` sebagai pusat UI dan `dashboard-permissions` sebagai helper penentu akses. Guest dan pengguna umum dapat melihat peta buggy, halte, ETA, rute/directions, detail buggy, status koneksi, dan posisi terakhir buggy tanpa login. Fitur personal seperti favorit tetap membutuhkan login, sedangkan notifikasi mendekati halte memakai subscription pengguna/browser. Driver melihat panel terbatas sesuai buggy yang ditugaskan, termasuk statistik dan riwayat sesi untuk buggy tersebut. Admin melihat panel operasional penuh untuk mengelola buggy, hide/unhide fleet, assignment device GPS fisik ke buggy, halte, geofence, akun, notifikasi, statistik, riwayat perjalanan, alert geofence, dan alert buggy offline terlalu lama.
 
 Alur data utama adalah GPS tracker/simulator/hardware mengirim telemetry ke MQTT broker pada topic `buggy/{deviceId}/data`, misalnya `buggy/ESP-3C124B00/data`. Device juga dapat mengirim status GSM/MQTT yang lebih ringan ke topic `buggy/{deviceId}/status`, misalnya `buggy/ESP-3C124B00/status`. Broker production menggunakan Mosquitto pada folder sibling `simobi-mosquitto-broker`, dengan autentikasi username/password, ACL per device, persistence internal `mosquitto.db`, dan deployment long-running. MQTT bridge production berada pada folder sibling `mqtt-bridge-service`; worker ini subscribe ke `buggy/+/data` dan `buggy/+/status`, menormalisasi payload menjadi `devicesId`, lalu meneruskan data ke endpoint protected `POST /api/gps-beacon`. Untuk data simulator `/gps-tracker`, payload legacy berbasis `buggyId` masih diterima sebagai fallback kompatibilitas. Endpoint ingest memvalidasi `BUGGY_INGEST_TOKEN`, mencatat device yang terlihat ke `device_registry`, melakukan lookup assignment aktif `devicesId -> buggy_id`, menolak device yang belum diassign, menolak penerapan payload untuk fleet yang sedang di-hide, memperbarui live buggy store, menyimpan raw telemetry ke `buggy_history`, meng-upsert snapshot ke `latest_buggy_telemetry`, mengelola sesi perjalanan ke `buggy_session_history`, dan melakukan broadcast SSE ke dashboard yang sedang aktif. Payload `statusOnly` dari topic `/status` hanya memperbarui status GSM/MQTT pada snapshot terbaru dan tidak menambah titik histori GPS. Setiap snapshot terbaru menyimpan `received_at` sebagai waktu server menerima telemetry. Field ini digunakan untuk menghitung status koneksi `Online`, `Signal unstable`, `Connection lost`, atau `Offline`, sehingga dashboard tetap dapat menampilkan last known location ketika sinyal SIM800 melemah. Frontend membaca data realtime melalui SSE event-driven pada `/api/buggy/stream`, dengan fallback polling `GET /api/buggy` setiap 5 detik jika stream terputus. Untuk notifikasi PWA, browser mendaftarkan service worker `/sw.js`, menyimpan push subscription ke `notification_subscriptions`, lalu endpoint `/api/push/check-nearby` mengirim Web Push ketika buggy dengan status `Online` atau `Signal unstable` mendekati halte terdekat pengguna.
 
-Database utama terdiri dari `accounts`, `buggies`, `device_assignments`, `device_registry`, `haltes`, `geofences`, `announcements`, `buggy_history`, `buggy_session_history`, `latest_buggy_telemetry`, dan `notification_subscriptions`. Tabel `buggies.is_active` dipakai sebagai flag visibilitas fleet: fleet hidden tidak muncul pada buggy list/map/history operasional, tetapi tetap dapat dikelola admin. Tabel `device_assignments` menyimpan relasi aktif antara perangkat fisik ESP dan buggy, sedangkan `device_registry` menyimpan device yang pernah terlihat dari payload MQTT agar dapat dipilih pada Edit Fleet. Tabel `latest_buggy_telemetry` menyimpan satu baris snapshot telemetry terbaru per buggy untuk mendukung fallback saat live store in-memory direset pada serverless deployment, termasuk kolom `received_at` untuk menentukan kesegaran data dan kolom `gsm` untuk status jaringan device. Tabel `notification_subscriptions` menyimpan endpoint Web Push, key subscription, posisi terakhir pengguna, radius alert, dan cooldown notifikasi. Tabel `buggy_history` kini memiliki kolom `passengers`, `received_at`, dan `gsm` untuk pelacakan historis penumpang serta status telemetry per titik GPS. Tabel `buggy_session_history` memiliki kolom `passenger_avg`, `passenger_peak`, dan `passenger_samples` untuk analitik penumpang per sesi perjalanan. Statistik operasional memakai sesi unik, membatasi nilai penumpang berdasarkan `buggies.capacity`, dan membagi sesi operasional ke sesi pagi 05.00-12.00, sesi siang/sore 13.00-17.30, serta sesi luar jadwal. Sistem menggunakan `proxy.ts`, `requireAdmin()`, filter role server-side, dan permission helper frontend untuk role-based access; endpoint history dapat diakses admin dan driver, tetapi driver hanya menerima data buggy yang ditugaskan. Ketika session habis pada panel history, frontend menangani `401/403` dengan redirect ke login. Endpoint ingest dilindungi bearer token, sedangkan endpoint push checker dan session maintenance dilindungi token worker seperti `PUSH_WORKER_TOKEN` atau `CRON_SECRET`. Geofence saat ini berbasis center point dan radius serta dapat diedit atau dihapus melalui panel admin. Aplikasi mendukung bahasa Indonesia dan Inggris melalui route `/id` dan `/en`. Rencana pengembangan berikutnya meliputi integrasi hardware final, command queue, ACK mechanism, penyimpanan permanen event geofence, notifikasi berbasis preferensi pengguna yang tersinkron ke database, dan pengujian lapangan.
+Database utama terdiri dari `accounts`, `buggies`, `device_assignments`, `device_registry`, `haltes`, `geofences`, `announcements`, `buggy_history`, `buggy_session_history`, `latest_buggy_telemetry`, dan `notification_subscriptions`. Tabel `buggies.is_active` dipakai sebagai flag visibilitas fleet: fleet hidden tidak muncul pada buggy list/map/history operasional, tetapi tetap dapat dikelola admin. Tabel `device_assignments` menyimpan relasi aktif antara perangkat fisik ESP dan buggy, sedangkan `device_registry` menyimpan device yang pernah terlihat dari payload MQTT agar dapat dipilih pada Edit Fleet. Tabel `latest_buggy_telemetry` menyimpan satu baris snapshot telemetry terbaru per buggy untuk mendukung fallback saat live store in-memory direset atau proses server restart, termasuk kolom `received_at` untuk menentukan kesegaran data dan kolom `gsm` untuk status jaringan device. Tabel `notification_subscriptions` menyimpan endpoint Web Push, key subscription, posisi terakhir pengguna, radius alert, dan cooldown notifikasi. Tabel `buggy_history` kini memiliki kolom `passengers`, `received_at`, dan `gsm` untuk pelacakan historis penumpang serta status telemetry per titik GPS. Tabel `buggy_session_history` memiliki kolom `passenger_avg`, `passenger_peak`, dan `passenger_samples` untuk analitik penumpang per sesi perjalanan. Statistik operasional memakai sesi unik, membatasi nilai penumpang berdasarkan `buggies.capacity`, dan membagi sesi operasional ke sesi pagi 05.00-12.00, sesi siang/sore 13.00-17.30, serta sesi luar jadwal. Sistem menggunakan `proxy.ts`, `requireAdmin()`, filter role server-side, dan permission helper frontend untuk role-based access; endpoint history dapat diakses admin dan driver, tetapi driver hanya menerima data buggy yang ditugaskan. Ketika session habis pada panel history, frontend menangani `401/403` dengan redirect ke login. Endpoint ingest dilindungi bearer token, sedangkan endpoint push checker dan session maintenance dilindungi token worker seperti `PUSH_WORKER_TOKEN` atau `CRON_SECRET`. Geofence saat ini berbasis center point dan radius serta dapat diedit atau dihapus melalui panel admin. Aplikasi mendukung bahasa Indonesia dan Inggris melalui route `/id` dan `/en`. Rencana pengembangan berikutnya meliputi integrasi hardware final, command queue, ACK mechanism, penyimpanan permanen event geofence, notifikasi berbasis preferensi pengguna yang tersinkron ke database, dan pengujian lapangan.

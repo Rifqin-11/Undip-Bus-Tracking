@@ -267,7 +267,11 @@ export async function POST(request: NextRequest) {
     // Deaktivasi buggy langsung di live store agar monitoring tampil offline seketika
     adminDeactivateBuggyInStore(resolvedBuggyId);
     await finalizeSession(resolvedBuggyId);
-    broadcastBuggySnapshot({ forceRefresh: true, reason: "sessionEnd" });
+    broadcastBuggySnapshot({
+      forceRefresh: true,
+      durableOverlay: false,
+      reason: "sessionEnd",
+    });
     return NextResponse.json({
       ok: true,
       sessionEnded: true,
@@ -356,7 +360,11 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    broadcastBuggySnapshot({ forceRefresh: true, reason: "statusOnly" });
+    broadcastBuggySnapshot({
+      forceRefresh: true,
+      durableOverlay: false,
+      reason: "statusOnly",
+    });
     return NextResponse.json({
       ok: true,
       statusOnly: true,
@@ -598,7 +606,11 @@ export async function POST(request: NextRequest) {
     touchSession(resolvedBuggyId);
   }
 
-  broadcastBuggySnapshot({ forceRefresh: true, reason: "gps" });
+  broadcastBuggySnapshot({
+    forceRefresh: true,
+    durableOverlay: false,
+    reason: "gps",
+  });
 
   return NextResponse.json({
     ok: true,

@@ -118,6 +118,9 @@ const MAP_TYPE_ID_BY_STYLE: Record<
 const USER_LOCATION_PULSE_MIN_RADIUS = 14;
 const USER_LOCATION_PULSE_MAX_RADIUS = 48;
 const USER_LOCATION_PULSE_DURATION_MS = 1700;
+const BUGGY_MARKER_ANIMATION_MS = 850;
+const BUGGY_MARKER_MAX_ANIMATE_METERS = 250;
+const BUGGY_MARKER_MIN_ANIMATE_METERS = 0.75;
 
 function getPathEndpoints(path: [number, number][]) {
   if (path.length < 2) return [];
@@ -133,6 +136,33 @@ function getPathEndpoints(path: [number, number][]) {
 function getHalteIconSize(zoom: number, isSelected: boolean) {
   const baseSize = zoom <= 13 ? 16 : zoom <= 14 ? 20 : 24;
   return isSelected ? baseSize + 4 : baseSize;
+}
+
+function toRadians(value: number) {
+  return (value * Math.PI) / 180;
+}
+
+function distanceMeters(
+  from: { lat: number; lng: number },
+  to: { lat: number; lng: number },
+) {
+  const earthRadiusMeters = 6_371_000;
+  const dLat = toRadians(to.lat - from.lat);
+  const dLng = toRadians(to.lng - from.lng);
+  const fromLat = toRadians(from.lat);
+  const toLat = toRadians(to.lat);
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos(fromLat) *
+      Math.cos(toLat) *
+      Math.sin(dLng / 2) *
+      Math.sin(dLng / 2);
+
+  return earthRadiusMeters * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
+function easeOutCubic(value: number) {
+  return 1 - Math.pow(1 - value, 3);
 }
 
 function formatHistoryStopTime(value: number | undefined, locale: Locale) {
@@ -182,6 +212,11 @@ export function MapCanvas({
   const mapInstanceRef = useRef<MapHandle | null>(null);
   const mapsApiRef = useRef<MapsApi | null>(null);
   const buggyMarkersRef = useRef<Map<string, MarkerHandle>>(new Map());
+  const buggyMarkerPositionsRef = useRef<
+    Map<string, { lat: number; lng: number }>
+  >(new Map());
+  const buggyMarkerAnimationFramesRef = useRef<Map<string, number>>(new Map());
+  const buggyMarkerIconKeysRef = useRef<Map<string, string>>(new Map());
   const halteMarkersRef = useRef<Map<string, MarkerHandle>>(new Map());
   const infoWindowRef = useRef<InfoWindowHandle | null>(null);
   const routePolylineRef = useRef<PolylineHandle | null>(null);
@@ -216,6 +251,60 @@ export function MapCanvas({
     ? null
     : "Isi NEXT_PUBLIC_GOOGLE_MAPS_API_KEY agar peta dapat tampil.";
   const draftGeofenceActive = draftGeofence !== null;
+
+  const setBuggyMarkerPosition = useCallback(
+    (
+      buggyId: string,
+      marker: MarkerHandle,
+      next: { lat: number; lng: number },
+    ) => {
+      const previousFrame = buggyMarkerAnimationFramesRef.current.get(buggyId);
+      if (previousFrame !== undefined) {
+        window.cancelAnimationFrame(previousFrame);
+        buggyMarkerAnimationFramesRef.current.delete(buggyId);
+      }
+
+      const from = buggyMarkerPositionsRef.current.get(buggyId) ?? next;
+      const distance = distanceMeters(from, next);
+      const shouldAnimate =
+        distance >= BUGGY_MARKER_MIN_ANIMATE_METERS &&
+        distance <= BUGGY_MARKER_MAX_ANIMATE_METERS;
+
+      if (!shouldAnimate) {
+        marker.setPosition(next);
+        buggyMarkerPositionsRef.current.set(buggyId, next);
+        return;
+      }
+
+      const startedAt = performance.now();
+      const animate = (now: number) => {
+        const progress = Math.min(
+          1,
+          (now - startedAt) / BUGGY_MARKER_ANIMATION_MS,
+        );
+        const eased = easeOutCubic(progress);
+        const current = {
+          lat: from.lat + (next.lat - from.lat) * eased,
+          lng: from.lng + (next.lng - from.lng) * eased,
+        };
+
+        marker.setPosition(current);
+        buggyMarkerPositionsRef.current.set(buggyId, current);
+
+        if (progress < 1) {
+          const frame = window.requestAnimationFrame(animate);
+          buggyMarkerAnimationFramesRef.current.set(buggyId, frame);
+        } else {
+          buggyMarkerAnimationFramesRef.current.delete(buggyId);
+          buggyMarkerPositionsRef.current.set(buggyId, next);
+        }
+      };
+
+      const frame = window.requestAnimationFrame(animate);
+      buggyMarkerAnimationFramesRef.current.set(buggyId, frame);
+    },
+    [],
+  );
 
   useEffect(() => {
     latestDraftGeofenceRef.current = draftGeofence;
@@ -268,6 +357,10 @@ export function MapCanvas({
 
     let isMounted = true;
     const buggyMarkers = buggyMarkersRef.current;
+    const buggyMarkerAnimationFrames =
+      buggyMarkerAnimationFramesRef.current;
+    const buggyMarkerPositions = buggyMarkerPositionsRef.current;
+    const buggyMarkerIconKeys = buggyMarkerIconKeysRef.current;
     const halteMarkers = halteMarkersRef.current;
     const geofenceCircles = geofenceCirclesRef.current;
 
@@ -332,6 +425,12 @@ export function MapCanvas({
 
     return () => {
       isMounted = false;
+      buggyMarkerAnimationFrames.forEach((frame) =>
+        window.cancelAnimationFrame(frame),
+      );
+      buggyMarkerAnimationFrames.clear();
+      buggyMarkerPositions.clear();
+      buggyMarkerIconKeys.clear();
       buggyMarkers.forEach((m) => m.setMap(null));
       halteMarkers.forEach((m) => m.setMap(null));
       buggyMarkers.clear();
@@ -795,15 +894,20 @@ export function MapCanvas({
     buggies.forEach((buggy) => {
       const isSelected = selectedBuggyId === buggy.id;
       const existing = buggyMarkersRef.current.get(buggy.id);
-      const icon = buildBuggyIcon(maps, buggy.code, isSelected, buggy);
+      const iconKey = `${buggy.code}:${isSelected ? "selected" : "normal"}:${buggy.connectionStatus ?? "unknown"}`;
 
       if (existing) {
-        existing.setPosition(buggy.position);
+        setBuggyMarkerPosition(buggy.id, existing, buggy.position);
         existing.setTitle(`${buggy.name} - ETA ${buggy.etaMinutes} menit`);
-        existing.setIcon(icon);
+        if (buggyMarkerIconKeysRef.current.get(buggy.id) !== iconKey) {
+          const icon = buildBuggyIcon(maps, buggy.code, isSelected, buggy);
+          existing.setIcon(icon);
+          buggyMarkerIconKeysRef.current.set(buggy.id, iconKey);
+        }
         return;
       }
 
+      const icon = buildBuggyIcon(maps, buggy.code, isSelected, buggy);
       const marker = new maps.Marker({
         map,
         position: buggy.position,
@@ -813,15 +917,30 @@ export function MapCanvas({
       });
       marker.addListener("click", () => onBuggyMarkerClick?.(buggy.id));
       buggyMarkersRef.current.set(buggy.id, marker);
+      buggyMarkerPositionsRef.current.set(buggy.id, buggy.position);
+      buggyMarkerIconKeysRef.current.set(buggy.id, iconKey);
     });
 
     buggyMarkersRef.current.forEach((marker, id) => {
       if (!buggyById.has(id)) {
+        const frame = buggyMarkerAnimationFramesRef.current.get(id);
+        if (frame !== undefined) {
+          window.cancelAnimationFrame(frame);
+          buggyMarkerAnimationFramesRef.current.delete(id);
+        }
+        buggyMarkerPositionsRef.current.delete(id);
+        buggyMarkerIconKeysRef.current.delete(id);
         marker.setMap(null);
         buggyMarkersRef.current.delete(id);
       }
     });
-  }, [buggies, mapReady, onBuggyMarkerClick, selectedBuggyId]);
+  }, [
+    buggies,
+    mapReady,
+    onBuggyMarkerClick,
+    selectedBuggyId,
+    setBuggyMarkerPosition,
+  ]);
 
   // ── Render halte markers ───────────────────────────────────────────────────
 

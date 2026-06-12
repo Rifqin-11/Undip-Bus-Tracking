@@ -30,10 +30,14 @@ export type BuggyApiSnapshot = {
 };
 
 const SNAPSHOT_CACHE_TTL_MS = 3_000;
+const MASTER_DATA_CACHE_TTL_MS = 60_000;
 
 declare global {
   var __BUGGY_API_SNAPSHOT_CACHE__:
     | { cachedAt: number; snapshot: BuggyApiSnapshot }
+    | undefined;
+  var __BUGGY_MASTER_ROWS_CACHE__:
+    | { cachedAt: number; rows: BuggyMasterRow[] }
     | undefined;
 }
 
@@ -52,18 +56,30 @@ async function overlayBuggyMasterData(buggies: Buggy[]): Promise<Buggy[]> {
   const supabase = createAdminClient();
   if (!supabase || buggies.length === 0) return buggies;
 
-  const { data, error } = await supabase
-    .from("buggies")
-    .select("id, code, name, capacity, numeric_id, is_active");
+  const now = Date.now();
+  let rows = globalThis.__BUGGY_MASTER_ROWS_CACHE__?.rows;
 
-  if (error || !data) {
-    if (error) {
-      console.warn("[buggy-api-snapshot] Gagal overlay master buggy:", error.message);
+  if (
+    !rows ||
+    !globalThis.__BUGGY_MASTER_ROWS_CACHE__ ||
+    now - globalThis.__BUGGY_MASTER_ROWS_CACHE__.cachedAt >
+      MASTER_DATA_CACHE_TTL_MS
+  ) {
+    const { data, error } = await supabase
+      .from("buggies")
+      .select("id, code, name, capacity, numeric_id, is_active");
+
+    if (error || !data) {
+      if (error) {
+        console.warn("[buggy-api-snapshot] Gagal overlay master buggy:", error.message);
+      }
+      return buggies;
     }
-    return buggies;
+
+    rows = data as BuggyMasterRow[];
+    globalThis.__BUGGY_MASTER_ROWS_CACHE__ = { cachedAt: now, rows };
   }
 
-  const rows = data as BuggyMasterRow[];
   const visibleRows = rows.filter((row) => row.is_active !== false);
   const byId = new Map(visibleRows.map((row) => [row.id, row]));
   const byNumericId = new Map(
@@ -102,7 +118,7 @@ async function overlayBuggyMasterData(buggies: Buggy[]): Promise<Buggy[]> {
 }
 
 export async function getBuggyApiSnapshot(
-  options: { forceRefresh?: boolean } = {},
+  options: { forceRefresh?: boolean; durableOverlay?: boolean } = {},
 ): Promise<BuggyApiSnapshot> {
   const cached = globalThis.__BUGGY_API_SNAPSHOT_CACHE__;
   const now = Date.now();
@@ -118,7 +134,10 @@ export async function getBuggyApiSnapshot(
 
   const snapshot = getBuggyLiveSnapshot();
   const masterSyncedBuggies = await overlayBuggyMasterData(snapshot.buggies);
-  const latest = await mergeLatestBuggyTelemetry(masterSyncedBuggies);
+  const latest =
+    options.durableOverlay === false
+      ? { buggies: masterSyncedBuggies, updatedAt: null, mergedCount: 0 }
+      : await mergeLatestBuggyTelemetry(masterSyncedBuggies);
   const hasLatestTelemetry = latest.mergedCount > 0;
 
   const apiSnapshot = {

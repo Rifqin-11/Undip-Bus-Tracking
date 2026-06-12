@@ -66,7 +66,7 @@ function stopStatusRefreshTimer(): void {
 
 export async function sendBuggySnapshotToClient(
   client: SseClient,
-  options: { forceRefresh?: boolean } = {},
+  options: { forceRefresh?: boolean; durableOverlay?: boolean } = {},
 ): Promise<void> {
   try {
     const snapshot = await getBuggyApiSnapshot(options);
@@ -107,7 +107,11 @@ export function getBuggySseClientCount(): number {
 }
 
 export function broadcastBuggySnapshot(
-  options: { forceRefresh?: boolean; reason?: string } = {},
+  options: {
+    forceRefresh?: boolean;
+    reason?: string;
+    durableOverlay?: boolean;
+  } = {},
 ): void {
   const clients = getClients();
   if (clients.size === 0) return;
@@ -122,6 +126,7 @@ export function broadcastBuggySnapshot(
     try {
       const snapshot: BuggyApiSnapshot = await getBuggyApiSnapshot({
         forceRefresh: options.forceRefresh,
+        durableOverlay: options.durableOverlay,
       });
       const chunk = formatSseMessage(snapshot);
 
