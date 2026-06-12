@@ -34,6 +34,47 @@ function generateSchedule(halteId: string): string[] {
 
 const GMAPS_KEY = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY ?? "";
 
+type HalteImageType = "local" | "streetview" | "satellite";
+
+const LOCAL_HALTE_IMAGES: Array<{
+  patterns: string[];
+  src: string;
+}> = [
+  {
+    patterns: ["fakultas ekonomika", "feb"],
+    src: "/halte/Halte FEB.png",
+  },
+  {
+    patterns: ["fisip", "sosial", "politik"],
+    src: "/halte/Halte Fisip.png",
+  },
+  {
+    patterns: ["hukum"],
+    src: "/halte/Halte Hukum.png",
+  },
+  {
+    patterns: ["rusunawa"],
+    src: "/halte/Halte Rusunawa.png",
+  },
+  {
+    patterns: ["student center"],
+    src: "/halte/Halte Student Center.png",
+  },
+];
+
+function normalizeHalteName(value: string): string {
+  return value.toLowerCase().replace(/\s+/g, " ").trim();
+}
+
+function getLocalHalteImage(halte: HaltePoint): string | null {
+  const normalizedName = normalizeHalteName(halte.name);
+  const match = LOCAL_HALTE_IMAGES.find((image) =>
+    image.patterns.some((pattern) => normalizedName.includes(pattern)),
+  );
+
+  return match?.src ?? null;
+}
+
 function getStreetViewUrl(halte: HaltePoint): string {
   const lat = halte.lat.toFixed(7);
   const lng = halte.lng.toFixed(7);
@@ -108,12 +149,21 @@ export function HalteDetailView({
 
   // Lazy-load Street View: URL hanya diset setelah komponen mount (panel terbuka)
   const [imageUrl, setImageUrl] = useState<string | null>(null);
-  const [imageType, setImageType] = useState<"streetview" | "satellite">(
-    "streetview",
-  );
+  const [imageType, setImageType] = useState<HalteImageType>("streetview");
   const [svError, setSvError] = useState(false);
 
   useEffect(() => {
+    const localImage = getLocalHalteImage(halte);
+
+    if (localImage) {
+      queueMicrotask(() => {
+        setImageType("local");
+        setImageUrl(localImage);
+        setSvError(false);
+      });
+      return;
+    }
+
     queueMicrotask(() => {
       setImageUrl(null);
       setSvError(false);
@@ -255,11 +305,15 @@ export function HalteDetailView({
             </div>
           )}
 
-          {/* Street View dimuat setelah panel terbuka */}
+          {/* Foto halte lokal diprioritaskan, sisanya jatuh ke Street View. */}
           {imageUrl && !svError && (
             <Image
               src={imageUrl}
-              alt={`Street View ${halte.name}`}
+              alt={
+                imageType === "local"
+                  ? `Foto halte ${halte.name}`
+                  : `Street View ${halte.name}`
+              }
               width={640}
               height={320}
               unoptimized
@@ -281,9 +335,11 @@ export function HalteDetailView({
               {halte.name}
             </p>
             <p className="text-[11px] font-medium text-white/80">
-              {imageType === "streetview"
-                ? "Street View · Google Maps"
-                : t("satelliteImage")}
+              {imageType === "local"
+                ? "Foto halte"
+                : imageType === "streetview"
+                  ? "Street View · Google Maps"
+                  : t("satelliteImage")}
             </p>
           </figcaption>
         </figure>

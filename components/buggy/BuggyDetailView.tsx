@@ -40,12 +40,14 @@ export function BuggyDetailView({
 }: BuggyDetailViewProps) {
   const locale = useLocale();
   const { t } = useTranslation("dashboard");
-  const [passengerInfoOpen, setPassengerInfoOpen] = useState(false);
+  const [passengerInfoPinned, setPassengerInfoPinned] = useState(false);
+  const [passengerInfoPreview, setPassengerInfoPreview] = useState(false);
   const now = new Date();
   const stops = getBuggyStopsInRouteOrder(buggy);
   const apnState = getApnConnectionState(buggy);
   const connectionTone = getBuggyConnectionTone(buggy.connectionStatus);
   const shouldShowApn = showApnStatus && Boolean(buggy.gsm?.apn);
+  const passengerInfoOpen = passengerInfoPinned || passengerInfoPreview;
 
   if (!stops.length) return null;
 
@@ -235,7 +237,20 @@ export function BuggyDetailView({
           </div>
 
           {/* Kursi Kosong */}
-          <div className="flex flex-col items-center justify-center border-l border-slate-200">
+          <div className="relative flex flex-col items-center justify-center border-l border-slate-200">
+            <button
+              type="button"
+              aria-label="Info estimasi penumpang"
+              aria-expanded={passengerInfoOpen}
+              onClick={() => setPassengerInfoPinned((open) => !open)}
+              onFocus={() => setPassengerInfoPreview(true)}
+              onBlur={() => setPassengerInfoPreview(false)}
+              onMouseEnter={() => setPassengerInfoPreview(true)}
+              onMouseLeave={() => setPassengerInfoPreview(false)}
+              className="absolute right-1 top-0 grid h-5 w-5 place-items-center rounded-full border border-slate-200 bg-white text-slate-400 shadow-sm transition hover:border-blue-200 hover:bg-blue-50 hover:text-blue-700"
+            >
+              <Info className="h-3 w-3" strokeWidth={2.4} />
+            </button>
             <p className="text-[17px] font-black text-emerald-600 leading-none">
               {Math.max(0, buggy.capacity - buggy.passengers)}{" "}
               <span className="text-[10px] font-bold text-slate-400">
@@ -261,26 +276,14 @@ export function BuggyDetailView({
           </div>
         </div>
 
-        <div className="relative mb-4">
-          <button
-            type="button"
-            aria-expanded={passengerInfoOpen}
-            onClick={() => setPassengerInfoOpen((open) => !open)}
-            className="inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-white px-2.5 py-1 text-[10px] font-semibold text-slate-500 shadow-sm transition hover:border-blue-200 hover:bg-blue-50 hover:text-blue-700"
-          >
-            <Info className="h-3.5 w-3.5" strokeWidth={2.4} />
-            Info estimasi penumpang
-          </button>
-
-          {passengerInfoOpen ? (
-            <div className="mt-2 rounded-2xl border border-blue-100 bg-blue-50/90 px-3 py-2 text-[11px] leading-relaxed text-slate-700 shadow-sm">
-              Jumlah penumpang merupakan estimasi berbasis computer vision yang
-              diperbarui secara realtime. Untuk mengurangi fluktuasi deteksi,
-              sistem dapat menerapkan smoothing berbasis median atau nilai stabil
-              dari beberapa sampel terakhir.
-            </div>
-          ) : null}
-        </div>
+        {passengerInfoOpen ? (
+          <div className="mb-4 rounded-2xl border border-blue-100 bg-blue-50/90 px-3 py-2 text-[11px] leading-relaxed text-slate-700 shadow-sm">
+            Jumlah penumpang merupakan estimasi berbasis computer vision yang
+            diperbarui secara realtime. Untuk mengurangi fluktuasi deteksi,
+            sistem dapat menerapkan smoothing berbasis median atau nilai stabil
+            dari beberapa sampel terakhir.
+          </div>
+        ) : null}
 
         {/* Stop timeline */}
         <div className="relative min-w-0 overflow-hidden pl-7 mt-4">
