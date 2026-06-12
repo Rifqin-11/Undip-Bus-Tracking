@@ -1002,6 +1002,7 @@ export default function DashboardShell() {
         onInfoWindowClose={handleInfoWindowClose}
         onBuggyMarkerClick={handleBuggyMarkerClick}
         onHalteMarkerClick={handleHalteMarkerClick}
+        halteMarkersClickable={activeView !== "history"}
         focusHaltes={activeView === "halte"}
         historyPath={mapHistoryPath}
         historyStopPoints={mapHistoryStopPoints}

@@ -5,6 +5,7 @@ import { useTranslation } from "react-i18next";
 import { CENTER_UNDIP } from "@/lib/transit/buggy-data";
 import { useLocale } from "@/lib/i18n/client";
 import type { Locale } from "@/lib/i18n/config";
+import type { HistoryStopPoint } from "@/lib/history/stop-points";
 import type {
   CircleHandle,
   GoogleMapsWindow,
@@ -165,6 +166,14 @@ function easeOutCubic(value: number) {
   return 1 - Math.pow(1 - value, 3);
 }
 
+function escapeHtml(value: string) {
+  return value
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;");
+}
+
 function formatHistoryStopTime(value: number | undefined, locale: Locale) {
   if (typeof value !== "number" || !Number.isFinite(value)) return "--:--";
   return new Date(value).toLocaleTimeString(locale === "en" ? "en-US" : "id-ID", {
@@ -173,6 +182,69 @@ function formatHistoryStopTime(value: number | undefined, locale: Locale) {
     hour12: false,
     timeZone: "Asia/Jakarta",
   });
+}
+
+function buildHistoryStopInfoContent(
+  activeStop: HistoryStopPoint,
+  sameHalteStops: HistoryStopPoint[],
+  locale: Locale,
+) {
+  const sortedStops = [...sameHalteStops].sort(
+    (a, b) =>
+      (a.startedAtMs ?? a.endedAtMs ?? 0) - (b.startedAtMs ?? b.endedAtMs ?? 0),
+  );
+  const rows = sortedStops
+    .map((stop, index) => {
+      const startLabel = formatHistoryStopTime(
+        stop.startedAtMs ?? stop.endedAtMs,
+        locale,
+      );
+      const endLabel =
+        stop.endedAtMs && stop.endedAtMs !== stop.startedAtMs
+          ? formatHistoryStopTime(stop.endedAtMs, locale)
+          : null;
+      const durationLabel =
+        typeof stop.durationSeconds === "number"
+          ? `${Math.max(1, Math.round(stop.durationSeconds / 60))} menit`
+          : null;
+      const meta = [
+        endLabel ? `sampai ${endLabel}` : null,
+        durationLabel,
+        `${stop.pointCount} titik`,
+        typeof stop.distanceMeters === "number"
+          ? `${stop.distanceMeters} m dari halte`
+          : null,
+      ].filter(Boolean);
+
+      return `
+        <li style="display:grid;grid-template-columns:34px 1fr;gap:8px;padding:8px 0;border-top:${index === 0 ? "0" : "1px solid #e2e8f0"};">
+          <span style="font-size:11px;font-weight:800;color:#2563eb;font-variant-numeric:tabular-nums;">${startLabel}</span>
+          <span>
+            <span style="display:block;font-size:12px;font-weight:700;color:#0f172a;">Kunjungan ${index + 1}</span>
+            <span style="display:block;margin-top:2px;font-size:11px;color:#64748b;">${escapeHtml(meta.join(" · "))}</span>
+          </span>
+        </li>
+      `;
+    })
+    .join("");
+
+  const activeTime = formatHistoryStopTime(
+    activeStop.startedAtMs ?? activeStop.endedAtMs,
+    locale,
+  );
+
+  return `
+    <div style="min-width:220px;max-width:280px;font-family:Inter,Arial,sans-serif;">
+      <div style="padding-bottom:8px;border-bottom:1px solid #e2e8f0;">
+        <div style="font-size:11px;font-weight:800;color:#64748b;text-transform:uppercase;letter-spacing:.08em;">Stop Halte</div>
+        <div style="margin-top:3px;font-size:14px;font-weight:800;color:#0f172a;">${escapeHtml(activeStop.halteName)}</div>
+        <div style="margin-top:3px;font-size:11px;color:#64748b;">Dipilih ${activeTime} · ${sortedStops.length} kali terdeteksi</div>
+      </div>
+      <ul style="list-style:none;margin:8px 0 0;padding:0;">
+        ${rows}
+      </ul>
+    </div>
+  `;
 }
 
 export function MapCanvas({
@@ -200,6 +272,7 @@ export function MapCanvas({
   onMapClick,
   onBuggyMarkerClick,
   onHalteMarkerClick,
+  halteMarkersClickable = true,
 }: MapCanvasProps) {
   const locale = useLocale();
   const { t } = useTranslation("dashboard");
@@ -218,6 +291,9 @@ export function MapCanvas({
   const buggyMarkerAnimationFramesRef = useRef<Map<string, number>>(new Map());
   const buggyMarkerIconKeysRef = useRef<Map<string, string>>(new Map());
   const halteMarkersRef = useRef<Map<string, MarkerHandle>>(new Map());
+  const halteMarkerListenersRef = useRef<Map<string, { remove: () => void }>>(
+    new Map(),
+  );
   const infoWindowRef = useRef<InfoWindowHandle | null>(null);
   const routePolylineRef = useRef<PolylineHandle | null>(null);
   const directionPolylineRef = useRef<PolylineHandle | null>(null);
@@ -362,6 +438,7 @@ export function MapCanvas({
     const buggyMarkerPositions = buggyMarkerPositionsRef.current;
     const buggyMarkerIconKeys = buggyMarkerIconKeysRef.current;
     const halteMarkers = halteMarkersRef.current;
+    const halteMarkerListeners = halteMarkerListenersRef.current;
     const geofenceCircles = geofenceCirclesRef.current;
 
     loadGoogleMapsScript(apiKey, locale)
@@ -433,8 +510,10 @@ export function MapCanvas({
       buggyMarkerIconKeys.clear();
       buggyMarkers.forEach((m) => m.setMap(null));
       halteMarkers.forEach((m) => m.setMap(null));
+      halteMarkerListeners.forEach((listener) => listener.remove());
       buggyMarkers.clear();
       halteMarkers.clear();
+      halteMarkerListeners.clear();
       routePolylineRef.current?.setMap(null);
       directionPolylineRef.current?.setMap(null);
       walkingToPolylineRef.current?.setMap(null);
@@ -623,6 +702,13 @@ export function MapCanvas({
 
     const map = mapInstanceRef.current;
     const maps = mapsApiRef.current;
+    const infoWindow = infoWindowRef.current;
+    const stopsByHalteId = new Map<string, HistoryStopPoint[]>();
+    for (const point of historyStopPoints) {
+      const current = stopsByHalteId.get(point.halteId) ?? [];
+      current.push(point);
+      stopsByHalteId.set(point.halteId, current);
+    }
 
     historyStopMarkersRef.current.forEach((marker) => marker.setMap(null));
     historyStopMarkersRef.current = historyStopPoints.map((point) => {
@@ -635,13 +721,26 @@ export function MapCanvas({
         locale,
       );
 
-      return new maps.Marker({
+      const marker = new maps.Marker({
         map,
         position: { lat: point.lat, lng: point.lng },
         title: `${point.halteName} · ${timeLabel}${durationText}`,
         icon: buildHistoryStopIcon(maps, timeLabel),
         zIndex: 45,
       });
+      marker.addListener("click", () => {
+        if (!infoWindow) return;
+        infoWindow.setContent(
+          buildHistoryStopInfoContent(
+            point,
+            stopsByHalteId.get(point.halteId) ?? [point],
+            locale,
+          ),
+        );
+        infoWindow.open({ map, anchor: marker });
+      });
+
+      return marker;
     });
 
     return () => {
@@ -950,6 +1049,8 @@ export function MapCanvas({
     const map = mapInstanceRef.current;
     const maps = mapsApiRef.current;
     const halteById = new Map(haltes.map((h) => [h.id, h]));
+    halteMarkerListenersRef.current.forEach((listener) => listener.remove());
+    halteMarkerListenersRef.current.clear();
     const halteIcon = buildHalteIcon(
       maps,
       "default",
@@ -969,6 +1070,12 @@ export function MapCanvas({
         existing.setPosition({ lat: halte.lat, lng: halte.lng });
         existing.setTitle(halte.name);
         existing.setIcon(isSelected ? halteActiveIcon : halteIcon);
+        if (halteMarkersClickable) {
+          const listener = existing.addListener("click", () =>
+            onHalteMarkerClick?.(halte.id),
+          );
+          halteMarkerListenersRef.current.set(halte.id, listener);
+        }
         return;
       }
 
@@ -979,17 +1086,31 @@ export function MapCanvas({
         icon: isSelected ? halteActiveIcon : halteIcon,
         zIndex: isSelected ? 18 : 10,
       });
-      marker.addListener("click", () => onHalteMarkerClick?.(halte.id));
+      if (halteMarkersClickable) {
+        const listener = marker.addListener("click", () =>
+          onHalteMarkerClick?.(halte.id),
+        );
+        halteMarkerListenersRef.current.set(halte.id, listener);
+      }
       halteMarkersRef.current.set(halte.id, marker);
     });
 
     halteMarkersRef.current.forEach((marker, id) => {
       if (!halteById.has(id)) {
+        halteMarkerListenersRef.current.get(id)?.remove();
+        halteMarkerListenersRef.current.delete(id);
         marker.setMap(null);
         halteMarkersRef.current.delete(id);
       }
     });
-  }, [haltes, mapReady, mapZoom, onHalteMarkerClick, selectedHalteId]);
+  }, [
+    halteMarkersClickable,
+    haltes,
+    mapReady,
+    mapZoom,
+    onHalteMarkerClick,
+    selectedHalteId,
+  ]);
 
   // ── Info window on selected buggy ──────────────────────────────────────────
 

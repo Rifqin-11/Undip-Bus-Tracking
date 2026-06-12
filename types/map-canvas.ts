@@ -118,6 +118,8 @@ export type MapCanvasProps = {
   onMapClick?: (position: LatLngLiteral) => void;
   onBuggyMarkerClick?: (buggyId: string) => void;
   onHalteMarkerClick?: (halteId: string) => void;
+  /** Whether regular halte markers should open halte detail on click. */
+  halteMarkersClickable?: boolean;
   focusHaltes?: boolean;
   /** GPS history trail path to render on the map as a coloured polyline */
   historyPath?: [number, number][];
