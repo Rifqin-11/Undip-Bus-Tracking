@@ -1,6 +1,8 @@
 "use client";
 
+import { useState } from "react";
 import { useTranslation } from "react-i18next";
+import { Info } from "lucide-react";
 import type { Buggy } from "@/types/buggy";
 import { ChevronLeftIcon } from "@/components/ui/Icons";
 import { useLocale } from "@/lib/i18n/client";
@@ -38,6 +40,7 @@ export function BuggyDetailView({
 }: BuggyDetailViewProps) {
   const locale = useLocale();
   const { t } = useTranslation("dashboard");
+  const [passengerInfoOpen, setPassengerInfoOpen] = useState(false);
   const now = new Date();
   const stops = getBuggyStopsInRouteOrder(buggy);
   const apnState = getApnConnectionState(buggy);
@@ -256,6 +259,27 @@ export function BuggyDetailView({
               {t("empty")}
             </div>
           </div>
+        </div>
+
+        <div className="relative mb-4">
+          <button
+            type="button"
+            aria-expanded={passengerInfoOpen}
+            onClick={() => setPassengerInfoOpen((open) => !open)}
+            className="inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-white px-2.5 py-1 text-[10px] font-semibold text-slate-500 shadow-sm transition hover:border-blue-200 hover:bg-blue-50 hover:text-blue-700"
+          >
+            <Info className="h-3.5 w-3.5" strokeWidth={2.4} />
+            Info estimasi penumpang
+          </button>
+
+          {passengerInfoOpen ? (
+            <div className="mt-2 rounded-2xl border border-blue-100 bg-blue-50/90 px-3 py-2 text-[11px] leading-relaxed text-slate-700 shadow-sm">
+              Jumlah penumpang merupakan estimasi berbasis computer vision yang
+              diperbarui secara realtime. Untuk mengurangi fluktuasi deteksi,
+              sistem dapat menerapkan smoothing berbasis median atau nilai stabil
+              dari beberapa sampel terakhir.
+            </div>
+          ) : null}
         </div>
 
         {/* Stop timeline */}
