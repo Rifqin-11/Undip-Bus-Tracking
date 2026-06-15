@@ -12,6 +12,13 @@ export type MarkerHandle = {
   setPosition: (position: LatLngLiteral) => void;
   setTitle: (title: string) => void;
   setIcon: (icon: unknown) => void;
+  setLabel: (label: {
+    text: string;
+    className?: string;
+    color?: string;
+    fontSize?: string;
+    fontWeight?: string;
+  }) => void;
   addListener: (
     eventName: string,
     handler: () => void,

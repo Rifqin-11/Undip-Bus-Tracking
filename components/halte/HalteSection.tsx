@@ -1,8 +1,7 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState } from "react";
 import { useTranslation } from "react-i18next";
-import { HALTE_LOCATIONS } from "@/lib/transit/buggy-data";
 import type { HaltePoint } from "@/types/buggy";
 import { BusStopIcon, ChevronRightIcon } from "@/components/ui/Icons";
 import { Plus, Pencil } from "lucide-react";
@@ -10,8 +9,10 @@ import { AdminHalteFormPanel } from "./AdminHalteFormPanel";
 import { FavoriteStar } from "@/components/ui/FavoriteStar";
 
 type HalteSectionProps = {
+  haltes: HaltePoint[];
   onSelectHalte?: (halteId: string, halteObj: HaltePoint) => void;
-  /** Jika true, tampilkan tombol add/edit dan ambil data dari API */
+  onHaltesChanged?: () => void | Promise<void>;
+  /** Jika true, tampilkan tombol tambah dan edit. */
   isAdmin?: boolean;
   /** Set ID halte favorit user. */
   favoriteHaltes?: Set<string>;
@@ -22,7 +23,9 @@ type HalteSectionProps = {
 };
 
 export function HalteSection({
+  haltes,
   onSelectHalte,
+  onHaltesChanged,
   isAdmin = false,
   favoriteHaltes,
   onToggleFavoriteHalte,
@@ -30,34 +33,12 @@ export function HalteSection({
 }: HalteSectionProps) {
   const { t } = useTranslation("dashboard");
   const { t: tCommon } = useTranslation("common");
-  // Admin: fetch dari API, User: pakai HALTE_LOCATIONS statis
-  const [apiHaltes, setApiHaltes] = useState<HaltePoint[] | null>(null);
   /** null = list, "add" = form tambah, HaltePoint = form edit */
   const [formTarget, setFormTarget] = useState<null | "add" | HaltePoint>(null);
 
-  const fetchHaltes = useCallback(async () => {
-    try {
-      const res = await fetch("/api/haltes", { cache: "no-store" });
-      if (res.ok) {
-        const data = await res.json();
-        if (Array.isArray(data)) setApiHaltes(data as HaltePoint[]);
-      }
-    } catch {
-      /* ignore */
-    }
-  }, []);
-
-  useEffect(() => {
-    if (isAdmin) void Promise.resolve().then(fetchHaltes);
-  }, [isAdmin, fetchHaltes]);
-
-  // Urutan halte mengikuti data asli (HALTE_LOCATIONS atau dari API admin).
-  // Favorit ditandai dengan bintang & badge, tetapi tidak naik ke atas.
-  const haltes = isAdmin && apiHaltes ? apiHaltes : HALTE_LOCATIONS;
-
   const handleSaved = () => {
     setFormTarget(null);
-    void fetchHaltes();
+    void onHaltesChanged?.();
   };
 
   // ── Admin form panel (add / edit) ──────────────────────────────────────────

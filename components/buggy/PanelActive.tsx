@@ -4,7 +4,6 @@ import { useEffect, useState, useMemo } from "react";
 import type { ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import type { Buggy, HaltePoint, PanelView } from "@/types/buggy";
-import { HALTE_LOCATIONS } from "@/lib/transit/buggy-data";
 import { haversineMeters } from "@/lib/transit/buggy-route-utils";
 
 type LatLng = {
@@ -22,6 +21,7 @@ import type { DirectionResult } from "@/components/panel/DirectionPanel";
 
 type BuggyListProps = {
   buggies: Buggy[];
+  haltes: HaltePoint[];
   panelOpen: boolean;
   activeView: PanelView;
   onClose: () => void;
@@ -31,6 +31,7 @@ type BuggyListProps = {
   onSelectBuggy: (buggyId: string) => void;
   onSelectHalte?: (halteId: string) => void;
   onClearSelectedHalte?: () => void;
+  onHaltesChanged?: () => void | Promise<void>;
   directionResult?: DirectionResult | null;
   onCloseDirection?: () => void;
   dataViewContent?: ReactNode;
@@ -55,6 +56,7 @@ type BuggyListProps = {
 
 export function BuggyList({
   buggies,
+  haltes,
   panelOpen,
   activeView,
   onClose,
@@ -64,6 +66,7 @@ export function BuggyList({
   onSelectBuggy,
   onSelectHalte,
   onClearSelectedHalte,
+  onHaltesChanged,
   directionResult = null,
   onCloseDirection,
   dataViewContent,
@@ -127,7 +130,7 @@ export function BuggyList({
 
     const originHaltePosition = directionResult?.walkingToHalte
       ? (() => {
-          const halte = HALTE_LOCATIONS.find(
+          const halte = haltes.find(
             (h) => h.name === directionResult.walkingToHalte?.originHalteName,
           );
           return halte ? { lat: halte.lat, lng: halte.lng } : null;
@@ -143,7 +146,7 @@ export function BuggyList({
     }
 
     return sortByDistance(userLocation);
-  }, [buggies, userLocation, directionResult]);
+  }, [buggies, directionResult, haltes, userLocation]);
 
   // Bubble favorit ke atas (stable sort: pertahankan urutan jarak/nomor di dalam grup).
   const displayBuggies = useMemo(() => {
@@ -166,11 +169,11 @@ export function BuggyList({
   const selectedHalte =
     cachedHalteObj ||
     (selectedHalteIdLocal
-      ? (HALTE_LOCATIONS.find((h) => h.id === selectedHalteIdLocal) ?? null)
+      ? (haltes.find((h) => h.id === selectedHalteIdLocal) ?? null)
       : null);
 
   const selectedHalteIndex = selectedHalte
-    ? HALTE_LOCATIONS.findIndex((h) => h.id === selectedHalte.id)
+    ? haltes.findIndex((h) => h.id === selectedHalte.id)
     : -1;
 
   const handleSelectHalte = (halteId: string, halteObj?: HaltePoint) => {
@@ -274,7 +277,9 @@ export function BuggyList({
         />
       ) : activeView === "halte" ? (
         <HalteSection
+          haltes={haltes}
           onSelectHalte={handleSelectHalte}
+          onHaltesChanged={onHaltesChanged}
           isAdmin={isAdmin}
           canFavorite={canFavorite}
           favoriteHaltes={favoriteHaltes}

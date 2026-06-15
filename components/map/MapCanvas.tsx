@@ -1061,6 +1061,13 @@ export function MapCanvas({
       "active",
       getHalteIconSize(mapZoom, true),
     );
+    const buildHalteLabel = (name: string, isSelected: boolean) => ({
+      text: name,
+      className: `simobi-halte-marker-label${isSelected ? " simobi-halte-marker-label-active" : ""}`,
+      color: isSelected ? "#92400e" : "#111827",
+      fontSize: "8px",
+      fontWeight: isSelected ? "700" : "500",
+    });
 
     haltes.forEach((halte) => {
       const isSelected = selectedHalteId === halte.id;
@@ -1070,6 +1077,7 @@ export function MapCanvas({
         existing.setPosition({ lat: halte.lat, lng: halte.lng });
         existing.setTitle(halte.name);
         existing.setIcon(isSelected ? halteActiveIcon : halteIcon);
+        existing.setLabel(buildHalteLabel(halte.name, isSelected));
         if (halteMarkersClickable) {
           const listener = existing.addListener("click", () =>
             onHalteMarkerClick?.(halte.id),
@@ -1084,6 +1092,7 @@ export function MapCanvas({
         position: { lat: halte.lat, lng: halte.lng },
         title: halte.name,
         icon: isSelected ? halteActiveIcon : halteIcon,
+        label: buildHalteLabel(halte.name, isSelected),
         zIndex: isSelected ? 18 : 10,
       });
       if (halteMarkersClickable) {

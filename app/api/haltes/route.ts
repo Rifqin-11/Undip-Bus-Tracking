@@ -11,7 +11,7 @@ import { getHalteLocations, setHalteLocations } from "@/lib/transit/halte-runtim
 import { bootstrapFromDatabase } from "@/lib/supabase/data-loader";
 import type { HaltePoint } from "@/types/buggy";
 import { getErrorMessage } from "@/lib/utils/error-message";
-import { PUBLIC_SEMI_STATIC_CACHE_HEADERS } from "@/lib/http/cache";
+import { NO_STORE_CACHE_HEADERS } from "@/lib/http/cache";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -24,7 +24,7 @@ export async function GET() {
   const supabase = createAdminClient();
   if (!supabase) {
     return NextResponse.json(getHalteLocations(), {
-      headers: PUBLIC_SEMI_STATIC_CACHE_HEADERS,
+      headers: NO_STORE_CACHE_HEADERS,
     });
   }
 
@@ -35,7 +35,7 @@ export async function GET() {
 
   if (error || !data) {
     return NextResponse.json(getHalteLocations(), {
-      headers: PUBLIC_SEMI_STATIC_CACHE_HEADERS,
+      headers: NO_STORE_CACHE_HEADERS,
     });
   }
 
@@ -62,7 +62,7 @@ export async function GET() {
   }));
 
   return NextResponse.json(haltes, {
-    headers: PUBLIC_SEMI_STATIC_CACHE_HEADERS,
+    headers: NO_STORE_CACHE_HEADERS,
   });
 }
 

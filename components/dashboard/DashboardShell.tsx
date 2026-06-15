@@ -28,7 +28,7 @@ import {
   HALTE_LOCATIONS,
   OFFICIAL_ROUTE_PATH,
 } from "@/lib/transit/buggy-data";
-import type { Buggy } from "@/types/buggy";
+import type { Buggy, HaltePoint } from "@/types/buggy";
 import { haversineMeters } from "@/lib/transit/buggy-route-utils";
 import { useBuggyLiveFeed } from "@/hooks/useBuggyLiveFeed";
 import {
@@ -154,6 +154,7 @@ export default function DashboardShell() {
   // supaya marker selalu mengikuti posisi telemetry terakhir dari /api/buggy.
   const [localBuggies, setLocalBuggies] = useState<Buggy[] | null>(null);
   const [adminFleetBuggies, setAdminFleetBuggies] = useState<Buggy[]>([]);
+  const [haltes, setHaltes] = useState<HaltePoint[]>(HALTE_LOCATIONS);
   const liveBuggies = useMemo(
     () => realtimeFeed.liveBuggies ?? localBuggies ?? [],
     [localBuggies, realtimeFeed.liveBuggies],
@@ -190,6 +191,29 @@ export default function DashboardShell() {
     }
     await loadAdminFleetBuggies();
   }, [loadAdminFleetBuggies]);
+
+  const loadHaltes = useCallback(async () => {
+    try {
+      const response = await fetch("/api/haltes", { cache: "no-store" });
+      if (!response.ok) return;
+
+      const data = await response.json();
+      if (Array.isArray(data)) {
+        setHaltes(data as HaltePoint[]);
+      }
+    } catch {
+      // Data statis tetap menjadi fallback jika API tidak tersedia.
+    }
+  }, []);
+
+  useEffect(() => {
+    void loadHaltes();
+  }, [loadHaltes]);
+
+  const activeHaltes = useMemo(
+    () => haltes.filter((halte) => halte.isActive !== false),
+    [haltes],
+  );
 
   const [activeView, setActiveView] = useState<PanelView>("buggy");
   const [panelOpen, setPanelOpen] = useState(
@@ -291,7 +315,7 @@ export default function DashboardShell() {
   const { userPosition, getLatestUserPosition } = useUserPosition();
   const { toasts, addToast, dismissToast } = useToastStack();
   const nearestHalteRecommendations = useNearestHaltes({
-    haltes: HALTE_LOCATIONS,
+    haltes: activeHaltes,
     userPosition,
     fallback: liveBuggies[0]?.position ?? HALTE_FALLBACK_POSITION,
   });
@@ -315,7 +339,7 @@ export default function DashboardShell() {
     resetToDestination,
   } = useDirectionSearch({
     liveBuggies: visibleBuggies,
-    haltes: HALTE_LOCATIONS,
+    haltes: activeHaltes,
     routePath: OFFICIAL_ROUTE_PATH,
     getLatestUserPosition,
     onSearchComplete: (_result, nearest) => {
@@ -964,7 +988,10 @@ export default function DashboardShell() {
   );
 
   const mapBuggies = activeView === "halte" ? [] : visibleBuggies;
-  const mapRoutePath = activeView === "buggy" ? OFFICIAL_ROUTE_PATH : [];
+  const mapRoutePath =
+    activeView === "buggy" || activeView === "halte"
+      ? OFFICIAL_ROUTE_PATH
+      : [];
   const mapDirectionPath =
     activeView === "buggy" ? (directionResult?.directionPath ?? []) : [];
   const mapHistoryPath = activeView === "history" ? historyPath : [];
@@ -978,7 +1005,7 @@ export default function DashboardShell() {
     >
       <MapCanvas
         buggies={mapBuggies}
-        haltes={HALTE_LOCATIONS}
+        haltes={activeHaltes}
         routePath={mapRoutePath}
         mapStyle={settings.mapStyle}
         directionPath={mapDirectionPath}
@@ -1085,6 +1112,7 @@ export default function DashboardShell() {
 
       <BuggyList
         buggies={visibleBuggies}
+        haltes={canManageDashboard ? haltes : activeHaltes}
         panelOpen={panelOpen}
         activeView={activeView}
         onClose={() => setPanelOpen(false)}
@@ -1094,6 +1122,7 @@ export default function DashboardShell() {
         onSelectBuggy={handleSelectBuggy}
         onSelectHalte={handleSelectHalte}
         onClearSelectedHalte={handleClearSelectedHalte}
+        onHaltesChanged={loadHaltes}
         directionResult={directionResult}
         onCloseDirection={() => setDirectionResult(null)}
         canFavorite={permissions.canUseFavorites && canFavorite && favoritesReady}

@@ -85,6 +85,7 @@ export function buildHalteIcon(
     url: encodeSvg(svg),
     scaledSize: new maps.Size(pixelSize, pixelSize),
     anchor: new maps.Point(pixelSize / 2, pixelSize / 2),
+    labelOrigin: new maps.Point(pixelSize / 2, pixelSize + 10),
   };
 }
 
