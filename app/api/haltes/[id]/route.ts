@@ -20,6 +20,7 @@ type HalteRow = {
   lng: number;
   sort_order: number;
   is_active: boolean;
+  is_optional: boolean;
   schedule: string[] | null;
   facilities: string[] | null;
 };
@@ -31,7 +32,7 @@ async function reloadHalteRuntime() {
 
   const { data } = await supabase
     .from("haltes")
-    .select("id, name, lat, lng, sort_order, is_active, schedule, facilities")
+    .select("id, name, lat, lng, sort_order, is_active, is_optional, schedule, facilities")
     .eq("is_active", true)
     .order("sort_order", { ascending: true });
 
@@ -44,6 +45,7 @@ async function reloadHalteRuntime() {
       schedule: Array.isArray(row.schedule) ? row.schedule : undefined,
       facilities: Array.isArray(row.facilities) ? row.facilities : undefined,
       isActive: row.is_active,
+      isOptional: row.is_optional,
       sortOrder: row.sort_order,
     }));
     setHalteLocations(haltes);
@@ -61,7 +63,16 @@ export async function PUT(
   try {
     const { id } = await params;
     const body = await request.json();
-    const { name, lat, lng, sort_order, is_active, schedule, facilities } = body;
+    const {
+      name,
+      lat,
+      lng,
+      sort_order,
+      is_active,
+      is_optional,
+      schedule,
+      facilities,
+    } = body;
 
     const supabase = createAdminClient();
     if (!supabase) {
@@ -77,6 +88,7 @@ export async function PUT(
     if (lng !== undefined) updatePayload.lng = lng;
     if (sort_order !== undefined) updatePayload.sort_order = sort_order;
     if (is_active !== undefined) updatePayload.is_active = is_active;
+    if (is_optional !== undefined) updatePayload.is_optional = is_optional;
     if (schedule !== undefined) updatePayload.schedule = Array.isArray(schedule) ? schedule : null;
     if (facilities !== undefined) updatePayload.facilities = Array.isArray(facilities) ? facilities : null;
 

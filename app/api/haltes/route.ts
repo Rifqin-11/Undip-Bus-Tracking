@@ -30,7 +30,7 @@ export async function GET() {
 
   const { data, error } = await supabase
     .from("haltes")
-    .select("id, name, lat, lng, sort_order, is_active, schedule, facilities")
+    .select("id, name, lat, lng, sort_order, is_active, is_optional, schedule, facilities")
     .order("sort_order", { ascending: true });
 
   if (error || !data) {
@@ -46,6 +46,7 @@ export async function GET() {
     lng: number;
     sort_order: number;
     is_active: boolean;
+    is_optional: boolean;
     schedule: string[] | null;
     facilities: string[] | null;
   };
@@ -58,6 +59,7 @@ export async function GET() {
     schedule: Array.isArray(row.schedule) ? row.schedule : undefined,
     facilities: Array.isArray(row.facilities) ? row.facilities : undefined,
     isActive: row.is_active,
+    isOptional: row.is_optional,
     sortOrder: row.sort_order,
   }));
 
@@ -73,7 +75,17 @@ export async function POST(request: Request) {
 
   try {
     const body = await request.json();
-    const { id, name, lat, lng, sort_order, schedule, facilities, is_active } = body;
+    const {
+      id,
+      name,
+      lat,
+      lng,
+      sort_order,
+      schedule,
+      facilities,
+      is_active,
+      is_optional,
+    } = body;
 
     if (!id || !name || typeof lat !== "number" || typeof lng !== "number") {
       return NextResponse.json({ error: "Data halte tidak lengkap" }, { status: 400 });
@@ -93,6 +105,7 @@ export async function POST(request: Request) {
         lng,
         sort_order: sort_order ?? 99,
         is_active: is_active !== false,
+        is_optional: is_optional === true,
         schedule: Array.isArray(schedule) ? schedule : null,
         facilities: Array.isArray(facilities) ? facilities : null,
       })
@@ -119,14 +132,14 @@ async function reloadHalteRuntime() {
 
   const { data } = await supabase
     .from("haltes")
-    .select("id, name, lat, lng, sort_order, is_active, schedule, facilities")
+    .select("id, name, lat, lng, sort_order, is_active, is_optional, schedule, facilities")
     .eq("is_active", true)
     .order("sort_order", { ascending: true });
 
   if (data && data.length > 0) {
     type HalteRow = {
       id: string; name: string; lat: number; lng: number;
-      sort_order: number; is_active: boolean;
+      sort_order: number; is_active: boolean; is_optional: boolean;
       schedule: string[] | null; facilities: string[] | null;
     };
     const haltes: HaltePoint[] = (data as HalteRow[]).map((row) => ({
@@ -137,6 +150,7 @@ async function reloadHalteRuntime() {
       schedule: Array.isArray(row.schedule) ? row.schedule : undefined,
       facilities: Array.isArray(row.facilities) ? row.facilities : undefined,
       isActive: row.is_active,
+      isOptional: row.is_optional,
     }));
     setHalteLocations(haltes);
   }

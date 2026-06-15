@@ -28,6 +28,7 @@ export function AdminHalteFormPanel({
   const [lng, setLng] = useState("");
   const [sortOrder, setSortOrder] = useState("");
   const [isActive, setIsActive] = useState(true);
+  const [isOptional, setIsOptional] = useState(false);
   const [schedule, setSchedule] = useState<string[]>([]);
   const [newTime, setNewTime] = useState("");
   const [facilities, setFacilities] = useState<string[]>([]);
@@ -45,6 +46,7 @@ export function AdminHalteFormPanel({
       setLng(halte.lng.toString());
       setSortOrder(halte.sortOrder?.toString() || "");
       setIsActive(halte.isActive !== false);
+      setIsOptional(halte.isOptional === true);
       setSchedule(halte.schedule ?? []);
       setFacilities(halte.facilities ?? []);
     } else {
@@ -53,6 +55,7 @@ export function AdminHalteFormPanel({
       setLng("");
       setSortOrder("");
       setIsActive(true);
+      setIsOptional(false);
       setSchedule([]);
       setFacilities([]);
     }
@@ -117,6 +120,7 @@ export function AdminHalteFormPanel({
         lng: parsedLng,
         sort_order: parsedSort,
         is_active: isActive,
+        is_optional: isOptional,
         schedule: schedule.length > 0 ? schedule : null,
         facilities: facilities.length > 0 ? facilities : null,
       };
@@ -266,6 +270,28 @@ export function AdminHalteFormPanel({
             >
               <span
                 className={`absolute top-0.5 left-0.5 h-6 w-6 rounded-full bg-white shadow-sm transition-transform duration-200 ${isActive ? "translate-x-5" : "translate-x-0"}`}
+              />
+            </button>
+          </div>
+
+          <div className="flex items-center justify-between rounded-xl border border-slate-200 bg-white px-3 py-3">
+            <div className="pr-3">
+              <p className="text-[13px] font-semibold text-slate-700">
+                Halte opsional
+              </p>
+              <p className="text-[11px] text-slate-400">
+                Armada dapat melewati halte ini sesuai kondisi operasional.
+              </p>
+            </div>
+            <button
+              type="button"
+              role="switch"
+              aria-checked={isOptional}
+              onClick={() => setIsOptional((value) => !value)}
+              className={`relative h-7 w-12 shrink-0 rounded-full transition-colors duration-200 ${isOptional ? "bg-amber-500" : "bg-slate-300"}`}
+            >
+              <span
+                className={`absolute top-0.5 left-0.5 h-6 w-6 rounded-full bg-white shadow-sm transition-transform duration-200 ${isOptional ? "translate-x-5" : "translate-x-0"}`}
               />
             </button>
           </div>

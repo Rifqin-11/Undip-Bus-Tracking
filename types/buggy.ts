@@ -61,6 +61,8 @@ export type HaltePoint = {
   facilities?: string[];
   /** Status aktif/nonaktif (default true) */
   isActive?: boolean;
+  /** Halte dapat dilewati armada sesuai kondisi operasional. */
+  isOptional?: boolean;
   /** Urutan rute halte */
   sortOrder?: number;
 };

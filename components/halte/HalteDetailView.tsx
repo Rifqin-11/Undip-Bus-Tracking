@@ -3,6 +3,7 @@
 import Image from "next/image";
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { AlertTriangle } from "lucide-react";
 import type { HaltePoint, Buggy } from "@/types/buggy";
 import {
   BusStopIcon,
@@ -59,6 +60,10 @@ const LOCAL_HALTE_IMAGES: Array<{
   {
     patterns: ["student center"],
     src: "/halte/Halte Student Center.png",
+  },
+  {
+    patterns: ["bundaran undip"],
+    src: "/halte/Halte Bundaran.png",
   },
 ];
 
@@ -146,6 +151,9 @@ export function HalteDetailView({
           t("defaultFacilityAccessible"),
         ];
   const mapsUrl = `https://www.google.com/maps/dir/?api=1&destination=${halte.lat},${halte.lng}`;
+  const isOptionalStop =
+    halte.isOptional === true ||
+    normalizeHalteName(halte.name).includes("fakultas psikologi");
 
   // Lazy-load Street View: URL hanya diset setelah komponen mount (panel terbuka)
   const [imageUrl, setImageUrl] = useState<string | null>(null);
@@ -374,6 +382,20 @@ export function HalteDetailView({
             <span className="truncate">Maps</span>
           </a>
         </div>
+
+        {isOptionalStop ? (
+          <div className="mb-3 flex items-start gap-2.5 rounded-[18px] border border-amber-200 bg-amber-50/90 p-3 text-amber-950 shadow-sm">
+            <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-600" />
+            <div>
+              <p className="text-[12px] font-bold">Catatan rute</p>
+              <p className="mt-0.5 text-[11px] leading-relaxed text-amber-900/80">
+                Bus tidak selalu melewati Fakultas Psikologi karena rute dapat
+                menyesuaikan kondisi operasional. Untuk keberangkatan dari area
+                Psikologi, sebaiknya menuju halte SA-MWA &amp; FSM Barat.
+              </p>
+            </div>
+          </div>
+        ) : null}
 
         <div className="mb-3 grid grid-cols-2 gap-2">
           <div className="rounded-[20px] border border-white/60 bg-white/50 backdrop-blur-md p-3 shadow-sm">

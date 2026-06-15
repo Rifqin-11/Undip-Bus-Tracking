@@ -78,6 +78,7 @@ export const HALTE_LOCATIONS: HaltePoint[] = [
     name: "Fakultas Psikologi",
     lat: -7.04713778936035,
     lng: 110.43869200447789,
+    isOptional: true,
   },
   // {
   //   id: "h12",
