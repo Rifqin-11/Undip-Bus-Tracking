@@ -304,11 +304,11 @@ export function getBuggyCurrentRouteIndex(
   );
 
   const inferredCurrentName =
-    (haltes[halteIndex] && stops.includes(haltes[halteIndex].name)
-      ? haltes[halteIndex].name
-      : null) ??
     (sourceStops[sourceIndex] && stops.includes(sourceStops[sourceIndex])
       ? sourceStops[sourceIndex]
+      : null) ??
+    (haltes[halteIndex] && stops.includes(haltes[halteIndex].name)
+      ? haltes[halteIndex].name
       : null);
 
   const currentIndex = inferredCurrentName
@@ -330,8 +330,16 @@ export function estimateMinutesBetweenStops(
   fromStopName: string,
   toStopName: string,
   speedKmh: number,
+  haltes?: HaltePoint[],
 ): number {
-  const halteByName = getHalteByName();
+  const halteByName = haltes
+    ? new Map(
+        haltes.map((halte) => [
+          halte.name,
+          { lat: halte.lat, lng: halte.lng },
+        ]),
+      )
+    : getHalteByName();
   const from = halteByName.get(fromStopName);
   const to = halteByName.get(toStopName);
   if (!from || !to) return 2;

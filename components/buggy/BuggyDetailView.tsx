@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Info } from "lucide-react";
-import type { Buggy } from "@/types/buggy";
+import type { Buggy, HaltePoint } from "@/types/buggy";
 import { ChevronLeftIcon } from "@/components/ui/Icons";
 import { useLocale } from "@/lib/i18n/client";
 import { getApnConnectionState } from "@/lib/buggy/gsm-status";
@@ -14,7 +14,6 @@ import {
 import {
   estimateMinutesBetweenStops,
   getBuggyCurrentRouteIndex,
-  getBuggyStopsInRouteOrder,
 } from "@/lib/transit/buggy-route-utils";
 
 function formatClock(date: Date, locale: string): string {
@@ -29,12 +28,14 @@ function formatClock(date: Date, locale: string): string {
 
 type BuggyDetailViewProps = {
   buggy: Buggy;
+  haltes: HaltePoint[];
   onBack: () => void;
   showApnStatus?: boolean;
 };
 
 export function BuggyDetailView({
   buggy,
+  haltes,
   onBack,
   showApnStatus = false,
 }: BuggyDetailViewProps) {
@@ -43,7 +44,8 @@ export function BuggyDetailView({
   const [passengerInfoPinned, setPassengerInfoPinned] = useState(false);
   const [passengerInfoPreview, setPassengerInfoPreview] = useState(false);
   const now = new Date();
-  const stops = getBuggyStopsInRouteOrder(buggy);
+  const activeHaltes = haltes.filter((halte) => halte.isActive !== false);
+  const stops = activeHaltes.map((halte) => halte.name);
   const apnState = getApnConnectionState(buggy);
   const connectionTone = getBuggyConnectionTone(buggy.connectionStatus);
   const shouldShowApn = showApnStatus && Boolean(buggy.gsm?.apn);
@@ -51,7 +53,7 @@ export function BuggyDetailView({
 
   if (!stops.length) return null;
 
-  const currentIndex = getBuggyCurrentRouteIndex(buggy, stops);
+  const currentIndex = getBuggyCurrentRouteIndex(buggy, stops, activeHaltes);
 
   const firstArrivalMinutes = Math.max(1, buggy.etaMinutes);
   const safeSpeedKmh = Math.max(5, buggy.speedKmh);
@@ -70,6 +72,7 @@ export function BuggyDetailView({
           stops[fromIndex],
           stops[toIndex],
           safeSpeedKmh,
+          activeHaltes,
         );
       }
     }

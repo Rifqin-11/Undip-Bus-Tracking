@@ -215,6 +215,7 @@ export function BuggyList({
       {activeView === "buggy" && buggyViewMode === "detail" && selectedBuggy ? (
         <BuggyDetailView
           buggy={selectedBuggy}
+          haltes={haltes}
           onBack={() => setBuggyViewMode("list")}
           showApnStatus={showApnStatus}
         />
