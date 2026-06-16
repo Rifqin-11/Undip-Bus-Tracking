@@ -17,22 +17,6 @@ import {
 import { FavoriteStar } from "@/components/ui/FavoriteStar";
 import { isBuggyRealtimeReachable } from "@/lib/buggy/connection-status";
 
-function generateSchedule(halteId: string): string[] {
-  const baseHour = 7;
-  const offset = parseInt(halteId.replace(/\D/g, ""), 10) * 3;
-  const schedule: string[] = [];
-
-  for (let i = 0; i < 8; i += 1) {
-    const hour = baseHour + Math.floor((offset + i * 45) / 60);
-    const minute = (offset + i * 45) % 60;
-    schedule.push(
-      `${hour.toString().padStart(2, "0")}:${minute.toString().padStart(2, "0")}`,
-    );
-  }
-
-  return schedule;
-}
-
 const GMAPS_KEY = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY ?? "";
 
 type HalteImageType = "local" | "streetview" | "satellite";
@@ -42,24 +26,64 @@ const LOCAL_HALTE_IMAGES: Array<{
   src: string;
 }> = [
   {
-    patterns: ["fakultas ekonomika", "feb"],
-    src: "/halte/Halte FEB.png",
-  },
-  {
-    patterns: ["fisip", "sosial", "politik"],
-    src: "/halte/Halte Fisip.png",
-  },
-  {
-    patterns: ["hukum"],
-    src: "/halte/Halte Hukum.png",
-  },
-  {
     patterns: ["rusunawa"],
     src: "/halte/Halte Rusunawa.png",
   },
   {
+    patterns: ["masjid hijau"],
+    src: "/halte/Halte masjid hijau.png",
+  },
+  {
+    patterns: ["pos satpam"],
+    src: "/halte/Halte pos satpam.png",
+  },
+  {
     patterns: ["student center"],
-    src: "/halte/Halte Student Center.png",
+    src: "/halte/Halte SC.png",
+  },
+  {
+    patterns: ["arsitektur"],
+    src: "/halte/Halte arsi.png",
+  },
+  {
+    patterns: ["hukum"],
+    src: "/halte/Halte FH.png",
+  },
+  {
+    patterns: ["vokasi", "FIB"],
+    src: "/halte/Halte vokasi.png",
+  },
+  {
+    patterns: ["widya", "puraya"],
+    src: "/halte/Halte widya puraya.png",
+  },
+  {
+    patterns: ["elektro", "FT"],
+    src: "/halte/Halte elektro.png",
+  },
+  {
+    patterns: ["sa-mwa", "barat"],
+    src: "/halte/Halte Samwa.png",
+  },
+  {
+    patterns: ["fakultas ekonomika", "feb"],
+    src: "/halte/Halte FEB.png",
+  },
+  {
+    patterns: ["fkm", "kesehatan"],
+    src: "/halte/Halte FKM.png",
+  },
+  {
+    patterns: ["fpik", "perikanan"],
+    src: "/halte/Halte FPIK.png",
+  },
+  {
+    patterns: ["fpp", "peternakan"],
+    src: "/halte/Halte FPP.png",
+  },
+  {
+    patterns: ["upt", "terpadu"],
+    src: "/halte/Halte UPT.png",
   },
   {
     patterns: ["bundaran undip"],
@@ -141,7 +165,7 @@ export function HalteDetailView({
   const schedule =
     halte.schedule && halte.schedule.length > 0
       ? halte.schedule
-      : generateSchedule(halte.id);
+      : null;
   const facilities =
     halte.facilities && halte.facilities.length > 0
       ? halte.facilities
@@ -421,33 +445,46 @@ export function HalteDetailView({
         </div>
       </div>
 
-      <div className="mt-3 rounded-[20px] border border-white/60 bg-white/70 backdrop-blur-md p-3.5 shadow-sm">
-        <div className="mb-3 flex items-center justify-between">
-          <p className="text-[14px] font-bold text-slate-800 tracking-tight">
-            {t("todaySchedule")}
+      {schedule && schedule.length > 0 ? (
+        <div className="mt-3 rounded-[20px] border border-white/60 bg-white/70 backdrop-blur-md p-3.5 shadow-sm">
+          <div className="mb-3 flex items-center justify-between">
+            <p className="text-[14px] font-bold text-slate-800 tracking-tight">
+              {t("todaySchedule")}
+            </p>
+            <span className="rounded-lg bg-emerald-100 px-2 py-0.5 text-[10px] font-bold tracking-wide text-emerald-700">
+              {tCommon("active").toUpperCase()}
+            </span>
+          </div>
+
+          <div className="grid grid-cols-3 gap-2 min-[420px]:grid-cols-4">
+            {schedule.map((time, idx) => (
+              <div
+                key={idx}
+                className="flex items-center justify-center rounded-xl border border-white/80 bg-white/80 py-1.5 shadow-sm transition hover:bg-white"
+              >
+                <span className="font-mono text-[12px] font-bold text-slate-700">
+                  {time}
+                </span>
+              </div>
+            ))}
+          </div>
+
+          <p className="mt-3 text-center text-[10px] font-medium leading-relaxed text-slate-500">
+            {t("scheduleDisclaimer")}
           </p>
-          <span className="rounded-lg bg-emerald-100 px-2 py-0.5 text-[10px] font-bold tracking-wide text-emerald-700">
-            {tCommon("active").toUpperCase()}
-          </span>
         </div>
-
-        <div className="grid grid-cols-3 gap-2 min-[420px]:grid-cols-4">
-          {schedule.map((time, idx) => (
-            <div
-              key={idx}
-              className="flex items-center justify-center rounded-xl border border-white/80 bg-white/80 py-1.5 shadow-sm transition hover:bg-white"
-            >
-              <span className="font-mono text-[12px] font-bold text-slate-700">
-                {time}
-              </span>
-            </div>
-          ))}
+      ) : (
+        <div className="mt-3 rounded-[20px] border border-white/60 bg-white/70 backdrop-blur-md p-3.5 shadow-sm">
+          <div className="mb-3 flex items-center justify-between">
+            <p className="text-[14px] font-bold text-slate-800 tracking-tight">
+              {t("todaySchedule")}
+            </p>
+          </div>
+          <p className="text-center text-[12px] font-medium text-slate-400 py-4">
+            {t("noSchedule")}
+          </p>
         </div>
-
-        <p className="mt-3 text-center text-[10px] font-medium leading-relaxed text-slate-500">
-          {t("scheduleDisclaimer")}
-        </p>
-      </div>
+      )}
 
       <div className="mt-3 rounded-[20px] border border-white/60 bg-white/70 backdrop-blur-md p-3.5 shadow-sm">
         <p className="mb-2.5 text-[13px] font-bold text-slate-800 tracking-tight">

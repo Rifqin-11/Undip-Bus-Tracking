@@ -15,13 +15,22 @@ type TrackStatus = "idle" | "requesting" | "tracking" | "error";
 type MqttStatus = "disconnected" | "connecting" | "connected" | "publishing" | "error";
 
 type LatLng = { lat: number; lng: number };
-type HaltePoint = { id: string; name: string; lat: number; lng: number };
+type HaltePoint = { id: string; name: string; lat: number; lng: number; isOptional?: boolean; isActive?: boolean };
 type BuggyOption = {
   id: string;
   numericId: number;
   name: string;
   code: string;
   capacity: number;
+};
+type ResolvedDeviceAssignment = {
+  id: string;
+  devicesId: string;
+  buggyId: string;
+  buggyCode: string | null;
+  buggyName: string | null;
+  buggyNumericId: number | null;
+  label: string | null;
 };
 type DeviceCoords = LatLng & {
   accuracy: number;
@@ -31,6 +40,7 @@ type DeviceCoords = LatLng & {
 };
 type SimulatedVehicle = {
   buggyId: number;
+  id: string;
   name: string;
   code: string;
   capacity: number;
@@ -39,9 +49,21 @@ type SimulatedVehicle = {
   passengers: number;
   speedKmh: number;
   sessionStarted: boolean;
+  devicesId?: string;
+  gsm?: {
+    apn: string;
+    signalPercent: number;
+    networkConnected: boolean;
+    gprsConnected: boolean;
+    simStatusText: string;
+    localIp: string;
+    networkType: string;
+    mqttStateText: string;
+  };
 };
 type TelemetryPayload = {
   buggyId: number;
+  devicesId?: string;
   lat: number;
   lng: number;
   speedKmh: number;
@@ -56,6 +78,20 @@ type TelemetryPayload = {
   sessionEnd?: boolean;
   timestamp: string;
   source: "gps-tracker";
+  gsm?: {
+    apn?: string;
+    signalCsq?: number;
+    signalDbm?: number;
+    signalPercent?: number;
+    simStatus?: number;
+    simStatusText?: string;
+    networkConnected?: boolean;
+    gprsConnected?: boolean;
+    localIp?: string;
+    networkType?: string;
+    mqttState?: number;
+    mqttStateText?: string;
+  };
 };
 
 type MqttModule = {
@@ -164,6 +200,7 @@ function createVehicle(
 ): SimulatedVehicle {
   return {
     buggyId: option.numericId,
+    id: option.id,
     name: option.name,
     code: option.code,
     capacity: option.capacity,
@@ -196,6 +233,19 @@ export default function GpsTrackerPage() {
   const [deviceBattery, setDeviceBattery] = useState(92);
   const [devicePassengers, setDevicePassengers] = useState(2);
 
+  // GSM & Device assignments states
+  const [deviceAssignments, setDeviceAssignments] = useState<ResolvedDeviceAssignment[]>([]);
+  const [simulateGsm, setSimulateGsm] = useState(true);
+  const [deviceIdInput, setDeviceIdInput] = useState("");
+  const [gsmApn, setGsmApn] = useState("Internet");
+  const [gsmSignalPercent, setGsmSignalPercent] = useState(85);
+  const [gsmSimStatusText, setGsmSimStatusText] = useState("SIM_READY");
+  const [gsmNetworkConnected, setGsmNetworkConnected] = useState(true);
+  const [gsmGprsConnected, setGsmGprsConnected] = useState(true);
+  const [gsmLocalIp, setGsmLocalIp] = useState("10.122.45.18");
+  const [gsmNetworkType, setGsmNetworkType] = useState("GSM_GPRS");
+  const [gsmMqttStateText, setGsmMqttStateText] = useState("MQTT_CONNECTED");
+
   const mqttClientRef = useRef<MqttClient | null>(null);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const watchIdRef = useRef<number | null>(null);
@@ -205,6 +255,28 @@ export default function GpsTrackerPage() {
   const devicePassengersRef = useRef(devicePassengers);
   const vehiclesRef = useRef<SimulatedVehicle[]>([]);
 
+  // Refs for GSM/Device inputs to maintain safe callback access
+  const simulateGsmRef = useRef(simulateGsm);
+  const deviceIdInputRef = useRef(deviceIdInput);
+  const gsmApnRef = useRef(gsmApn);
+  const gsmSignalPercentRef = useRef(gsmSignalPercent);
+  const gsmSimStatusTextRef = useRef(gsmSimStatusText);
+  const gsmNetworkConnectedRef = useRef(gsmNetworkConnected);
+  const gsmGprsConnectedRef = useRef(gsmGprsConnected);
+  const gsmLocalIpRef = useRef(gsmLocalIp);
+  const gsmNetworkTypeRef = useRef(gsmNetworkType);
+  const gsmMqttStateTextRef = useRef(gsmMqttStateText);
+
+  useEffect(() => { simulateGsmRef.current = simulateGsm; }, [simulateGsm]);
+  useEffect(() => { deviceIdInputRef.current = deviceIdInput; }, [deviceIdInput]);
+  useEffect(() => { gsmApnRef.current = gsmApn; }, [gsmApn]);
+  useEffect(() => { gsmSignalPercentRef.current = gsmSignalPercent; }, [gsmSignalPercent]);
+  useEffect(() => { gsmSimStatusTextRef.current = gsmSimStatusText; }, [gsmSimStatusText]);
+  useEffect(() => { gsmNetworkConnectedRef.current = gsmNetworkConnected; }, [gsmNetworkConnected]);
+  useEffect(() => { gsmGprsConnectedRef.current = gsmGprsConnected; }, [gsmGprsConnected]);
+  useEffect(() => { gsmLocalIpRef.current = gsmLocalIp; }, [gsmLocalIp]);
+  useEffect(() => { gsmNetworkTypeRef.current = gsmNetworkType; }, [gsmNetworkType]);
+  useEffect(() => { gsmMqttStateTextRef.current = gsmMqttStateText; }, [gsmMqttStateText]);
   const mqttBrokerUrl =
     process.env.NEXT_PUBLIC_MQTT_BROKER_WS_URL ?? "ws://localhost:9001";
   const mqttTopicPrefix = process.env.NEXT_PUBLIC_MQTT_TOPIC_PREFIX ?? "buggy";
@@ -222,6 +294,16 @@ export default function GpsTrackerPage() {
       },
     [buggyOptions, selectedBuggyId],
   );
+
+  // Auto-populate Device ID when selected buggy or assignments change
+  useEffect(() => {
+    const ass = deviceAssignments.find((a) => a.buggyId === selectedBuggy.id);
+    if (ass) {
+      setDeviceIdInput(ass.devicesId);
+    } else {
+      setDeviceIdInput(`ESP-${selectedBuggy.code}`);
+    }
+  }, [selectedBuggy, deviceAssignments]);
 
   const sortedHaltes = useMemo(
     () =>
@@ -274,6 +356,21 @@ export default function GpsTrackerPage() {
         }
       })
       .catch(() => addLog("Gagal memuat data buggy"));
+
+    fetch("/api/admin/device-assignments")
+      .then((response) => {
+        if (!response.ok) throw new Error();
+        return response.json();
+      })
+      .then((data) => {
+        if (data && Array.isArray(data.assignments)) {
+          setDeviceAssignments(data.assignments);
+          addLog(`Berhasil memuat ${data.assignments.length} assignment device`);
+        }
+      })
+      .catch(() => {
+        addLog("Info: Device assignments tidak dapat dimuat (memerlukan login admin). Menggunakan manual input.");
+      });
   }, [addLog]);
 
   useEffect(() => {
@@ -388,26 +485,55 @@ export default function GpsTrackerPage() {
         sessionStart?: boolean;
         sessionEnd?: boolean;
       },
-    ): TelemetryPayload => ({
-      buggyId: vehicle.buggyId,
-      lat: Number(position.lat.toFixed(7)),
-      lng: Number(position.lng.toFixed(7)),
-      speedKmh: Number(vehicle.speedKmh.toFixed(2)),
-      heading:
-        typeof options?.heading === "number"
-          ? Math.round(options.heading)
-          : null,
-      altitude: options?.altitude ?? null,
-      accuracy: Math.round(options?.accuracy ?? 8),
-      batteryLevel: Math.round(clampNumber(vehicle.batteryLevel, 0, 100)),
-      passengers: Math.round(clampNumber(vehicle.passengers, 0, vehicle.capacity)),
-      capacity: vehicle.capacity,
-      etaMinutes: Math.max(1, Math.round(options?.etaMinutes ?? 5)),
-      sessionStart: options?.sessionStart || undefined,
-      sessionEnd: options?.sessionEnd || undefined,
-      timestamp: new Date().toISOString(),
-      source: "gps-tracker",
-    }),
+    ): TelemetryPayload => {
+      const payload: TelemetryPayload = {
+        buggyId: vehicle.buggyId,
+        lat: Number(position.lat.toFixed(7)),
+        lng: Number(position.lng.toFixed(7)),
+        speedKmh: Number(vehicle.speedKmh.toFixed(2)),
+        heading:
+          typeof options?.heading === "number"
+            ? Math.round(options.heading)
+            : null,
+        altitude: options?.altitude ?? null,
+        accuracy: Math.round(options?.accuracy ?? 8),
+        batteryLevel: Math.round(clampNumber(vehicle.batteryLevel, 0, 100)),
+        passengers: Math.round(clampNumber(vehicle.passengers, 0, vehicle.capacity)),
+        capacity: vehicle.capacity,
+        etaMinutes: Math.max(1, Math.round(options?.etaMinutes ?? 5)),
+        sessionStart: options?.sessionStart || undefined,
+        sessionEnd: options?.sessionEnd || undefined,
+        timestamp: new Date().toISOString(),
+        source: "gps-tracker",
+      };
+
+      if (vehicle.devicesId) {
+        payload.devicesId = vehicle.devicesId;
+      }
+
+      if (vehicle.gsm) {
+        const pct = vehicle.gsm.signalPercent;
+        const csq = Math.round((pct / 100) * 31);
+        const dbm = Math.round(-113 + (pct / 100) * 62);
+
+        payload.gsm = {
+          apn: vehicle.gsm.apn,
+          signalPercent: pct,
+          signalCsq: csq,
+          signalDbm: dbm,
+          simStatus: vehicle.gsm.simStatusText === "SIM_READY" ? 1 : 0,
+          simStatusText: vehicle.gsm.simStatusText || "SIM_READY",
+          networkConnected: vehicle.gsm.networkConnected,
+          gprsConnected: vehicle.gsm.gprsConnected,
+          localIp: vehicle.gsm.localIp,
+          networkType: vehicle.gsm.networkType,
+          mqttState: vehicle.gsm.mqttStateText === "MQTT_CONNECTED" ? 4 : -1,
+          mqttStateText: vehicle.gsm.mqttStateText || "MQTT_CONNECTED",
+        };
+      }
+
+      return payload;
+    },
     [],
   );
 
@@ -428,6 +554,21 @@ export default function GpsTrackerPage() {
       speedKmh,
       sessionStarted: sessionStartedRef.current,
     };
+
+    if (simulateGsmRef.current) {
+      vehicle.devicesId = deviceIdInputRef.current.trim() || undefined;
+      vehicle.gsm = {
+        apn: gsmApnRef.current,
+        signalPercent: gsmSignalPercentRef.current,
+        networkConnected: gsmNetworkConnectedRef.current,
+        gprsConnected: gsmGprsConnectedRef.current,
+        simStatusText: gsmSimStatusTextRef.current,
+        localIp: gsmLocalIpRef.current,
+        networkType: gsmNetworkTypeRef.current,
+        mqttStateText: gsmMqttStateTextRef.current,
+      };
+    }
+
     const payload = buildPayload(
       vehicle,
       useGps ? coords : routeState.position,
@@ -512,7 +653,25 @@ export default function GpsTrackerPage() {
     const targets =
       trackerMode === "fleet"
         ? vehiclesRef.current
-        : [createVehicle(selectedBuggy, 0)];
+        : [
+            (() => {
+              const v = createVehicle(selectedBuggy, 0);
+              if (simulateGsmRef.current) {
+                v.devicesId = deviceIdInputRef.current.trim() || undefined;
+                v.gsm = {
+                  apn: gsmApnRef.current,
+                  signalPercent: gsmSignalPercentRef.current,
+                  networkConnected: gsmNetworkConnectedRef.current,
+                  gprsConnected: gsmGprsConnectedRef.current,
+                  simStatusText: gsmSimStatusTextRef.current,
+                  localIp: gsmLocalIpRef.current,
+                  networkType: gsmNetworkTypeRef.current,
+                  mqttStateText: gsmMqttStateTextRef.current,
+                };
+              }
+              return v;
+            })(),
+          ];
 
     for (const target of targets) {
       const routeState = resolveRoutePosition(
@@ -551,9 +710,24 @@ export default function GpsTrackerPage() {
       if (trackerMode === "fleet") {
         const options = buggyOptions.length > 0 ? buggyOptions : [selectedBuggy];
         const selectedOptions = options.slice(0, fleetCount);
-        const selected = selectedOptions.map((option, index) =>
-          createVehicle(option, index, selectedOptions.length),
-        );
+        const selected = selectedOptions.map((option, index) => {
+          const v = createVehicle(option, index, selectedOptions.length);
+          const ass = deviceAssignments.find((a) => a.buggyId === option.id);
+          return {
+            ...v,
+            devicesId: ass ? ass.devicesId : `ESP-${option.code}`,
+            gsm: {
+              apn: "Internet",
+              signalPercent: Math.round(80 + Math.random() * 15),
+              networkConnected: true,
+              gprsConnected: true,
+              simStatusText: "SIM_READY",
+              localIp: `10.122.45.${20 + index}`,
+              networkType: "GSM_GPRS",
+              mqttStateText: "MQTT_CONNECTED",
+            },
+          };
+        });
         setVehicles(selected);
         vehiclesRef.current = selected;
         await tickFleet();
@@ -598,6 +772,7 @@ export default function GpsTrackerPage() {
     addLog,
     buggyOptions,
     connectMqtt,
+    deviceAssignments,
     fleetCount,
     intervalMs,
     positionSource,
@@ -695,6 +870,113 @@ export default function GpsTrackerPage() {
                       onChange={(event) => setDeviceBattery(Number(event.target.value))}
                     />
                   </Field>
+
+                  <div style={{ gridColumn: "1 / -1", display: "flex", alignItems: "center", gap: 8, margin: "6px 0" }}>
+                    <input
+                      type="checkbox"
+                      id="simulateGsm"
+                      checked={simulateGsm}
+                      onChange={(e) => setSimulateGsm(e.target.checked)}
+                      style={{ accentColor: "#38bdf8", cursor: "pointer" }}
+                    />
+                    <label htmlFor="simulateGsm" style={{ ...S.label, cursor: "pointer" }}>
+                      Simulasikan Identitas Device & Modul GSM (SIM800L)
+                    </label>
+                  </div>
+
+                  {simulateGsm ? (
+                    <div style={S.subCard}>
+                      <Field label="ID Perangkat (Device ID)">
+                        <input
+                          style={S.input}
+                          value={deviceIdInput}
+                          onChange={(e) => setDeviceIdInput(e.target.value)}
+                          placeholder="e.g. ESP-3C124B00"
+                        />
+                      </Field>
+                      <Field label="APN Operator">
+                        <input
+                          style={S.input}
+                          value={gsmApn}
+                          onChange={(e) => setGsmApn(e.target.value)}
+                          placeholder="e.g. Internet"
+                        />
+                      </Field>
+                      <Field label={`Kuat Sinyal GSM: ${gsmSignalPercent}%`}>
+                        <input
+                          type="range"
+                          min={0}
+                          max={100}
+                          value={gsmSignalPercent}
+                          onChange={(e) => setGsmSignalPercent(Number(e.target.value))}
+                          style={{ width: "100%", accentColor: "#38bdf8" }}
+                        />
+                      </Field>
+                      <Field label="Status Kartu SIM">
+                        <select
+                          style={S.input}
+                          value={gsmSimStatusText}
+                          onChange={(e) => setGsmSimStatusText(e.target.value)}
+                        >
+                          <option value="SIM_READY">SIM Ready</option>
+                          <option value="SIM_NOT_INSERTED">SIM Not Inserted</option>
+                          <option value="SIM_PIN_REQUIRED">SIM PIN Required</option>
+                        </select>
+                      </Field>
+                      <Field label="Status MQTT Client">
+                        <select
+                          style={S.input}
+                          value={gsmMqttStateText}
+                          onChange={(e) => setGsmMqttStateText(e.target.value)}
+                        >
+                          <option value="MQTT_CONNECTED">MQTT Connected</option>
+                          <option value="MQTT_DISCONNECTED">MQTT Disconnected</option>
+                        </select>
+                      </Field>
+                      <Field label="IP Lokal Perangkat">
+                        <input
+                          style={S.input}
+                          value={gsmLocalIp}
+                          onChange={(e) => setGsmLocalIp(e.target.value)}
+                          placeholder="e.g. 10.122.45.18"
+                        />
+                      </Field>
+                      <Field label="Tipe Jaringan">
+                        <input
+                          style={S.input}
+                          value={gsmNetworkType}
+                          onChange={(e) => setGsmNetworkType(e.target.value)}
+                          placeholder="e.g. GSM_GPRS"
+                        />
+                      </Field>
+                      <div style={{ display: "flex", gap: 14, alignItems: "center", marginTop: 8, gridColumn: "1 / -1" }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                          <input
+                            type="checkbox"
+                            id="gsmNetworkConnected"
+                            checked={gsmNetworkConnected}
+                            onChange={(e) => setGsmNetworkConnected(e.target.checked)}
+                            style={{ accentColor: "#38bdf8", cursor: "pointer" }}
+                          />
+                          <label htmlFor="gsmNetworkConnected" style={{ ...S.label, cursor: "pointer" }}>
+                            GSM Connected
+                          </label>
+                        </div>
+                        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                          <input
+                            type="checkbox"
+                            id="gsmGprsConnected"
+                            checked={gsmGprsConnected}
+                            onChange={(e) => setGsmGprsConnected(e.target.checked)}
+                            style={{ accentColor: "#38bdf8", cursor: "pointer" }}
+                          />
+                          <label htmlFor="gsmGprsConnected" style={{ ...S.label, cursor: "pointer" }}>
+                            GPRS Connected
+                          </label>
+                        </div>
+                      </div>
+                    </div>
+                  ) : null}
                 </>
               ) : (
                 <Field label={`Jumlah armada: ${fleetCount}`}>
@@ -1017,5 +1299,16 @@ const S: Record<string, React.CSSProperties> = {
     color: "#94a3b8",
     fontFamily: "ui-monospace,SFMono-Regular,Menlo,monospace",
     fontSize: 11,
+  },
+  subCard: {
+    background: "rgba(0,0,0,.2)",
+    border: "1px solid rgba(255,255,255,.05)",
+    borderRadius: 12,
+    padding: "12px 14px",
+    marginTop: 8,
+    gridColumn: "1 / -1",
+    display: "grid",
+    gridTemplateColumns: "repeat(auto-fit,minmax(180px,1fr))",
+    gap: 12,
   },
 };
