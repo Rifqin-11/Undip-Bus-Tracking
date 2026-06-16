@@ -470,12 +470,37 @@ export async function GET(request: NextRequest) {
     }
   }
 
-  // 2. Tarik semua data ping raw GPS yang terjadi SEJAK H-1 (untuk mencari sesi yang belum sempat tersimpan)
-  const yesterday = new Date(Date.now() - 24 * 3600 * 1000).toISOString();
-  
+  // 2. Tarik raw GPS sejak awal hari operasional (06:00 WIB = 23:00 UTC hari sebelumnya).
+  // Lebih hemat egress dibanding 24 jam penuh — sesi aktif yang belum tersimpan
+  // paling jauh dimulai sejak shift pagi hari ini, bukan kemarin.
+  // Jika sekarang masih sebelum 06:00 WIB, gunakan 06:00 WIB kemarin agar shift
+  // semalam tidak terpotong.
+  const WIB_OFFSET_MS = 7 * 60 * 60 * 1000; // UTC+7
+  const OPERATIONAL_START_HOUR_WIB = 6; // 06:00 WIB
+
+  const nowWib = new Date(Date.now() + WIB_OFFSET_MS);
+  const todayStart = new Date(
+    Date.UTC(
+      nowWib.getUTCFullYear(),
+      nowWib.getUTCMonth(),
+      nowWib.getUTCDate(),
+      OPERATIONAL_START_HOUR_WIB - 7, // konversi WIB → UTC: -7 jam
+      0,
+      0,
+      0,
+    ),
+  );
+
+  // Jika sekarang masih sebelum 06:00 WIB hari ini, mundur ke 06:00 WIB kemarin.
+  if (Date.now() < todayStart.getTime()) {
+    todayStart.setUTCDate(todayStart.getUTCDate() - 1);
+  }
+
+  const rawGpsSince = todayStart.toISOString();
+
   let rawPoints: Record<string, unknown>[] = [];
   try {
-    rawPoints = await fetchRecentHistoryRows(supabase, yesterday, buggyIdFilters);
+    rawPoints = await fetchRecentHistoryRows(supabase, rawGpsSince, buggyIdFilters);
   } catch (error) {
     return NextResponse.json(
       {
