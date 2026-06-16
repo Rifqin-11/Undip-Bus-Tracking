@@ -22,6 +22,11 @@ type HistoryPanelProps = {
     stopPoints?: HistoryStopPoint[],
   ) => void;
   readOnly?: boolean;
+  /**
+   * Fetch hanya berjalan jika enabled=true.
+   * Saat panel history tidak aktif, set ke false agar tidak fetch Supabase.
+   */
+  enabled?: boolean;
 };
 
 type ViewMode = "buggy-list" | "session-list" | "session-detail";
@@ -175,6 +180,7 @@ export function HistoryPanel({
   buggies,
   onShowPath,
   readOnly = false,
+  enabled = false,
 }: HistoryPanelProps) {
   const { t, i18n } = useTranslation("history");
   const [sessions, setSessions] = useState<BuggySession[]>([]);
@@ -202,13 +208,14 @@ export function HistoryPanel({
     );
   }, [i18n.language]);
 
-  const load = useCallback(async (silent = false) => {
+  const load = useCallback(async (silent = false, signal?: AbortSignal) => {
     if (silent) setRefreshing(true);
     else setLoading(true);
 
     try {
       const res = await fetch("/api/buggy-sessions?limit=200", {
         cache: "no-store",
+        signal,
       });
       if (res.status === 401 || res.status === 403) {
         redirectToLogin();
@@ -224,6 +231,7 @@ export function HistoryPanel({
       setSessions(Array.isArray(payload.sessions) ? payload.sessions : []);
       setError(null);
     } catch (err) {
+      if (err instanceof DOMException && err.name === "AbortError") return;
       setError(
         err instanceof Error ? err.message : t("failedLoad"),
       );
@@ -234,9 +242,17 @@ export function HistoryPanel({
     }
   }, [redirectToLogin, t]);
 
+  // Hanya fetch saat panel history benar-benar aktif (enabled=true).
   useEffect(() => {
-    void load();
-  }, [load]);
+    if (!enabled) return;
+
+    const controller = new AbortController();
+    void load(false, controller.signal);
+
+    return () => {
+      controller.abort();
+    };
+  }, [enabled, load]);
 
   // ── Derived data ───────────────────────────────────────────────────────────
 

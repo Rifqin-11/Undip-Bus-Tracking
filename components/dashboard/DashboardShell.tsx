@@ -1194,6 +1194,7 @@ export default function DashboardShell() {
           permissions.canViewHistory ? (
             <HistoryPanel
               buggies={visibleBuggies}
+              enabled={activeView === "history"}
               onShowPath={(path, stopPoints = []) => {
                 setHistoryPath(path);
                 setHistoryStopPoints(stopPoints);

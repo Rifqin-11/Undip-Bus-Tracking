@@ -1,9 +1,9 @@
 /**
  * Event-driven Server-Sent Events stream for live buggy snapshots.
  *
- * `/api/gps-beacon` broadcasts when telemetry arrives. A slower status refresh
- * keeps connection-state labels aging from online -> unstable -> offline even
- * when a device stops sending data.
+ * `/api/gps-beacon` broadcasts when telemetry arrives. Connection-state aging
+ * (online → unstable → offline) is computed client-side — no server-side
+ * status refresh timer needed.
  */
 import {
   addBuggySseClient,
@@ -23,7 +23,8 @@ export async function GET(request: Request) {
       const client = addBuggySseClient(controller);
       let closed = false;
 
-      void sendBuggySnapshotToClient(client, { forceRefresh: true });
+      // Use cached snapshot (3s TTL) — avoids a Supabase query on every new tab.
+      void sendBuggySnapshotToClient(client, { forceRefresh: false });
 
       const heartbeatInterval = setInterval(() => {
         sendBuggySsePing(client);

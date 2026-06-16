@@ -10,19 +10,16 @@ type SseClient = {
 };
 
 const encoder = new TextEncoder();
-const STATUS_REFRESH_INTERVAL_MS = 30_000;
 
 declare global {
   var __BUGGY_SSE_CLIENTS__: Set<SseClient> | undefined;
   var __BUGGY_SSE_BROADCAST_IN_FLIGHT__: Promise<void> | undefined;
-  var __BUGGY_SSE_STATUS_REFRESH_INTERVAL__: ReturnType<typeof setInterval> | undefined;
 }
 
 function getClients(): Set<SseClient> {
   if (!globalThis.__BUGGY_SSE_CLIENTS__) {
     globalThis.__BUGGY_SSE_CLIENTS__ = new Set();
   }
-
   return globalThis.__BUGGY_SSE_CLIENTS__;
 }
 
@@ -44,32 +41,17 @@ function sendToClient(client: SseClient, chunk: Uint8Array): boolean {
   }
 }
 
-function ensureStatusRefreshTimer(): void {
-  if (globalThis.__BUGGY_SSE_STATUS_REFRESH_INTERVAL__) return;
-
-  globalThis.__BUGGY_SSE_STATUS_REFRESH_INTERVAL__ = setInterval(() => {
-    if (getClients().size === 0) {
-      stopStatusRefreshTimer();
-      return;
-    }
-
-    broadcastBuggySnapshot({ forceRefresh: true, reason: "status-aging" });
-  }, STATUS_REFRESH_INTERVAL_MS);
-}
-
-function stopStatusRefreshTimer(): void {
-  if (!globalThis.__BUGGY_SSE_STATUS_REFRESH_INTERVAL__) return;
-
-  clearInterval(globalThis.__BUGGY_SSE_STATUS_REFRESH_INTERVAL__);
-  globalThis.__BUGGY_SSE_STATUS_REFRESH_INTERVAL__ = undefined;
-}
-
 export async function sendBuggySnapshotToClient(
   client: SseClient,
   options: { forceRefresh?: boolean; durableOverlay?: boolean } = {},
 ): Promise<void> {
   try {
-    const snapshot = await getBuggyApiSnapshot(options);
+    // Use cached snapshot for initial connect — avoid a cold Supabase query
+    // every time a new tab opens. The cache TTL is 3s so data is never stale.
+    const snapshot = await getBuggyApiSnapshot({
+      forceRefresh: options.forceRefresh ?? false,
+      durableOverlay: options.durableOverlay,
+    });
     sendToClient(client, formatSseMessage(snapshot));
   } catch (err) {
     const message =
@@ -86,18 +68,19 @@ export function addBuggySseClient(
     controller,
   };
   getClients().add(client);
-  ensureStatusRefreshTimer();
+  // NOTE: No status refresh timer — clients compute aging locally.
   return client;
 }
 
 export function removeBuggySseClient(client: SseClient): void {
   const clients = getClients();
   clients.delete(client);
-  if (clients.size === 0) {
-    stopStatusRefreshTimer();
-  }
 }
 
+/**
+ * Heartbeat ping — keeps the TCP connection alive.
+ * Does NOT query Supabase.
+ */
 export function sendBuggySsePing(client: SseClient): void {
   sendToClient(client, formatSseEvent("ping", { ts: Date.now() }));
 }
@@ -106,6 +89,12 @@ export function getBuggySseClientCount(): number {
   return getClients().size;
 }
 
+/**
+ * Broadcast a fresh snapshot to all SSE clients.
+ * Called by /api/gps-beacon when new telemetry arrives.
+ * forceRefresh=true invalidates the cache and re-reads from Supabase, but only
+ * once (in-flight guard prevents duplicate concurrent queries).
+ */
 export function broadcastBuggySnapshot(
   options: {
     forceRefresh?: boolean;

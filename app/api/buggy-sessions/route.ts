@@ -371,6 +371,11 @@ async function fetchRecentHistoryRows(
   const rows: Record<string, unknown>[] = [];
   const tableName = getBuggyHistoryTableName();
 
+  // Explicit columns — path is excluded to reduce egress.
+  // Path is only needed when user opens session detail (loaded separately).
+  const HISTORY_COLUMNS =
+    "buggy_id,buggy_numeric_id,recorded_at,lat,lng,speed_kmh,passengers,accuracy,heading,altitude,battery_level";
+
   for (
     let offset = 0;
     offset < MAX_RAW_HISTORY_ROWS;
@@ -378,7 +383,7 @@ async function fetchRecentHistoryRows(
   ) {
     let query = supabase
       .from(tableName)
-      .select("*")
+      .select(HISTORY_COLUMNS)
       .gte("recorded_at", sinceIso)
       .order("recorded_at", { ascending: true })
       .range(offset, offset + HISTORY_PAGE_SIZE - 1);
