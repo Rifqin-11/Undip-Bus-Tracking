@@ -49,7 +49,7 @@ export function AccountFormPanel({ mode, onClose }: AccountFormPanelProps) {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
-      const { data: account } = await supabase.from('accounts').select('*').eq('id', user.id).single();
+      const { data: account } = await supabase.from('accounts').select('name, email, role, buggy_id').eq('id', user.id).single();
 
       setName(account?.name || user.user_metadata?.full_name || tCommon("admin"));
       setEmail(account?.email || user.email || "admin");

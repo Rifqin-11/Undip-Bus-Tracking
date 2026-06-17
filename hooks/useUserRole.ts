@@ -41,7 +41,7 @@ export function useUserRole() {
 
     const { data: account } = await supabase
       .from("accounts")
-      .select("*")
+      .select("name, role, buggy_id")
       .eq("id", user.id)
       .single();
 
