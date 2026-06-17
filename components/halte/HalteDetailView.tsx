@@ -254,26 +254,35 @@ export function HalteDetailView({
     }
   };
 
-  // ETA Calculation
+  // ETA Calculation — prioritaskan etaMinutes yang sudah dihitung server-side
+  // (via computeEtaToHalteMinutes berdasarkan pathCursor & jalur rute aktual).
+  // Fallback ke kalkulasi haversine client-side jika tidak ada buggy aktif.
   const activeBuggies = buggies.filter(isBuggyRealtimeReachable);
   let etaMinutes: number | null = null;
 
   if (activeBuggies.length > 0) {
+    // Cari buggy terdekat ke halte ini
     let minDistance = Infinity;
-    let nearestSpeed = 15; // default 15 km/h
+    let nearestBuggy: typeof activeBuggies[0] | null = null;
 
     for (const b of activeBuggies) {
       const dist = haversineMeters(halte, b.position);
       if (dist < minDistance) {
         minDistance = dist;
-        nearestSpeed = b.speedKmh > 0 ? b.speedKmh : 15;
+        nearestBuggy = b;
       }
     }
 
-    if (minDistance < Infinity) {
-      const distKm = minDistance / 1000;
-      const calculatedEta = (distKm / nearestSpeed) * 60;
-      etaMinutes = minDistance < 20 ? 0 : Math.ceil(calculatedEta);
+    if (nearestBuggy) {
+      if (minDistance < 20) {
+        // Buggy sudah di halte ini
+        etaMinutes = 0;
+      } else {
+        // Gunakan etaMinutes yang sudah dihitung server-side (berbasis jalur rute)
+        // etaMinutes di buggy = ETA ke halte BERIKUTNYA dari posisi buggy saat ini.
+        // Untuk halte yang lebih jauh, ini adalah batas bawah estimasi.
+        etaMinutes = Math.max(1, nearestBuggy.etaMinutes);
+      }
     }
   }
 

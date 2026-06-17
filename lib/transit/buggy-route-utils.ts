@@ -8,6 +8,12 @@ import { HALTE_LOCATIONS, OFFICIAL_ROUTE_PATH } from "@/lib/transit/buggy-data";
 import { getHalteLocations } from "@/lib/transit/halte-runtime";
 import type { Buggy, HaltePoint } from "@/types/buggy";
 
+/** Kecepatan default (km/h) saat buggy stasioner atau speed tidak tersedia. */
+const DEFAULT_SPEED_KMH = 15;
+
+/** Kecepatan minimum (km/h) yang digunakan untuk menghindari ETA tak terhingga. */
+const MIN_SPEED_KMH = 5;
+
 export type LatLng = {
   lat: number;
   lng: number;
@@ -272,15 +278,6 @@ function getRouteOrderedStopNames(): string[] {
   return buildRouteOrderedStopNames(getHalteLocations());
 }
 
-/** Lazy map: name → {lat,lng} dari runtime halte (DB) */
-function getHalteByName(): Map<string, { lat: number; lng: number }> {
-  return new Map(
-    getHalteLocations().map((halte) => [
-      halte.name,
-      { lat: halte.lat, lng: halte.lng },
-    ]),
-  );
-}
 
 export function getBuggyStopsInRouteOrder(
   buggy: Buggy,
@@ -330,26 +327,92 @@ export function getBuggyStopNameAtOffset(buggy: Buggy, offset: number): string {
   return stops[stopIndex] ?? "-";
 }
 
+/**
+ * Hitung jarak (meter) sepanjang OFFICIAL_ROUTE_PATH dari indeks `fromIdx` ke
+ * `toIdx`, mengikuti arah maju rute (forward, wrapping).
+ */
+export function routeDistanceMeters(
+  fromIdx: number,
+  toIdx: number,
+  routePath: [number, number][] = OFFICIAL_ROUTE_PATH,
+): number {
+  const total = routePath.length;
+  if (total < 2) return 0;
+
+  const normFrom = normalizeLoopIndex(fromIdx, total);
+  const normTo = normalizeLoopIndex(toIdx, total);
+
+  let distanceMeters = 0;
+  let cursor = normFrom;
+
+  // Maksimum iterasi = panjang rute penuh (mencegah infinite loop)
+  for (let steps = 0; steps < total; steps += 1) {
+    if (cursor === normTo) break;
+    const nextCursor = normalizeLoopIndex(cursor + 1, total);
+    const a = { lat: routePath[cursor][0], lng: routePath[cursor][1] };
+    const b = { lat: routePath[nextCursor][0], lng: routePath[nextCursor][1] };
+    distanceMeters += haversineMeters(a, b);
+    cursor = nextCursor;
+  }
+
+  return distanceMeters;
+}
+
+/**
+ * Estimasi menit perjalanan antara dua halte mengikuti jalur rute sebenarnya
+ * (bukan garis lurus). Kecepatan di-fallback ke DEFAULT_SPEED_KMH jika 0.
+ */
 export function estimateMinutesBetweenStops(
   fromStopName: string,
   toStopName: string,
   speedKmh: number,
   haltes?: HaltePoint[],
 ): number {
-  const halteByName = haltes
-    ? new Map(
-        haltes.map((halte) => [
-          halte.name,
-          { lat: halte.lat, lng: halte.lng },
-        ]),
-      )
-    : getHalteByName();
+  const resolvedHaltes = haltes ?? getHalteLocations();
+  const halteByName = new Map(
+    resolvedHaltes.map((halte) => [
+      halte.name,
+      { lat: halte.lat, lng: halte.lng },
+    ]),
+  );
   const from = halteByName.get(fromStopName);
   const to = halteByName.get(toStopName);
   if (!from || !to) return 2;
 
-  const distanceMeters = haversineMeters(from, to);
-  const speedMps = Math.max(1, speedKmh / 3.6);
+  // Gunakan jarak sepanjang rute, bukan haversine lurus
+  const fromIdx = findNearestPathIndex(from.lat, from.lng);
+  const toIdx = findNearestPathIndex(to.lat, to.lng);
+  const distanceMeters = routeDistanceMeters(fromIdx, toIdx);
+
+  const safeSpeed = Math.max(MIN_SPEED_KMH, speedKmh > 0 ? speedKmh : DEFAULT_SPEED_KMH);
+  const speedMps = safeSpeed / 3.6;
   const minutes = Math.round(distanceMeters / speedMps / 60);
   return Math.max(1, minutes);
+}
+
+/**
+ * Hitung ETA (menit) dari posisi buggy saat ini (pathCursor) ke halte tujuan,
+ * mengikuti jalur rute sebenarnya.
+ *
+ * Digunakan oleh server-side GPS ingest untuk menyuntikkan etaMinutes ke live
+ * store tanpa perlu menunggu kalkulasi client-side.
+ *
+ * @param pathCursor   Indeks rute buggy saat ini (dari latest_buggy_telemetry)
+ * @param targetHalte  Koordinat halte tujuan
+ * @param speedKmh     Kecepatan buggy saat ini; 0 akan menggunakan DEFAULT_SPEED_KMH
+ * @param routePath    (Opsional) override rute; default = OFFICIAL_ROUTE_PATH
+ */
+export function computeEtaToHalteMinutes(
+  pathCursor: number,
+  targetHalte: { lat: number; lng: number },
+  speedKmh: number,
+  routePath: [number, number][] = OFFICIAL_ROUTE_PATH,
+): number {
+  const targetIdx = findNearestPathIndex(targetHalte.lat, targetHalte.lng, routePath);
+  const distanceMeters = routeDistanceMeters(pathCursor, targetIdx, routePath);
+
+  const safeSpeed = Math.max(MIN_SPEED_KMH, speedKmh > 0 ? speedKmh : DEFAULT_SPEED_KMH);
+  const speedMps = safeSpeed / 3.6;
+  const minutes = Math.round(distanceMeters / speedMps / 60);
+  return Math.max(0, minutes);
 }

@@ -43,6 +43,7 @@ export function BuggyCard({
 }: BuggyCardProps) {
   const { t } = useTranslation("dashboard");
   const currentStop = getBuggyStopNameAtOffset(buggy, 0) || t("onTheRoad");
+  const nextStop = getBuggyStopNameAtOffset(buggy, 1);
   const apnState = getApnConnectionState(buggy);
   const connectionTone = getBuggyConnectionTone(buggy.connectionStatus);
   const realtimeReachable = isBuggyRealtimeReachable(buggy);
@@ -138,6 +139,11 @@ export function BuggyCard({
               <span className="text-[12px] font-bold text-slate-400 tracking-normal">
                 {t("minutesShort")}
               </span>
+              {nextStop && nextStop !== currentStop ? (
+                <span className="block text-[10px] font-semibold text-slate-500 tracking-normal mt-0.5 truncate max-w-[160px]">
+                  {nextStop}
+                </span>
+              ) : null}
             </h3>
           ) : (
             <h3 className="text-[17px] font-black leading-tight tracking-tight text-slate-400 mt-1">

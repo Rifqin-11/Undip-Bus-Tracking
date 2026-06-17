@@ -9,6 +9,7 @@ import {
   findHeadingAwarePathIndex,
   findNearestPathIndex,
   resolveCurrentHalteIndexFromRouteCursor,
+  computeEtaToHalteMinutes,
 } from "@/lib/transit/buggy-route-utils";
 import { normalizeGsmStatus } from "@/lib/buggy/gsm-status";
 import { resolveBuggyConnectionStatus } from "@/lib/buggy/connection-status";
@@ -272,6 +273,13 @@ function autoRegisterBuggy(buggyId: string, point: BuggyTelemetryInput): Buggy {
     haltes,
   );
 
+  // Hitung ETA ke halte berikutnya mengikuti jalur rute
+  const nextHalteIndex = normalizeLoopIndex(stopIndex + 1, haltes.length);
+  const nextHalte = haltes[nextHalteIndex];
+  const computedEta = nextHalte
+    ? computeEtaToHalteMinutes(pathCursor, nextHalte, point.speedKmh ?? 0)
+    : 5;
+
   return {
     id: buggyId,
     code,
@@ -279,7 +287,7 @@ function autoRegisterBuggy(buggyId: string, point: BuggyTelemetryInput): Buggy {
     isActive: true,
     routeLabel: "Rute Kampus Undip",
     tripId: `TRIP-2026-${String(num).padStart(3, "0")}`,
-    etaMinutes: point.etaMinutes ?? 5,
+    etaMinutes: Math.max(1, computedEta),
     speedKmh: point.speedKmh ?? 0,
     crowdLevel: resolveCrowdLevel(point.passengers ?? 0, point.capacity ?? 8),
     passengers: point.passengers ?? 0,
@@ -330,7 +338,6 @@ function ingestTelemetry(
       Math.min(capacity, point.passengers ?? existing.passengers),
     );
     const speedKmh = Math.max(0, point.speedKmh ?? existing.speedKmh);
-    const etaMinutes = Math.max(1, point.etaMinutes ?? existing.etaMinutes);
     const shouldForceResync = point.forceResync === true;
     const usableHeading = speedKmh >= 2 ? point.heading : undefined;
     const nextPathCursor = findHeadingAwarePathIndex(
@@ -348,6 +355,14 @@ function ingestTelemetry(
           nextPathCursor,
           getHalteLocations(),
         );
+
+    // Hitung ETA ke halte berikutnya mengikuti jalur rute, diabaikan nilai dari MQTT
+    const haltes = getHalteLocations();
+    const nextHalteIndex = normalizeLoopIndex(nextCurrentStopIndex + 1, haltes.length);
+    const nextHalte = haltes[nextHalteIndex];
+    const etaMinutes = nextHalte
+      ? Math.max(1, computeEtaToHalteMinutes(nextPathCursor, nextHalte, speedKmh))
+      : Math.max(1, existing.etaMinutes);
 
     byId.set(buggyId, {
       ...existing,
