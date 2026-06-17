@@ -246,6 +246,10 @@ export default function GpsTrackerPage() {
   const [gsmNetworkType, setGsmNetworkType] = useState("GSM_GPRS");
   const [gsmMqttStateText, setGsmMqttStateText] = useState("MQTT_CONNECTED");
 
+  const [mqttBrokerUrl, setMqttBrokerUrl] = useState<string>(
+    () => process.env.NEXT_PUBLIC_MQTT_BROKER_WS_URL ?? "ws://localhost:9001"
+  );
+
   const mqttClientRef = useRef<MqttClient | null>(null);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const watchIdRef = useRef<number | null>(null);
@@ -277,8 +281,7 @@ export default function GpsTrackerPage() {
   useEffect(() => { gsmLocalIpRef.current = gsmLocalIp; }, [gsmLocalIp]);
   useEffect(() => { gsmNetworkTypeRef.current = gsmNetworkType; }, [gsmNetworkType]);
   useEffect(() => { gsmMqttStateTextRef.current = gsmMqttStateText; }, [gsmMqttStateText]);
-  const mqttBrokerUrl =
-    process.env.NEXT_PUBLIC_MQTT_BROKER_WS_URL ?? "ws://localhost:9001";
+  
   const mqttTopicPrefix = process.env.NEXT_PUBLIC_MQTT_TOPIC_PREFIX ?? "buggy";
   const mqttUsername = process.env.NEXT_PUBLIC_MQTT_USERNAME;
   const mqttPassword = process.env.NEXT_PUBLIC_MQTT_PASSWORD;
@@ -1005,10 +1008,15 @@ export default function GpsTrackerPage() {
 
               <Field label="Broker MQTT WebSocket">
                 <input
-                  style={S.input}
+                  style={{
+                    ...S.input,
+                    opacity: isTracking ? 0.6 : 1,
+                    cursor: isTracking ? "not-allowed" : "text",
+                  }}
                   value={mqttBrokerUrl}
-                  readOnly
-                  title="Atur melalui NEXT_PUBLIC_MQTT_BROKER_WS_URL"
+                  onChange={(e) => setMqttBrokerUrl(e.target.value)}
+                  disabled={isTracking}
+                  placeholder="ws://localhost:9001 atau wss://localhost:9001"
                 />
               </Field>
             </div>

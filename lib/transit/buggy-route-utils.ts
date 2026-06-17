@@ -16,6 +16,7 @@ export type LatLng = {
 const ROUTE_START_NAME = "Rusunawa Undip";
 const OPERATIONAL_STOP_ORDER = [
   "Rusunawa Undip",
+  "Masjid Hijau Sigawe",
   "Pos Satpam Astina Undip",
   "Student Center",
   "Teknik Arsitektur",
@@ -37,6 +38,7 @@ const OPERATIONAL_STOP_ORDER = [
 // langsung bergerak dari SA-MWA ke anchor FEB saat cabang tersebut dilewati.
 const OPERATIONAL_STOP_ROUTE_ANCHORS: Record<string, number> = {
   "Rusunawa Undip": 0,
+  "Masjid Hijau Sigawe": 6,
   "Pos Satpam Astina Undip": 18,
   "Student Center": 21,
   "Teknik Arsitektur": 27,
@@ -209,7 +211,7 @@ export function findHeadingAwarePathIndex(
 }
 
 function buildRouteOrderedStopNames(
-  haltes: HaltePoint[] = HALTE_LOCATIONS,
+  haltes: HaltePoint[] = getHalteLocations(),
   routeStartName: string = ROUTE_START_NAME,
 ): string[] {
   const availableNames = new Set(haltes.map((halte) => halte.name));
@@ -292,7 +294,7 @@ export function getBuggyStopsInRouteOrder(
 export function getBuggyCurrentRouteIndex(
   buggy: Buggy,
   stops: string[],
-  haltes: HaltePoint[] = HALTE_LOCATIONS,
+  haltes: HaltePoint[] = getHalteLocations(),
 ): number {
   if (stops.length === 0) return -1;
 
