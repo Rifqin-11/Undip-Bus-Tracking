@@ -12,7 +12,11 @@
 
 import { createAdminClient, getBuggySessionTableName } from "@/lib/supabase/server";
 import { haversineMeters } from "@/lib/transit/buggy-route-utils";
-import { sanitizeGpsPoints } from "@/lib/buggy/gps-quality";
+import {
+  calculatePathDistanceKm,
+  sanitizeGpsPoints,
+  sanitizePath,
+} from "@/lib/buggy/gps-quality";
 
 // ── Config ───────────────────────────────────────────────────────────────────
 
@@ -354,14 +358,6 @@ export function buildSessionSummary(
 ): ActiveSessionSummary {
   points = sanitizeGpsPoints(points);
 
-  let totalDistanceM = 0;
-  for (let i = 1; i < points.length; i++) {
-    totalDistanceM += haversineMeters(
-      { lat: points[i - 1].lat, lng: points[i - 1].lng },
-      { lat: points[i].lat, lng: points[i].lng },
-    );
-  }
-
   const speeds = points
     .map((p) => p.speedKmh)
     .filter((s): s is number => s !== null && s > 0.5);
@@ -390,7 +386,7 @@ export function buildSessionSummary(
   const passengerPeak =
     passengerValues.length > 0 ? Math.max(...passengerValues) : null;
 
-  const path: [number, number, number, number?][] = points.map((p) => {
+  const rawPath: [number, number, number, number?][] = points.map((p) => {
     const tuple: [number, number, number, number?] = [
       p.lat,
       p.lng,
@@ -403,6 +399,9 @@ export function buildSessionSummary(
 
     return tuple;
   });
+  const path = sanitizePath(rawPath) as [number, number, number, number?][];
+  const totalDistanceKm =
+    path.length >= 2 ? calculatePathDistanceKm(path) : 0;
 
   return {
     id: sessionId,
@@ -411,7 +410,7 @@ export function buildSessionSummary(
     lastPingAt: lastPingAtIso,
     pointCount: points.length,
     durationMinutes,
-    totalDistanceKm: totalDistanceM / 1000,
+    totalDistanceKm,
     avgSpeedKmh,
     batteryStart,
     currentBattery,
