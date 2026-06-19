@@ -14,6 +14,8 @@ import { getErrorMessage } from "@/lib/utils/error-message";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
+const MAX_STATISTICS_SESSION_SPEED_KMH = 60;
+
 type SessionRow = {
   id?: string | null;
   buggy_id?: string | null;
@@ -110,6 +112,26 @@ function dedupeSessions(rows: SessionRow[]): SessionRow[] {
   return Array.from(byKey.values());
 }
 
+function getImpliedSessionSpeedKmh(row: SessionRow): number {
+  const distanceKm = toNumber(row.total_distance_km);
+  const durationMinutes = toNumber(row.duration_minutes);
+
+  if (distanceKm <= 0) return 0;
+  if (durationMinutes <= 0) return Number.POSITIVE_INFINITY;
+
+  return distanceKm / (durationMinutes / 60);
+}
+
+function isStatisticsSessionEligible(row: SessionRow): boolean {
+  const impliedSpeedKmh = getImpliedSessionSpeedKmh(row);
+  const recordedAvgSpeedKmh = toNumber(row.avg_speed_kmh);
+
+  return (
+    impliedSpeedKmh <= MAX_STATISTICS_SESSION_SPEED_KMH &&
+    recordedAvgSpeedKmh <= MAX_STATISTICS_SESSION_SPEED_KMH
+  );
+}
+
 function getCapacityForRow(
   row: SessionRow,
   capacityByBuggyId: Map<string, number>,
@@ -140,6 +162,19 @@ function getJakartaHour(value: string | null | undefined): number | null {
   }).format(date);
   const parsed = Number(hour);
   return Number.isFinite(parsed) ? parsed : null;
+}
+
+function getAverageDayDivisor(selectedMonth: Date, currentDate = new Date()) {
+  const daysInSelectedMonth = new Date(
+    Date.UTC(selectedMonth.getUTCFullYear(), selectedMonth.getUTCMonth() + 1, 0),
+  ).getUTCDate();
+  const isCurrentMonth =
+    selectedMonth.getUTCFullYear() === currentDate.getUTCFullYear() &&
+    selectedMonth.getUTCMonth() === currentDate.getUTCMonth();
+
+  if (!isCurrentMonth) return daysInSelectedMonth;
+
+  return Math.min(currentDate.getUTCDate(), daysInSelectedMonth);
 }
 
 export async function GET(request: Request) {
@@ -175,6 +210,7 @@ export async function GET(request: Request) {
     const now = dateParam ? new Date(dateParam + "-01T00:00:00Z") : new Date();
     const firstDayOfMonth = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1)).toISOString();
     const lastDayOfMonth = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 0, 23, 59, 59, 999)).toISOString();
+    const averageDayDivisor = getAverageDayDivisor(now);
 
     const { data: currentMonthData, error: currentMonthError } = await supabase
       .from(tableName)
@@ -196,8 +232,22 @@ export async function GET(request: Request) {
 
     if (lastMonthError) throw lastMonthError;
 
-    const currentSessions = dedupeSessions((currentMonthData || []) as SessionRow[]);
-    const previousSessions = dedupeSessions((lastMonthData || []) as SessionRow[]);
+    const dedupedCurrentSessions = dedupeSessions(
+      (currentMonthData || []) as SessionRow[],
+    );
+    const dedupedPreviousSessions = dedupeSessions(
+      (lastMonthData || []) as SessionRow[],
+    );
+    const currentSessions = dedupedCurrentSessions.filter(
+      isStatisticsSessionEligible,
+    );
+    const previousSessions = dedupedPreviousSessions.filter(
+      isStatisticsSessionEligible,
+    );
+    const excludedCurrentOutlierCount =
+      dedupedCurrentSessions.length - currentSessions.length;
+    const excludedPreviousOutlierCount =
+      dedupedPreviousSessions.length - previousSessions.length;
 
     // --- Kalkulasi Data Bulan Ini ---
     let totalDistanceKm = 0;
@@ -359,7 +409,7 @@ export async function GET(request: Request) {
               ? Number(avgBatteryUsedThisMonth.toFixed(1))
               : null,
           avgPassengersPerDay: Number(
-            (totalPassengers / Math.max(1, new Date().getUTCDate())).toFixed(1),
+            (totalPassengers / Math.max(1, averageDayDivisor)).toFixed(1),
           ),
         },
         trends: {
@@ -371,6 +421,11 @@ export async function GET(request: Request) {
           passengerMetric: "deduped_session_peak",
           passengerNote:
             "Data penumpang dihitung dari passenger_peak/passenger_avg per sesi unik dan dibatasi sesuai kapasitas buggy.",
+          maxSessionSpeedKmh: MAX_STATISTICS_SESSION_SPEED_KMH,
+          excludedCurrentOutlierSessions: excludedCurrentOutlierCount,
+          excludedPreviousOutlierSessions: excludedPreviousOutlierCount,
+          distanceNote:
+            "Statistik jarak mengabaikan sesi dengan kecepatan implisit tidak realistis agar GPS jump historis tidak mencemari agregat bulanan.",
         },
         dailySeries,
         topBuggies,

@@ -19,6 +19,10 @@ import type { BuggyHistoryEntry } from "@/types/buggy-history";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
+const DEFAULT_HISTORY_WINDOW_HOURS = 24;
+const BUGGY_HISTORY_COLUMNS =
+  "id,buggy_id,buggy_numeric_id,devices_id,lat,lng,accuracy,speed_kmh,heading,altitude,battery_level,passengers,source,recorded_at,received_at";
+
 function normalizeBuggyFilter(value: string): string {
   const text = value.trim();
   if (!text) return "";
@@ -177,6 +181,14 @@ export async function GET(request: NextRequest) {
     : 200;
 
   const buggyIdFilter = normalizeBuggyFilter(query.get("buggyId") ?? "");
+  const sinceParam = query.get("since");
+  const sinceDate = sinceParam ? new Date(sinceParam) : null;
+  const sinceIso =
+    sinceDate && !Number.isNaN(sinceDate.getTime())
+      ? sinceDate.toISOString()
+      : new Date(
+          Date.now() - DEFAULT_HISTORY_WINDOW_HOURS * 60 * 60 * 1000,
+        ).toISOString();
   const queryBuggyIds =
     allowedBuggyIds === null
       ? buggyIdFilter
@@ -200,7 +212,9 @@ export async function GET(request: NextRequest) {
 
   let historyQuery = supabase
     .from(tableName)
-    .select("*")
+    .select(BUGGY_HISTORY_COLUMNS)
+    .gte("recorded_at", sinceIso)
+    .order("recorded_at", { ascending: false })
     .limit(limit);
 
   if (queryBuggyIds.length === 1) {

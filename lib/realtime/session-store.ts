@@ -106,6 +106,15 @@ function isSchemaColumnError(message: string): boolean {
   );
 }
 
+function isMissingConflictConstraintError(message: string): boolean {
+  const lowerMessage = message.toLowerCase();
+  return (
+    lowerMessage.includes("no unique") ||
+    lowerMessage.includes("no exclusion constraint") ||
+    lowerMessage.includes("conflict")
+  );
+}
+
 function getJakartaDateParts(value: string | number | Date): {
   date: string;
   hour: number;
@@ -632,12 +641,22 @@ export async function saveSessionPointsToDb(
       path,
     };
 
-    const { error } = await supabase
+    let { error } = await supabase
       .from(tableName)
       .upsert(sessionRow, {
-        onConflict: "buggy_id,started_at,ended_at",
+        onConflict: "buggy_id,session_date,session_number",
         ignoreDuplicates: true,
       });
+
+    if (error && isMissingConflictConstraintError(error.message)) {
+      const fallbackResult = await supabase
+        .from(tableName)
+        .upsert(sessionRow, {
+          onConflict: "buggy_id,started_at,ended_at",
+          ignoreDuplicates: true,
+        });
+      error = fallbackResult.error;
+    }
 
     if (error) {
       if (isSchemaColumnError(error.message)) {
@@ -645,12 +664,25 @@ export async function saveSessionPointsToDb(
         delete fallbackRow.passenger_avg;
         delete fallbackRow.passenger_peak;
         delete fallbackRow.passenger_samples;
-        const { error: fallbackError } = await supabase
+        let { error: fallbackError } = await supabase
           .from(tableName)
           .upsert(fallbackRow, {
-            onConflict: "buggy_id,started_at,ended_at",
+            onConflict: "buggy_id,session_date,session_number",
             ignoreDuplicates: true,
           });
+
+        if (
+          fallbackError &&
+          isMissingConflictConstraintError(fallbackError.message)
+        ) {
+          const legacyFallbackResult = await supabase
+            .from(tableName)
+            .upsert(fallbackRow, {
+              onConflict: "buggy_id,started_at,ended_at",
+              ignoreDuplicates: true,
+            });
+          fallbackError = legacyFallbackResult.error;
+        }
 
         if (fallbackError) {
           console.error(

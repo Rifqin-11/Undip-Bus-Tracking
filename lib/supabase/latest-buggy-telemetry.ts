@@ -35,6 +35,8 @@ type LatestBuggyTelemetryRow = {
 };
 
 const ACTIVE_HISTORY_WINDOW_MS = 10_000;
+const LATEST_TELEMETRY_COLUMNS =
+  "devices_id,buggy_id,buggy_numeric_id,lat,lng,speed_kmh,heading,path_cursor,current_stop_index,passengers,gsm,recorded_at,received_at,updated_at";
 
 function resolveLastSeenAt(row: LatestBuggyTelemetryRow): string | null {
   return row.received_at ?? row.updated_at ?? row.recorded_at;
@@ -92,7 +94,7 @@ export async function mergeLatestBuggyTelemetry(
 
   const { data, error } = await supabase
     .from(getLatestBuggyTelemetryTableName())
-    .select("*")
+    .select(LATEST_TELEMETRY_COLUMNS)
     .order("recorded_at", { ascending: false });
 
   if (error) {

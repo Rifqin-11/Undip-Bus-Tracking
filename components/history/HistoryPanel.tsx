@@ -187,6 +187,7 @@ export function HistoryPanel({
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [detailLoadingId, setDetailLoadingId] = useState<string | null>(null);
 
   const [viewMode, setViewMode] = useState<ViewMode>("buggy-list");
   const [selectedDate, setSelectedDate] = useState(getTodayDateInputValue);
@@ -239,6 +240,59 @@ export function HistoryPanel({
     } finally {
       setLoading(false);
       setRefreshing(false);
+    }
+  }, [redirectToLogin, t]);
+
+  const loadSessionDetail = useCallback(async (session: BuggySession) => {
+    const sessionIds =
+      session.sourceSessionIds?.filter(
+        (id) => !id.startsWith("synth-") && !id.startsWith("merged-"),
+      ) ?? [];
+
+    if (session.path.length > 0 || sessionIds.length === 0) {
+      return session;
+    }
+
+    setDetailLoadingId(session.id);
+
+    try {
+      const res = await fetch(
+        `/api/buggy-sessions?ids=${encodeURIComponent(sessionIds.join(","))}`,
+        { cache: "no-store" },
+      );
+
+      if (res.status === 401 || res.status === 403) {
+        redirectToLogin();
+        return session;
+      }
+
+      const payload = (await res.json()) as Partial<BuggySessionApiResponse>;
+      if (!res.ok) {
+        throw new Error(
+          typeof payload.error === "string"
+            ? payload.error
+            : t("failedLoad"),
+        );
+      }
+
+      const detailedSession = Array.isArray(payload.sessions)
+        ? payload.sessions[0]
+        : null;
+
+      if (!detailedSession) return session;
+
+      setSessions((current) =>
+        current.map((item) =>
+          item.id === session.id ||
+          item.sourceSessionIds?.some((id) => sessionIds.includes(id))
+            ? { ...item, ...detailedSession, id: item.id }
+            : item,
+        ),
+      );
+
+      return { ...session, ...detailedSession, id: session.id };
+    } finally {
+      setDetailLoadingId(null);
     }
   }, [redirectToLogin, t]);
 
@@ -382,11 +436,19 @@ export function HistoryPanel({
   const goToSessionDetail = (session: BuggySession) => {
     setSelectedSessionId(session.id);
     setViewMode("session-detail");
-    const stopPoints = detectHistoryStopPoints(session.path);
-    onShowPath(
-      session.path.map(([lat, lng]) => [lat, lng] as [number, number]),
-      stopPoints,
-    );
+    onShowPath([]);
+
+    void loadSessionDetail(session)
+      .then((detailedSession) => {
+        const stopPoints = detectHistoryStopPoints(detailedSession.path);
+        onShowPath(
+          detailedSession.path.map(([lat, lng]) => [lat, lng] as [number, number]),
+          stopPoints,
+        );
+      })
+      .catch((err) => {
+        setError(err instanceof Error ? err.message : t("failedLoad"));
+      });
   };
 
   const goBackFromDetail = () => {
@@ -419,6 +481,13 @@ export function HistoryPanel({
   // ── VIEWS ──────────────────────────────────────────────────────────────────
 
   if (viewMode === "session-detail" && selectedSession && selectedBuggy) {
+    if (
+      detailLoadingId === selectedSession.id &&
+      selectedSession.path.length === 0
+    ) {
+      return <HistoryCalendarSkeleton />;
+    }
+
     return (
       <HistorySessionDetail
         selectedBuggy={selectedBuggy}
