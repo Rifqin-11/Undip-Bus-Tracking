@@ -19,6 +19,7 @@ export type BuggySession = {
   passengerAvg?: number | null;
   passengerPeak?: number | null;
   passengerSamples?: number;
+  passengerBoardings?: number | null;
   /**
    * GPS path as ordered tuples for map rendering.
    * Format: [lat, lng, unixMs?, passengers?] — 3rd element is unix timestamp

@@ -340,6 +340,7 @@ function mapRow(row: Record<string, unknown>): BuggySession | null {
     passengerAvg: asNum(row.passenger_avg),
     passengerPeak: asNum(row.passenger_peak),
     passengerSamples: Number(row.passenger_samples ?? 0),
+    passengerBoardings: asNum(row.passenger_boardings),
     path: sanitizedPath,
     sourceSessionIds: [String(row.id)],
   };
@@ -450,6 +451,10 @@ function mergeSessionsByOperationalBucket(
         .filter((value) => value > 0),
       0,
     ) || null;
+    const passengerBoardings = ordered
+      .map((session) => session.passengerBoardings)
+      .filter((value): value is number => typeof value === "number")
+      .reduce((sum, value) => sum + value, 0) || null;
 
     return {
       ...first,
@@ -483,6 +488,7 @@ function mergeSessionsByOperationalBucket(
         passengerAvg !== null ? Number(passengerAvg.toFixed(1)) : null,
       passengerPeak,
       passengerSamples,
+      passengerBoardings,
       path: mergedPath,
       isOngoing: ordered.some((session) => session.isOngoing),
       sourceSessionIds: ordered.flatMap((session) =>
@@ -777,6 +783,7 @@ export async function GET(request: NextRequest) {
             passengerAvg: sum.passengerAvg,
             passengerPeak: sum.passengerPeak,
             passengerSamples: sum.passengerSamples,
+            passengerBoardings: sum.passengerBoardings,
             path: sum.path,
         };
 

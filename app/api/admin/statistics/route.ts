@@ -6,6 +6,7 @@
  * reported values remain stable across server restarts.
  */
 import { NextResponse } from "next/server";
+import type { SupabaseClient } from "@supabase/supabase-js";
 import { requireAdmin } from "@/lib/auth/admin-guard";
 import { createAdminClient, getBuggySessionTableName } from "@/lib/supabase/server";
 import { PRIVATE_SEMI_STATIC_CACHE_HEADERS } from "@/lib/http/cache";
@@ -15,6 +16,7 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 const MAX_STATISTICS_SESSION_SPEED_KMH = 60;
+const MIN_PASSENGER_STABLE_SAMPLES = 3;
 
 type SessionRow = {
   id?: string | null;
@@ -31,6 +33,8 @@ type SessionRow = {
   passenger_avg?: number | string | null;
   passenger_peak?: number | string | null;
   passenger_samples?: number | string | null;
+  passenger_boardings?: number | string | null;
+  path?: unknown;
 };
 
 type BuggyCapacityRow = {
@@ -57,11 +61,89 @@ function getMedian(values: number[]) {
     : (sorted[middle - 1] + sorted[middle]) / 2;
 }
 
-function getSessionPassengerLoad(row: SessionRow) {
-  return Math.max(
-    0,
-    toNumber(row.passenger_peak) || toNumber(row.passenger_avg),
+const STATISTICS_SESSION_COLUMNS =
+  "id, buggy_id, session_date, session_number, started_at, ended_at, total_distance_km, duration_minutes, avg_speed_kmh, point_count, battery_used, passenger_avg, passenger_peak, passenger_samples, passenger_boardings";
+const LEGACY_STATISTICS_SESSION_COLUMNS =
+  "id, buggy_id, session_date, session_number, started_at, ended_at, total_distance_km, duration_minutes, avg_speed_kmh, point_count, battery_used, passenger_avg, passenger_peak, passenger_samples, path";
+
+function isSchemaColumnError(message: string): boolean {
+  return (
+    message.includes("schema cache") ||
+    message.includes("Could not find") ||
+    message.includes("column")
   );
+}
+
+function parsePassengerPath(value: unknown): Array<[number, number, number?, number?]> {
+  try {
+    const raw = typeof value === "string" ? JSON.parse(value) : value;
+    if (!Array.isArray(raw)) return [];
+
+    return raw.filter(
+      (point): point is [number, number, number?, number?] =>
+        Array.isArray(point) &&
+        typeof point[0] === "number" &&
+        typeof point[1] === "number",
+    );
+  } catch {
+    return [];
+  }
+}
+
+function calculatePassengerBoardingsFromValues(values: number[]): number {
+  if (values.length === 0) return 0;
+
+  let boardings = Math.max(0, values[0]);
+  let currentOccupancy = values[0];
+  let runValue = values[0];
+  let runLength = 1;
+
+  for (let index = 1; index <= values.length; index += 1) {
+    const value = values[index];
+    if (value === runValue) {
+      runLength += 1;
+      continue;
+    }
+
+    if (runLength >= MIN_PASSENGER_STABLE_SAMPLES) {
+      boardings += Math.max(0, runValue - currentOccupancy);
+      currentOccupancy = runValue;
+    }
+
+    if (value === undefined) break;
+
+    runValue = value;
+    runLength = 1;
+  }
+
+  return boardings;
+}
+
+function calculatePassengerBoardingsFromPath(value: unknown): number {
+  const values = parsePassengerPath(value)
+    .map((point) => point[3])
+    .filter((passengers): passengers is number =>
+      typeof passengers === "number" && Number.isFinite(passengers) && passengers >= 0,
+    );
+
+  return calculatePassengerBoardingsFromValues(values);
+}
+
+function getFallbackSessionPassengerLoad(row: SessionRow) {
+  return Math.max(0, toNumber(row.passenger_peak) || toNumber(row.passenger_avg));
+}
+
+function getEstimatedSessionBoardings(
+  row: SessionRow,
+  capacityByBuggyId: Map<string, number>,
+) {
+  const boardings = toNumber(row.passenger_boardings);
+  if (boardings > 0) return boardings;
+
+  const pathBoardings = calculatePassengerBoardingsFromPath(row.path);
+  if (pathBoardings > 0) return pathBoardings;
+
+  return getBoundedSessionPassengerLoad(row, capacityByBuggyId);
 }
 
 function getSessionKey(row: SessionRow): string {
@@ -147,7 +229,10 @@ function getBoundedSessionPassengerLoad(
   row: SessionRow,
   capacityByBuggyId: Map<string, number>,
 ): number {
-  return Math.min(getSessionPassengerLoad(row), getCapacityForRow(row, capacityByBuggyId));
+  return Math.min(
+    getFallbackSessionPassengerLoad(row),
+    getCapacityForRow(row, capacityByBuggyId),
+  );
 }
 
 function getJakartaHour(value: string | null | undefined): number | null {
@@ -175,6 +260,31 @@ function getAverageDayDivisor(selectedMonth: Date, currentDate = new Date()) {
   if (!isCurrentMonth) return daysInSelectedMonth;
 
   return Math.min(currentDate.getUTCDate(), daysInSelectedMonth);
+}
+
+async function fetchStatisticsRows(
+  supabase: SupabaseClient,
+  tableName: string,
+  startIso: string,
+  endIso: string,
+) {
+  const query = () =>
+    supabase
+      .from(tableName)
+      .select(STATISTICS_SESSION_COLUMNS)
+      .gte("started_at", startIso)
+      .lte("started_at", endIso);
+
+  const result = await query();
+  if (!result.error) return result;
+
+  if (!isSchemaColumnError(result.error.message)) return result;
+
+  return supabase
+    .from(tableName)
+    .select(LEGACY_STATISTICS_SESSION_COLUMNS)
+    .gte("started_at", startIso)
+    .lte("started_at", endIso);
 }
 
 export async function GET(request: Request) {
@@ -212,11 +322,13 @@ export async function GET(request: Request) {
     const lastDayOfMonth = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 0, 23, 59, 59, 999)).toISOString();
     const averageDayDivisor = getAverageDayDivisor(now);
 
-    const { data: currentMonthData, error: currentMonthError } = await supabase
-      .from(tableName)
-      .select("id, buggy_id, session_date, session_number, started_at, ended_at, total_distance_km, duration_minutes, avg_speed_kmh, point_count, battery_used, passenger_avg, passenger_peak, passenger_samples")
-      .gte("started_at", firstDayOfMonth)
-      .lte("started_at", lastDayOfMonth);
+    const { data: currentMonthData, error: currentMonthError } =
+      await fetchStatisticsRows(
+        supabase,
+        tableName,
+        firstDayOfMonth,
+        lastDayOfMonth,
+      );
 
     if (currentMonthError) throw currentMonthError;
 
@@ -224,11 +336,13 @@ export async function GET(request: Request) {
     const firstDayOfLastMonth = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - 1, 1)).toISOString();
     const lastDayOfLastMonth = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 0, 23, 59, 59, 999)).toISOString();
 
-    const { data: lastMonthData, error: lastMonthError } = await supabase
-      .from(tableName)
-      .select("id, buggy_id, session_date, session_number, started_at, ended_at, total_distance_km, duration_minutes, avg_speed_kmh, point_count, battery_used, passenger_avg, passenger_peak, passenger_samples")
-      .gte("started_at", firstDayOfLastMonth)
-      .lte("started_at", lastDayOfLastMonth);
+    const { data: lastMonthData, error: lastMonthError } =
+      await fetchStatisticsRows(
+        supabase,
+        tableName,
+        firstDayOfLastMonth,
+        lastDayOfLastMonth,
+      );
 
     if (lastMonthError) throw lastMonthError;
 
@@ -273,7 +387,7 @@ export async function GET(request: Request) {
         totalSpeed += avgSpeed;
         speedCount++;
       }
-      totalPassengers += getBoundedSessionPassengerLoad(row, capacityByBuggyId);
+      totalPassengers += getEstimatedSessionBoardings(row, capacityByBuggyId);
     }
 
     const avgSpeedThisMonth = speedCount > 0 ? totalSpeed / speedCount : 0;
@@ -287,7 +401,10 @@ export async function GET(request: Request) {
 
     for (const row of previousSessions) {
       totalDistanceLastMonth += toNumber(row.total_distance_km);
-      totalPassengersLastMonth += getBoundedSessionPassengerLoad(row, capacityByBuggyId);
+      totalPassengersLastMonth += getEstimatedSessionBoardings(
+        row,
+        capacityByBuggyId,
+      );
     }
 
     const distanceTrend = calculateTrend(totalDistanceKm, totalDistanceLastMonth);
@@ -418,9 +535,9 @@ export async function GET(request: Request) {
           passengers: Number(passengersTrend.toFixed(1)),
         },
         dataQuality: {
-          passengerMetric: "deduped_session_peak",
+          passengerMetric: "estimated_boardings_from_positive_occupancy_delta",
           passengerNote:
-            "Data penumpang dihitung dari passenger_peak/passenger_avg per sesi unik dan dibatasi sesuai kapasitas buggy.",
+            "Total passengers adalah estimasi penumpang naik per sesi: nilai penumpang awal ditambah kenaikan positif occupancy yang stabil minimal 3 sampel GPS. Jika kolom passenger_boardings belum tersedia pada data lama, sistem fallback ke perhitungan dari path atau passenger_peak/passenger_avg.",
           maxSessionSpeedKmh: MAX_STATISTICS_SESSION_SPEED_KMH,
           excludedCurrentOutlierSessions: excludedCurrentOutlierCount,
           excludedPreviousOutlierSessions: excludedPreviousOutlierCount,

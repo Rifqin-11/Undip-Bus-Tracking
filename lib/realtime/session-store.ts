@@ -24,6 +24,7 @@ const SESSION_IDLE_TIMEOUT_MS = 5 * 60 * 1000; // auto-finalize after 5 min sile
 const MIN_POINTS_TO_SAVE = 3;                   // discard micro-sessions
 export const MIN_SESSION_DISTANCE_KM = 1.0;
 const OPERATIONAL_TIME_ZONE = "Asia/Jakarta";
+const MIN_PASSENGER_STABLE_SAMPLES = 3;
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -66,6 +67,7 @@ export type ActiveSessionSummary = {
   passengerAvg: number | null;
   passengerPeak: number | null;
   passengerSamples: number;
+  passengerBoardings: number | null;
   path: [number, number, number, number?][];
 };
 
@@ -96,6 +98,35 @@ function getSaveInflightMap(): Map<string, Promise<void>> {
     globalThis.__SESSION_SAVE_INFLIGHT__ = new Map();
   }
   return globalThis.__SESSION_SAVE_INFLIGHT__;
+}
+
+function calculatePassengerBoardings(passengerValues: number[]): number | null {
+  if (passengerValues.length === 0) return null;
+
+  let boardings = Math.max(0, passengerValues[0]);
+  let currentOccupancy = passengerValues[0];
+  let runValue = passengerValues[0];
+  let runLength = 1;
+
+  for (let index = 1; index <= passengerValues.length; index += 1) {
+    const value = passengerValues[index];
+    if (value === runValue) {
+      runLength += 1;
+      continue;
+    }
+
+    if (runLength >= MIN_PASSENGER_STABLE_SAMPLES) {
+      boardings += Math.max(0, runValue - currentOccupancy);
+      currentOccupancy = runValue;
+    }
+
+    if (value === undefined) break;
+
+    runValue = value;
+    runLength = 1;
+  }
+
+  return boardings;
 }
 
 function isSchemaColumnError(message: string): boolean {
@@ -394,6 +425,7 @@ export function buildSessionSummary(
       : null;
   const passengerPeak =
     passengerValues.length > 0 ? Math.max(...passengerValues) : null;
+  const passengerBoardings = calculatePassengerBoardings(passengerValues);
 
   const rawPath: [number, number, number, number?][] = points.map((p) => {
     const tuple: [number, number, number, number?] = [
@@ -427,6 +459,7 @@ export function buildSessionSummary(
     passengerAvg,
     passengerPeak,
     passengerSamples: passengerValues.length,
+    passengerBoardings,
     path,
   };
 }
@@ -541,6 +574,7 @@ export async function saveSessionPointsToDb(
       : null;
   const passengerPeak =
     passengerValues.length > 0 ? Math.max(...passengerValues) : null;
+  const passengerBoardings = calculatePassengerBoardings(passengerValues);
 
   // Duration
   const startMs = new Date(startedAt).getTime();
@@ -638,6 +672,7 @@ export async function saveSessionPointsToDb(
         passengerAvg !== null ? Number(passengerAvg.toFixed(1)) : null,
       passenger_peak: passengerPeak,
       passenger_samples: passengerValues.length,
+      passenger_boardings: passengerBoardings,
       path,
     };
 
@@ -664,6 +699,7 @@ export async function saveSessionPointsToDb(
         delete fallbackRow.passenger_avg;
         delete fallbackRow.passenger_peak;
         delete fallbackRow.passenger_samples;
+        delete fallbackRow.passenger_boardings;
         let { error: fallbackError } = await supabase
           .from(tableName)
           .upsert(fallbackRow, {
