@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Info } from "lucide-react";
 import type { Buggy, HaltePoint } from "@/types/buggy";
@@ -16,13 +16,29 @@ import {
   getBuggyCurrentRouteIndex,
 } from "@/lib/transit/buggy-route-utils";
 
+type EtaSegmentPrediction = {
+  success?: boolean;
+  eta_minutes?: number;
+};
+
+type EtaSegmentEntry = readonly [string, number];
+
+function isEtaSegmentEntry(
+  value: EtaSegmentEntry | null,
+): value is EtaSegmentEntry {
+  return value !== null;
+}
+
 function formatClock(date: Date, locale: string): string {
-  const formatter = new Intl.DateTimeFormat(locale === "id" ? "id-ID" : "en-US", {
-    hour: "2-digit",
-    minute: "2-digit",
-    hour12: false,
-    timeZone: "Asia/Jakarta",
-  });
+  const formatter = new Intl.DateTimeFormat(
+    locale === "id" ? "id-ID" : "en-US",
+    {
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: false,
+      timeZone: "Asia/Jakarta",
+    },
+  );
   return formatter.format(date).replace(":", ".");
 }
 
@@ -43,37 +59,122 @@ export function BuggyDetailView({
   const { t } = useTranslation("dashboard");
   const [passengerInfoPinned, setPassengerInfoPinned] = useState(false);
   const [passengerInfoPreview, setPassengerInfoPreview] = useState(false);
+  const [etaSegmentMinutes, setEtaSegmentMinutes] = useState<
+    Record<string, number>
+  >({});
   const now = new Date();
-  const activeHaltes = haltes.filter((halte) => halte.isActive !== false);
-  const stops = activeHaltes.map((halte) => halte.name);
+  const activeHaltes = useMemo(
+    () => haltes.filter((halte) => halte.isActive !== false),
+    [haltes],
+  );
+  const stops = useMemo(
+    () => activeHaltes.map((halte) => halte.name),
+    [activeHaltes],
+  );
   const apnState = getApnConnectionState(buggy);
   const connectionTone = getBuggyConnectionTone(buggy.connectionStatus);
   const shouldShowApn = showApnStatus && Boolean(buggy.gsm?.apn);
   const passengerInfoOpen = passengerInfoPinned || passengerInfoPreview;
-
-  if (!stops.length) return null;
-
-  const currentIndex = getBuggyCurrentRouteIndex(buggy, stops, activeHaltes);
+  const currentIndex = stops.length
+    ? getBuggyCurrentRouteIndex(buggy, stops, activeHaltes)
+    : 0;
+  const halteByName = useMemo(
+    () => new Map(activeHaltes.map((halte) => [halte.name, halte])),
+    [activeHaltes],
+  );
 
   const firstArrivalMinutes = Math.max(1, buggy.etaMinutes);
   const safeSpeedKmh = Math.max(5, buggy.speedKmh);
+
+  useEffect(() => {
+    if (!stops.length) {
+      return;
+    }
+
+    const controller = new AbortController();
+    const segmentPairs = stops.map((fromStopName, index) => {
+      const toStopName = stops[(index + 1) % stops.length];
+      const fromHalte = halteByName.get(fromStopName);
+      const toHalte = toStopName ? halteByName.get(toStopName) : undefined;
+      return {
+        key: `${fromHalte?.id ?? fromStopName}->${toHalte?.id ?? toStopName}`,
+        fromHalteId: fromHalte?.id,
+        toHalteId: toHalte?.id,
+      };
+    });
+
+    async function loadEtaSegments() {
+      const entries = await Promise.all(
+        segmentPairs.map(async (segment) => {
+          if (!segment.fromHalteId || !segment.toHalteId) return null;
+
+          try {
+            const response = await fetch("/api/eta/predict-segment", {
+              method: "POST",
+              headers: { "content-type": "application/json" },
+              body: JSON.stringify({
+                from_halte: segment.fromHalteId,
+                to_halte: segment.toHalteId,
+                passengers: buggy.passengers,
+              }),
+              cache: "no-store",
+              signal: controller.signal,
+            });
+
+            if (!response.ok) return null;
+
+            const data = (await response.json()) as EtaSegmentPrediction;
+            if (typeof data.eta_minutes !== "number") return null;
+
+            return [
+              segment.key,
+              Math.max(1, Math.round(data.eta_minutes)),
+            ] as const;
+          } catch {
+            return null;
+          }
+        }),
+      );
+
+      if (controller.signal.aborted) return;
+      setEtaSegmentMinutes(
+        Object.fromEntries(entries.filter(isEtaSegmentEntry)),
+      );
+    }
+
+    void loadEtaSegments();
+
+    return () => controller.abort();
+  }, [buggy.id, buggy.passengers, halteByName, stops]);
+
+  if (!stops.length) return null;
 
   const orderedStops = stops.map((stopName, routeOrderIndex) => {
     const diff = (routeOrderIndex - currentIndex + stops.length) % stops.length;
 
     let minuteOffset = 0;
     if (diff > 0) {
-      minuteOffset = firstArrivalMinutes;
-
-      for (let segment = 1; segment < diff; segment += 1) {
+      for (let segment = 0; segment < diff; segment += 1) {
         const fromIndex = (currentIndex + segment) % stops.length;
         const toIndex = (fromIndex + 1) % stops.length;
-        minuteOffset += estimateMinutesBetweenStops(
-          stops[fromIndex],
-          stops[toIndex],
-          safeSpeedKmh,
-          activeHaltes,
-        );
+        const fromStop = stops[fromIndex];
+        const toStop = stops[toIndex];
+        const fromHalteId = halteByName.get(fromStop)?.id;
+        const toHalteId = halteByName.get(toStop)?.id;
+        const segmentKey = `${fromHalteId ?? fromStop}->${toHalteId ?? toStop}`;
+        const modelMinutes = etaSegmentMinutes[segmentKey];
+
+        minuteOffset +=
+          typeof modelMinutes === "number"
+            ? modelMinutes
+            : segment === 0
+              ? firstArrivalMinutes
+              : estimateMinutesBetweenStops(
+                  fromStop,
+                  toStop,
+                  safeSpeedKmh,
+                  activeHaltes,
+                );
       }
     }
 
@@ -129,8 +230,11 @@ export function BuggyDetailView({
           <div
             className={`mt-1.5 inline-flex items-center gap-1.5 rounded-full border px-2 py-0.5 text-[10px] font-semibold ${connectionTone.borderClass} ${connectionTone.bgClass} ${connectionTone.textClass}`}
           >
-            <span className={`h-1.5 w-1.5 rounded-full ${connectionTone.dotClass}`} />
-            {connectionTone.label} · Last update {formatLastSeen(buggy.lastSeenSecondsAgo)}
+            <span
+              className={`h-1.5 w-1.5 rounded-full ${connectionTone.dotClass}`}
+            />
+            {connectionTone.label} · Last update{" "}
+            {formatLastSeen(buggy.lastSeenSecondsAgo)}
           </div>
           {shouldShowApn ? (
             <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
@@ -312,7 +416,9 @@ export function BuggyDetailView({
                       <p className="truncate text-[15px] font-bold text-slate-800 tracking-tight leading-none mb-1">
                         {stop.stopName}
                       </p>
-                      <p className={`text-[12px] font-medium leading-tight ${stop.isCurrent ? "text-blue-600" : "text-slate-500"}`}>
+                      <p
+                        className={`text-[12px] font-medium leading-tight ${stop.isCurrent ? "text-blue-600" : "text-slate-500"}`}
+                      >
                         {stop.isCurrent
                           ? t("currentFleetPosition")
                           : t("estimatedArrivalIn", {
@@ -320,7 +426,9 @@ export function BuggyDetailView({
                             })}
                       </p>
                     </div>
-                    <p className={`shrink-0 whitespace-nowrap text-[16px] font-black ${stop.isCurrent ? "text-blue-700" : "text-slate-700"}`}>
+                    <p
+                      className={`shrink-0 whitespace-nowrap text-[16px] font-black ${stop.isCurrent ? "text-blue-700" : "text-slate-700"}`}
+                    >
                       {stop.timeLabel}
                     </p>
                   </div>
