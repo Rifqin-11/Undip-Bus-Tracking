@@ -1,0 +1,16 @@
+[Unit]
+Description=ETA Prediction API Buggy Undip
+After=network.target
+
+[Service]
+Type=exec
+User=root
+Group=root
+WorkingDirectory=/var/www/simobi-eta
+Environment="PATH=/var/www/simobi-eta/venv/bin"
+ExecStart=/var/www/simobi-eta/venv/bin/gunicorn --workers 3 --bind 127.0.0.1:5000 --timeout 120 api_eta:app
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target
