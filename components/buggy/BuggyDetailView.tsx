@@ -10,6 +10,7 @@ import { getApnConnectionState } from "@/lib/buggy/gsm-status";
 import {
   formatLastSeen,
   getBuggyConnectionTone,
+  isBuggyRealtimeReachable,
 } from "@/lib/buggy/connection-status";
 import {
   estimateMinutesBetweenStops,
@@ -73,6 +74,7 @@ export function BuggyDetailView({
   );
   const apnState = getApnConnectionState(buggy);
   const connectionTone = getBuggyConnectionTone(buggy.connectionStatus);
+  const isRealtimeReachable = isBuggyRealtimeReachable(buggy);
   const shouldShowApn = showApnStatus && Boolean(buggy.gsm?.apn);
   const passengerInfoOpen = passengerInfoPinned || passengerInfoPreview;
   const currentIndex = stops.length
@@ -87,7 +89,7 @@ export function BuggyDetailView({
   const safeSpeedKmh = Math.max(5, buggy.speedKmh);
 
   useEffect(() => {
-    if (!stops.length) {
+    if (!stops.length || !isRealtimeReachable) {
       return;
     }
 
@@ -145,7 +147,7 @@ export function BuggyDetailView({
     void loadEtaSegments();
 
     return () => controller.abort();
-  }, [buggy.id, buggy.passengers, halteByName, stops]);
+  }, [buggy.id, buggy.passengers, halteByName, isRealtimeReachable, stops]);
 
   if (!stops.length) return null;
 
@@ -153,7 +155,7 @@ export function BuggyDetailView({
     const diff = (routeOrderIndex - currentIndex + stops.length) % stops.length;
 
     let minuteOffset = 0;
-    if (diff > 0) {
+    if (isRealtimeReachable && diff > 0) {
       for (let segment = 0; segment < diff; segment += 1) {
         const fromIndex = (currentIndex + segment) % stops.length;
         const toIndex = (fromIndex + 1) % stops.length;
@@ -182,10 +184,11 @@ export function BuggyDetailView({
       stopName,
       minuteOffset,
       isCurrent: routeOrderIndex === currentIndex,
-      timeLabel: formatClock(
-        new Date(now.getTime() + minuteOffset * 60_000),
-        locale,
-      ),
+      timeLabel: isRealtimeReachable
+        ? formatClock(new Date(now.getTime() + minuteOffset * 60_000), locale)
+        : routeOrderIndex === currentIndex
+          ? connectionTone.label
+          : "--:--",
     };
   });
 
@@ -420,10 +423,14 @@ export function BuggyDetailView({
                         className={`text-[12px] font-medium leading-tight ${stop.isCurrent ? "text-blue-600" : "text-slate-500"}`}
                       >
                         {stop.isCurrent
-                          ? t("currentFleetPosition")
-                          : t("estimatedArrivalIn", {
-                              minutes: stop.minuteOffset,
-                            })}
+                          ? isRealtimeReachable
+                            ? t("currentFleetPosition")
+                            : t("lastKnownFleetPosition")
+                          : isRealtimeReachable
+                            ? t("estimatedArrivalIn", {
+                                minutes: stop.minuteOffset,
+                              })
+                            : t("etaUnavailableOffline")}
                       </p>
                     </div>
                     <p

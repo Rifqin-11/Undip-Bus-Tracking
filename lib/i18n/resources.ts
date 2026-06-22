@@ -212,7 +212,9 @@ export const resources = {
       occupied: "Terisi",
       empty: "Kosong",
       currentFleetPosition: "Posisi armada saat ini",
+      lastKnownFleetPosition: "Posisi terakhir armada",
       estimatedArrivalIn: "Estimasi tiba · {{minutes}} mnt lagi",
+      etaUnavailableOffline: "ETA tidak tersedia",
       apnStatus: "Status APN",
     },
     admin: {
@@ -861,7 +863,9 @@ export const resources = {
       occupied: "Occupied",
       empty: "Empty",
       currentFleetPosition: "Current fleet position",
+      lastKnownFleetPosition: "Last known fleet position",
       estimatedArrivalIn: "Estimated arrival · {{minutes}} min left",
+      etaUnavailableOffline: "ETA unavailable",
       apnStatus: "APN Status",
     },
     admin: {
