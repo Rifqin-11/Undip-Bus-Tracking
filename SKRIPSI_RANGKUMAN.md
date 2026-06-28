@@ -3,7 +3,7 @@
 > **Judul proyek:** Sistem Monitoring dan Tracking Real-Time Armada Buggy Listrik Kampus UNDIP
 > **Nama aplikasi:** SIMOBI
 > **Konteks:** Smart Mobility Universitas Diponegoro
-> **Status dokumen:** Diperbarui sesuai kondisi repo dan data operasional terakhir, 19 Juni 2026
+> **Status dokumen:** Diperbarui sesuai kondisi repo dan data operasional terakhir, 24 Juni 2026
 > **Tujuan dokumen:** Ringkasan teknis yang siap dipakai sebagai konteks untuk penulisan BAB skripsi, diskusi dengan dosen pembimbing, atau ditempel ke AI lain.
 
 ---
@@ -15,7 +15,7 @@ SIMOBI adalah aplikasi web untuk memonitor armada buggy listrik secara real-time
 Fokus utama sistem adalah:
 
 - Menampilkan posisi buggy listrik secara real-time pada peta Google Maps.
-- Menyediakan informasi operasional seperti ETA, kecepatan, halte saat ini, halte berikutnya, kapasitas, dan jumlah penumpang.
+- Menyediakan informasi operasional seperti ETA, kecepatan, halte saat ini, halte berikutnya, kapasitas, dan jumlah penumpang. Pada detail buggy, estimasi waktu antarkhalte dapat menggunakan model regresi XGBoost melalui layanan Python di VPS dengan fallback perhitungan deterministik berdasarkan jarak rute dan kecepatan.
 - Menampilkan posisi terakhir buggy (last known location) dan status koneksi ketika telemetry tidak lagi diterima akibat gangguan sinyal.
 - Mengelola data buggy, halte, geofence, akun, notifikasi, dan riwayat perjalanan melalui panel admin pada dashboard utama.
 - Mengatur visibilitas armada melalui fitur **Hide Fleet** agar armada tertentu dapat disembunyikan dari daftar operasional tanpa menghapus master data.
@@ -56,7 +56,7 @@ Fitur utama:
 
 - Peta Google Maps berisi marker buggy dan halte.
 - Daftar buggy dengan status koneksi, meliputi `Online`, `Signal unstable`, `Connection lost`, dan `Offline`.
-- Detail buggy, termasuk kapasitas, penumpang, kecepatan, ETA, halte saat ini, dan halte berikutnya.
+- Detail buggy, termasuk kapasitas, penumpang, kecepatan, ETA, halte saat ini, dan halte berikutnya. Jadwal estimasi kedatangan pada daftar halte menggunakan prediksi per segmen dari layanan XGBoost jika layanan tersedia dan otomatis memakai perhitungan berbasis jarak rute/kecepatan jika prediksi gagal.
 - Marker buggy tetap ditampilkan pada posisi terakhir ketika data GPS belum diperbarui.
 - Pencarian rute/directions dari lokasi pengguna menuju tujuan tanpa wajib login.
 - Rekomendasi halte terdekat.
@@ -127,13 +127,14 @@ Fitur utama:
 | Bahasa | TypeScript |
 | Styling | Tailwind CSS 4, custom glass-style UI, lucide-react |
 | Backend API | Next.js Route Handlers |
+| Prediksi ETA | XGBoost regression, Python, Flask, Gunicorn |
 | Database | Supabase PostgreSQL |
 | Autentikasi | Supabase Auth dan `@supabase/ssr` |
 | Realtime telemetry | MQTT, MQTT bridge worker, protected GPS ingest API |
 | PWA dan push notification | Web App Manifest, Service Worker, Web Push API, VAPID, `web-push` |
 | Peta | Google Maps JavaScript API |
 | Internasionalisasi | i18next, react-i18next, routing `/id` dan `/en` |
-| Deployment model | Web app production di VPS dengan PM2, MQTT bridge sebagai worker/service terpisah |
+| Deployment model | Web app production di VPS dengan PM2, ETA API Python melalui Gunicorn/systemd, dan MQTT bridge sebagai worker/service terpisah |
 
 Script utama pada `package.json`:
 
@@ -170,6 +171,14 @@ GET /api/buggy
         v
 Dashboard Web SIMOBI
         |
+        +--> POST /api/eta/predict-segment
+        |           |
+        |           v
+        |    ETA API Python di VPS
+        |           |
+        |           v
+        |    Model XGBoost + Data Rute
+        |
         v
 Google Maps UI
 ```
@@ -205,8 +214,10 @@ Penjelasan arsitektur:
 6. Payload `buggy/{deviceId}/status` dapat memperbarui status GSM/MQTT tanpa harus menyertakan GPS dan tanpa menulis histori perjalanan.
 7. Frontend membaca data terbaru melalui SSE event-driven `GET /api/buggy/stream` dengan fallback `GET /api/buggy`.
 8. UI menampilkan posisi buggy pada Google Maps dan panel dashboard.
-9. Saat pengguna mengaktifkan notifikasi, browser membuat Web Push subscription melalui service worker dan menyimpannya ke tabel `notification_subscriptions`.
-10. Endpoint worker `/api/push/check-nearby` mengecek posisi buggy aktif terhadap halte terdekat dari posisi terakhir pengguna, lalu mengirim Web Push jika kondisi radius terpenuhi.
+9. Saat detail buggy dibuka, frontend meminta prediksi ETA per segmen halte melalui proxy Next.js `POST /api/eta/predict-segment`. Proxy meneruskan data yang sudah divalidasi ke layanan Python di VPS tanpa membuka alamat internal layanan ke browser.
+10. Layanan Python membentuk sembilan fitur model, menjalankan inferensi XGBoost, lalu mengembalikan estimasi detik/menit. Jika layanan atau segmen halte tidak tersedia, frontend memakai fallback berbasis jarak rute dan kecepatan.
+11. Saat pengguna mengaktifkan notifikasi, browser membuat Web Push subscription melalui service worker dan menyimpannya ke tabel `notification_subscriptions`.
+12. Endpoint worker `/api/push/check-nearby` mengecek posisi buggy aktif terhadap halte terdekat dari posisi terakhir pengguna, lalu mengirim Web Push jika kondisi radius terpenuhi.
 
 Frontend tidak membaca data langsung dari MQTT broker. Semua data masuk melalui backend agar validasi, keamanan, persistence, dan format data tetap konsisten.
 
@@ -275,7 +286,66 @@ Status koneksi buggy dihitung secara dinamis berdasarkan selisih waktu sekarang 
 
 Dengan mekanisme ini, buggy tidak langsung hilang dari dashboard ketika sinyal terputus. UI tetap menampilkan marker pada posisi terakhir, tetapi status koneksi berubah sehingga pengguna dapat membedakan antara buggy yang benar-benar bergerak dan buggy yang datanya belum diperbarui.
 
-### 6.4 Alur Notifikasi Buggy Mendekati Halte
+### 6.4 Prediksi ETA Berbasis XGBoost
+
+SIMOBI memiliki dua lapis perhitungan ETA yang saling melengkapi:
+
+1. **ETA deterministik server-side**, dihitung pada live store berdasarkan jarak maju sepanjang `OFFICIAL_ROUTE_PATH` dan kecepatan buggy. Jika kecepatan bernilai nol, sistem memakai kecepatan default agar ETA tetap tersedia. Nilai ini disimpan pada properti live `buggy.etaMinutes` dan terutama merepresentasikan estimasi menuju halte berikutnya.
+2. **ETA prediktif per segmen**, dihitung oleh model regresi XGBoost pada layanan Python di VPS. Prediksi ini digunakan oleh `BuggyDetailView` untuk menyusun estimasi waktu kedatangan ke halte-halte berikutnya.
+
+Arsitektur prediksi ETA:
+
+```text
+BuggyDetailView
+      |
+      | POST from_halte, to_halte, passengers
+      v
+/api/eta/predict-segment (Next.js proxy)
+      |
+      | validasi kode halte + timeout 5 detik
+      v
+ETA API Python /predict_segment
+      |
+      +--> xgboost_eta_model.json
+      +--> dataroute.txt
+      |
+      v
+eta_seconds, eta_minutes, eta_formatted
+```
+
+Proxy Next.js memakai environment variable `ETA_API_URL` dan default internal `http://127.0.0.1:5000`. Browser tidak mengakses port Python secara langsung. Request dan response menggunakan `cache: no-store`, sedangkan timeout lima detik mencegah halaman menunggu tanpa batas ketika layanan ETA bermasalah.
+
+Model menggunakan objective regresi `reg:squarederror` dengan sembilan fitur dalam urutan yang harus sama dengan proses training:
+
+| Fitur | Sumber pada proses inferensi |
+| --- | --- |
+| `route_distance_m` | Jarak maju sepanjang titik `dataroute.txt` antara halte asal dan tujuan. |
+| `max_passengers` | Nilai jumlah penumpang live yang dikirim dari detail buggy. Nama kolom mengikuti dataset training. |
+| `hour_of_day` | Jam request dalam zona waktu Asia/Jakarta. |
+| `day_of_week` | Hari Python `weekday()`, dengan Senin = 0 dan Minggu = 6. |
+| `is_weekend` | Bernilai 1 untuk Sabtu atau Minggu. |
+| `is_peak_hour` | Bernilai 1 pada jam 07, 08, 09, 10, 12, 13, 14, 16, atau 17. |
+| `from_halte_idx` | Indeks halte asal pada urutan rute model. |
+| `to_halte_idx` | Indeks halte tujuan pada urutan rute model. |
+| `is_rusun` | Flag khusus halte Rusunawa sesuai mapping model. |
+
+Layanan Python menyediakan endpoint internal berikut:
+
+- `GET /health` untuk memeriksa model dan data rute sudah dimuat.
+- `GET /haltes` untuk melihat mapping halte yang dikenal model.
+- `POST /predict_segment` untuk memprediksi satu segmen halte.
+- `POST /predict_route` untuk menghasilkan prediksi kumulatif beberapa halte berikutnya.
+
+Web saat ini mengekspos dan menggunakan `POST /api/eta/predict-segment`. Ketika detail buggy dibuka dan buggy masih berstatus realtime, frontend meminta prediksi untuk pasangan halte yang berurutan. Hasil tiap segmen dibulatkan minimal satu menit, kemudian dijumlahkan untuk membentuk label jam kedatangan dalam zona Asia/Jakarta.
+
+Mekanisme fallback bersifat **graceful degradation**. Jika endpoint gagal, timeout, atau model tidak mengenali suatu kode halte, detail buggy tetap menampilkan ETA menggunakan:
+
+- `buggy.etaMinutes` untuk segmen pertama dari posisi buggy ke halte berikutnya; dan
+- `estimateMinutesBetweenStops()` untuk segmen lanjutan berdasarkan jarak rute serta kecepatan aman.
+
+Dengan mekanisme tersebut, kegagalan layanan machine learning tidak membuat fitur monitoring utama berhenti. Per 24 Juni 2026, endpoint production `POST https://vps.simobi.my.id/api/eta/predict-segment` telah diverifikasi mengembalikan HTTP 200. Contoh input `h01 -> h03` dengan 4 penumpang menghasilkan prediksi 157,5 detik atau 2,6 menit. Input kode halte yang tidak sesuai format juga diverifikasi menghasilkan HTTP 400. Verifikasi ini membuktikan jalur validasi, proxy, dan inferensi service aktif, tetapi bukan pengujian akurasi model terhadap ground truth perjalanan lapangan.
+
+### 6.5 Alur Notifikasi Buggy Mendekati Halte
 
 Sistem notifikasi buggy mendekati halte memiliki dua mode:
 
@@ -300,7 +370,7 @@ Catatan penting: PWA web tidak dapat menjamin pembacaan lokasi pengguna secara r
 
 Buggy dengan status `Connection lost` atau `Offline` tidak digunakan sebagai dasar pengiriman notifikasi mendekati halte karena posisi tersebut berpotensi sudah tidak aktual.
 
-### 6.5 Alert Operasional Admin
+### 6.6 Alert Operasional Admin
 
 Selain notifikasi buggy mendekati halte untuk pengguna umum, dashboard admin memiliki alert operasional yang berjalan saat halaman dashboard aktif.
 
@@ -313,7 +383,7 @@ Preferensi alert tersebut tersedia pada App Settings admin dan disimpan di local
 
 Event geofence saat ini digunakan sebagai in-app event log dan browser notification ketika izin tersedia. Penyimpanan permanen event geofence ke database masih dapat dikembangkan lebih lanjut apabila dibutuhkan audit operasional jangka panjang.
 
-### 6.6 Alur Riwayat Sesi Perjalanan
+### 6.7 Alur Riwayat Sesi Perjalanan
 
 Panel riwayat sesi perjalanan menampilkan data berbasis tanggal. Pengguna memilih tanggal melalui tampilan kalender; tanggal yang memiliki sesi ditandai dengan indikator titik. Setelah tanggal dipilih, sistem menampilkan buggy yang aktif pada tanggal tersebut.
 
@@ -759,6 +829,7 @@ Tabel ini dibuat melalui migrasi `20260601122722_create_notification_subscriptio
 | `GET` | `/api/buggy` | Mengambil snapshot buggy terbaru untuk frontend. |
 | `GET` | `/api/buggy/stream` | Alternatif live feed menggunakan SSE. |
 | `POST` | `/api/gps-beacon` | Ingest data GPS dari MQTT bridge atau simulator, termasuk payload `statusOnly` untuk status GSM/MQTT. |
+| `POST` | `/api/eta/predict-segment` | Memvalidasi input dan meneruskan permintaan prediksi ETA satu segmen ke layanan XGBoost Python dengan timeout lima detik. |
 | `POST` | `/api/buggy/ingest` | Ingest snapshot atau telemetry legacy. |
 | `GET` | `/api/buggy-history` | Mengambil histori GPS. Admin melihat seluruh data, driver hanya data buggy yang ditugaskan. |
 | `GET` | `/api/buggy-sessions` | Mengambil riwayat sesi perjalanan. Admin melihat seluruh data, driver hanya data buggy yang ditugaskan. |
@@ -846,6 +917,12 @@ Fitur Web Push menggunakan VAPID key untuk mengirim notifikasi dari server ke br
 
 Endpoint worker push bersifat fail-closed. Jika token tidak cocok atau tidak dikirim, endpoint membalas `401 Unauthorized`. Hal ini mencegah pihak luar memicu proses pengecekan dan pengiriman notifikasi secara bebas.
 
+### 10.6 Keamanan Proxy ETA
+
+Endpoint `POST /api/eta/predict-segment` bersifat publik karena detail buggy juga merupakan fitur publik. Route handler tidak meneruskan body secara mentah: kode halte dinormalisasi dan wajib mengikuti pola `hXX`, jumlah penumpang dibulatkan serta dibatasi minimal nol, alamat Flask hanya dibaca dari environment server, dan request inference dihentikan setelah lima detik. Dengan pola ini, browser tidak dapat menentukan arbitrary upstream URL.
+
+Rate limiting khusus endpoint ETA belum terlihat pada implementasi saat ini. Karena detail buggy dapat meminta banyak segmen secara paralel, rate limiting, batching, cache prediksi berdurasi pendek, serta pembatasan maksimum jumlah penumpang sesuai kapasitas armada dapat dipertimbangkan untuk mencegah beban inference berlebihan.
+
 ---
 
 ## 11. Komponen Frontend Penting
@@ -855,7 +932,7 @@ Endpoint worker push bersifat fail-closed. Jika token tidak cocok atau tidak dik
 | `components/dashboard/DashboardShell.tsx` | Shell dashboard utama role-based untuk guest, pengguna umum, driver, dan admin. |
 | `components/map/MapCanvas.tsx` | Render Google Maps, marker, route, dan visualisasi peta. |
 | `components/buggy/PanelActive.tsx` | Daftar buggy aktif. |
-| `components/buggy/BuggyDetailView.tsx` | Detail buggy yang dipilih. |
+| `components/buggy/BuggyDetailView.tsx` | Detail buggy yang dipilih, termasuk permintaan ETA XGBoost per segmen, akumulasi waktu kedatangan, dan fallback ETA berbasis rute/kecepatan. |
 | `components/data/AdminDataSection.tsx` | Panel admin untuk Statistik, Buggy, dan Geofence. |
 | `components/data/AdminStatisticsPanel.tsx` | Statistik operasional armada. |
 | `components/data/GeofenceManager.tsx` | Manajemen geofence. |
@@ -879,9 +956,11 @@ Endpoint worker push bersifat fail-closed. Jika token tidak cocok atau tidak dik
 | File | Fungsi |
 | --- | --- |
 | `app/api/gps-beacon/route.ts` | Endpoint ingest GPS utama. |
+| `app/api/eta/predict-segment/route.ts` | Proxy server-side dari web menuju ETA API Python; melakukan normalisasi kode halte/penumpang, timeout, dan penanganan error service. |
 | `app/api/buggy/route.ts` | Snapshot buggy terbaru untuk frontend. |
 | `app/api/buggy/stream/route.ts` | SSE live feed. |
 | `lib/realtime/buggy-live-store.ts` | Menyimpan snapshot live buggy di memori. |
+| `lib/transit/buggy-route-utils.ts` | Perhitungan jarak maju sepanjang rute serta ETA deterministik yang dipakai sebagai nilai live dan fallback model. |
 | `lib/realtime/session-store.ts` | Mengelola sesi perjalanan dan finalisasi sesi. |
 | `lib/realtime/buggy-api-snapshot.ts` | Membuat cache snapshot singkat untuk `GET /api/buggy`. |
 | `lib/buggy/gsm-status.ts` | Normalisasi dan interpretasi status GSM/MQTT dari payload device. |
@@ -896,6 +975,10 @@ Endpoint worker push bersifat fail-closed. Jika token tidak cocok atau tidak dik
 | `lib/auth/ingest-token.ts` | Validasi bearer token untuk endpoint ingest. |
 | `proxy.ts` | Routing locale, refresh session Supabase, dan proteksi route. |
 | `public/sw.js` | Service worker untuk menerima push event dan membuka aplikasi saat notifikasi diklik. |
+| `eta-vps/api_eta.py` | Layanan Flask untuk feature engineering dan inferensi model XGBoost. |
+| `eta-vps/xgboost_eta_model.json` | Model regresi ETA dengan sembilan fitur input. |
+| `eta-vps/dataroute.txt` | Titik rute yang dipakai untuk menghitung jarak perjalanan antarkhalte. |
+| `eta-vps/eta-api.service` | Konfigurasi systemd/Gunicorn agar ETA API berjalan sebagai service VPS. |
 
 ---
 
@@ -934,6 +1017,7 @@ Catatan penting:
 - Kapasitas buggy diambil dari data master `buggies.capacity`, bukan dari payload telemetry, untuk mencegah nilai stale device menimpa perubahan yang dilakukan dari admin panel.
 - Statistik jarak mengabaikan sesi dengan kecepatan implisit tidak realistis, misalnya sesi dengan jarak/durasi yang menghasilkan kecepatan di atas ambang `60 km/jam`. Hal ini mencegah GPS jump historis membuat total kilometer bulanan tidak masuk akal.
 - Rata-rata penumpang per hari menggunakan pembagi sesuai bulan yang dipilih: bulan historis dibagi jumlah hari bulan tersebut, sedangkan bulan berjalan dibagi hari berjalan.
+- Metrik **Trip Delay** saat ini bukan selisih terhadap jadwal resmi halte. Sistem mengambil median `duration_minutes` sesi valid pada bulan yang dipilih, lalu menetapkan target normal sebesar `median x 1,15`. Delay tiap sesi adalah `max(0, durasi sesi - target)`. Nilai grafik per jam merupakan akumulasi delay seluruh sesi berdasarkan jam mulai dalam zona Asia/Jakarta, sedangkan badge menampilkan jam dengan akumulasi tertinggi. Faktor `1,15` berfungsi sebagai toleransi 15% terhadap variasi normal, tetapi masih berupa heuristik dan sebaiknya diganti perbandingan jadwal aktual jika data jadwal perjalanan formal tersedia.
 
 Snapshot data operasional pada 19 Juni 2026 menunjukkan `buggy_session_history` berisi 54 row, tanpa duplicate group dan tanpa session outlier kecepatan. Ukuran estimasi data path tersimpan sekitar 1.04 MB. Untuk Mei 2026, terdapat 28 sesi dengan estimasi `Estimated Passenger Boardings` sekitar 1474 setelah memakai metode stable positive occupancy delta. Angka snapshot ini bersifat kondisi data saat verifikasi, bukan konstanta sistem.
 
@@ -990,9 +1074,13 @@ Runtime aplikasi Next.js berada di repo `real_web`, terutama folder:
 
 Web production berjalan di VPS menggunakan PM2. Model ini dipilih karena aplikasi membutuhkan proses Node.js yang dapat berjalan terus, mempertahankan koneksi SSE, dan menerima broadcast telemetry secara event-driven. MQTT bridge production dan simulator tidak dijadikan bagian dari runtime Next.js. Keduanya dipisahkan sebagai worker/service terpisah karena bridge harus berjalan terus-menerus untuk subscribe MQTT.
 
+Layanan prediksi ETA juga dipisahkan dari proses Next.js. Folder `eta-vps` berisi Flask API, model XGBoost, data rute, dependency Python, konfigurasi Gunicorn/systemd, dan contoh reverse proxy Nginx. Pada VPS, service menjalankan Gunicorn pada `127.0.0.1:5000`, sedangkan Next.js mengaksesnya melalui `ETA_API_URL`. Pemisahan ini dipilih karena model XGBoost dan library numeriknya lebih sesuai dijalankan pada runtime Python, sementara validasi request dan kontrak publik tetap dikendalikan oleh route handler Next.js.
+
 Boundary penting:
 
 - Web app dan API: Next.js.
+- ETA prediction service: Flask + XGBoost + Gunicorn sebagai service Python terpisah pada VPS.
+- ETA proxy publik: `POST /api/eta/predict-segment`; browser tidak perlu mengetahui alamat internal Flask.
 - Database dan Auth: Supabase.
 - MQTT bridge: worker/service terpisah untuk subscribe MQTT.
 - PWA service worker: file browser-side `public/sw.js` untuk Web Push, bukan MQTT bridge.
@@ -1056,6 +1144,9 @@ Sub-bab yang relevan:
 - Service Worker dan Web Push Notification.
 - Google Maps API.
 - Geofencing.
+- Estimasi waktu kedatangan atau Estimated Time of Arrival (ETA).
+- Regresi dan algoritma XGBoost.
+- Evaluasi model regresi menggunakan MAE, RMSE, atau MAPE sesuai data pengujian yang tersedia.
 - Dashboard monitoring.
 - Black-box testing.
 - User Acceptance Test.
@@ -1074,6 +1165,8 @@ Bahas:
 - Alur data realtime.
 - Perancangan database.
 - Perancangan API.
+- Perancangan feature adapter antara data telemetry web dan sembilan fitur model ETA.
+- Perancangan fallback ETA ketika layanan machine learning tidak tersedia.
 - Perancangan antarmuka.
 - Perancangan keamanan.
 - Perancangan pengujian.
@@ -1089,13 +1182,19 @@ Bahas:
 - Implementasi endpoint ingest GPS.
 - Implementasi MQTT bridge.
 - Implementasi live feed polling/SSE.
+- Implementasi layanan prediksi ETA XGBoost menggunakan Flask, Gunicorn, dan systemd pada VPS.
+- Implementasi proxy Next.js `POST /api/eta/predict-segment`, feature engineering, prediksi per segmen, akumulasi waktu kedatangan, dan fallback deterministik.
 - Implementasi PWA, service worker, dan Web Push Notification.
 - Implementasi histori perjalanan.
 - Implementasi dashboard role-based dan panel admin/driver.
 - Pengujian fungsi utama.
 - Pengujian pipeline simulator.
+- Pengujian endpoint ETA untuk input valid, kode halte tidak valid, timeout, dan service unavailable.
+- Pengujian akurasi ETA dengan membandingkan hasil prediksi terhadap waktu tempuh aktual menggunakan dataset uji yang tidak dipakai saat training.
 - Pengujian akses role.
 - Pengujian API.
+
+Hasil black-box production tanggal 24 Juni 2026 didokumentasikan pada `docs/BLACKBOX_PLAYWRIGHT_REPORT_2026-06-24.md`. Pengujian Playwright memverifikasi halaman production HTTP 200, peta, 17 halte, detail halte, pergantian bahasa, dan penyimpanan gaya peta. Saat pengujian, dashboard menunjukkan `0 unit`, sehingga detail buggy dan UI ETA live tidak dapat diuji end-to-end. Login positif, registrasi positif, statistik, riwayat, serta push subscription juga belum dinyatakan berhasil karena akun uji sesuai role belum tersedia. Kondisi tersebut harus dipertahankan sebagai hasil aktual dan tidak boleh diubah menjadi `Berhasil` tanpa pengujian ulang.
 
 ### BAB V - Penutup
 
@@ -1125,7 +1224,11 @@ Batasan yang sebaiknya dijelaskan secara jujur di skripsi:
 - Status GSM/MQTT sudah dapat diterima melalui topic `/status`, tetapi informasi tersebut tetap bergantung pada interval publish device dan keberhasilan koneksi MQTT/GPRS.
 - Pada VPS dengan PM2 `fork` satu instance, live feed dapat memakai SSE event-driven. Jika aplikasi dijalankan dengan lebih dari satu instance, broadcast SSE in-memory perlu diganti dengan mekanisme bersama seperti Redis Pub/Sub atau PostgreSQL LISTEN/NOTIFY.
 - Remote engine cut-off dan command queue masih cocok diposisikan sebagai rencana pengembangan, bukan fitur utama yang sudah selesai.
-- Akurasi ETA dan geofence bergantung pada kualitas data GPS, interval pengiriman, dan koneksi jaringan.
+- Model XGBoost sudah aktif melalui endpoint production, tetapi verifikasi HTTP 200 hanya membuktikan ketersediaan layanan, bukan akurasi prediksi. Nilai MAE, RMSE, atau MAPE tetap harus diambil dari evaluasi dataset/ground truth dan tidak boleh disimpulkan hanya dari satu request API.
+- Prediksi XGBoost saat ini digunakan pada daftar estimasi kedatangan di detail buggy. Nilai `etaMinutes` pada live store, marker peta, dan detail halte masih memakai perhitungan deterministik berdasarkan jalur rute dan kecepatan.
+- Service ETA memakai mapping halte statis. Mapping tersebut harus selalu disinkronkan dengan data halte Supabase; halte aktif yang tidak dikenal model akan memakai fallback deterministik.
+- Mapping feature perlu diaudit kembali sebelum pengujian akurasi final: service saat ini memberi flag `is_rusun` pada `h18`, sedangkan seed web menempatkan Rusunawa Undip pada `h01`. Selain itu, field model `max_passengers` saat inferensi menerima occupancy live saat request.
+- Akurasi ETA deterministik maupun prediktif tetap dipengaruhi kualitas GPS, ketepatan posisi pada rute, interval pengiriman, koneksi jaringan, jumlah penumpang, waktu operasional, dan kesesuaian data training dengan kondisi lapangan.
 
 ---
 
@@ -1140,7 +1243,9 @@ Pengembangan berikutnya yang dapat ditulis sebagai saran:
 - Penyimpanan permanen event geofence dan alert operasional sebagai audit log.
 - Integrasi cron production untuk Web Push checker dengan interval yang disesuaikan kebutuhan operasional.
 - Peningkatan notifikasi menjadi preference per pengguna yang lebih lengkap, misalnya radius, halte favorit, jam aktif notifikasi, dan sinkronisasi preferensi ke database.
-- Perhitungan ETA yang lebih cerdas berdasarkan histori perjalanan.
+- Sinkronisasi mapping kode halte dan definisi feature ETA antara dataset training, layanan Python, dan data halte Supabase.
+- Evaluasi lapangan model ETA menggunakan data aktual serta pelaporan MAE, RMSE, atau MAPE; lakukan retraining berkala jika pola operasional berubah.
+- Integrasi hasil prediksi XGBoost sebagai ETA live utama setelah validasi akurasi, dengan cache/batching agar detail buggy tidak perlu meminta seluruh segmen secara individual pada setiap perubahan occupancy.
 - Dashboard analitik penumpang historis.
 - Pengujian lapangan dengan beberapa unit buggy.
 - Optimasi performa ketika jumlah armada bertambah.
@@ -1152,5 +1257,7 @@ Pengembangan berikutnya yang dapat ditulis sebagai saran:
 SIMOBI adalah sistem monitoring real-time armada buggy listrik kampus UNDIP berbasis Next.js 16, React 19, TypeScript, Supabase PostgreSQL/Auth, Google Maps API, MQTT, dan PWA Web Push Notification. Sistem memiliki tiga peran pengguna: pengguna umum, driver, dan admin. Aplikasi memakai satu dashboard utama berbasis role pada route `/id` dan `/en`, dengan `DashboardShell` sebagai pusat UI dan `dashboard-permissions` sebagai helper penentu akses. Guest dan pengguna umum dapat melihat peta buggy, halte, ETA, rute/directions, detail buggy, status koneksi, dan posisi terakhir buggy tanpa login. Fitur personal seperti favorit tetap membutuhkan login, sedangkan notifikasi mendekati halte memakai subscription pengguna/browser. Driver melihat panel terbatas sesuai buggy yang ditugaskan, termasuk statistik dan riwayat sesi untuk buggy tersebut. Admin melihat panel operasional penuh untuk mengelola buggy, hide/unhide fleet, assignment device GPS fisik ke buggy, halte, geofence, akun, notifikasi, statistik, riwayat perjalanan, alert geofence, dan alert buggy offline terlalu lama.
 
 Alur data utama adalah GPS tracker/simulator/hardware mengirim telemetry ke MQTT broker pada topic `buggy/{deviceId}/data`, misalnya `buggy/ESP-3C124B00/data`. Device juga dapat mengirim status GSM/MQTT yang lebih ringan ke topic `buggy/{deviceId}/status`, misalnya `buggy/ESP-3C124B00/status`. Broker production menggunakan Mosquitto pada folder sibling `simobi-mosquitto-broker`, dengan autentikasi username/password, ACL per device, persistence internal `mosquitto.db`, dan deployment long-running. MQTT bridge production berada pada folder sibling `mqtt-bridge-service`; worker ini subscribe ke `buggy/+/data` dan `buggy/+/status`, menormalisasi payload menjadi `devicesId`, lalu meneruskan data ke endpoint protected `POST /api/gps-beacon`. Untuk data simulator `/gps-tracker`, payload legacy berbasis `buggyId` masih diterima sebagai fallback kompatibilitas. Endpoint ingest memvalidasi `BUGGY_INGEST_TOKEN`, mencatat device yang terlihat ke `device_registry`, melakukan lookup assignment aktif `devicesId -> buggy_id`, menolak device yang belum diassign, menolak penerapan payload untuk fleet yang sedang di-hide, memperbarui live buggy store, menyimpan raw telemetry ke `buggy_history`, meng-upsert snapshot ke `latest_buggy_telemetry`, mengelola sesi perjalanan ke `buggy_session_history`, dan melakukan broadcast SSE ke dashboard yang sedang aktif. Payload `statusOnly` dari topic `/status` hanya memperbarui status GSM/MQTT pada snapshot terbaru dan tidak menambah titik histori GPS. Setiap snapshot terbaru menyimpan `received_at` sebagai waktu server menerima telemetry. Field ini digunakan untuk menghitung status koneksi `Online`, `Signal unstable`, `Connection lost`, atau `Offline`, sehingga dashboard tetap dapat menampilkan last known location ketika sinyal SIM800 melemah. Frontend membaca data realtime melalui SSE event-driven pada `/api/buggy/stream`, dengan fallback polling `GET /api/buggy` setiap 5 detik jika stream terputus. Untuk notifikasi PWA, browser mendaftarkan service worker `/sw.js`, menyimpan push subscription ke `notification_subscriptions`, lalu endpoint `/api/push/check-nearby` mengirim Web Push ketika buggy dengan status `Online` atau `Signal unstable` mendekati halte terdekat pengguna.
+
+Prediksi ETA memiliki dua lapis. Live store menghitung ETA deterministik menuju halte berikutnya dari jarak sepanjang `OFFICIAL_ROUTE_PATH` dan kecepatan buggy. Saat pengguna membuka detail buggy, `BuggyDetailView` meminta prediksi XGBoost untuk setiap pasangan halte melalui proxy Next.js `POST /api/eta/predict-segment`. Proxy memvalidasi kode halte dan jumlah penumpang, lalu memanggil Flask/Gunicorn ETA API melalui `ETA_API_URL` dengan timeout lima detik. Model `reg:squarederror` menggunakan sembilan fitur: `route_distance_m`, `max_passengers`, `hour_of_day`, `day_of_week`, `is_weekend`, `is_peak_hour`, `from_halte_idx`, `to_halte_idx`, dan `is_rusun`. Hasil per segmen diakumulasi menjadi estimasi jam kedatangan; jika request gagal atau halte tidak didukung model, UI otomatis memakai ETA deterministik berbasis rute/kecepatan. Endpoint production telah diverifikasi HTTP 200 pada 24 Juni 2026, tetapi akurasi model tetap harus dilaporkan dari evaluasi ground truth menggunakan MAE, RMSE, atau MAPE. Mapping halte dan feature model juga perlu diselaraskan sebelum evaluasi final karena service memakai daftar halte statis.
 
 Database utama terdiri dari `accounts`, `buggies`, `device_assignments`, `device_registry`, `haltes`, `geofences`, `announcements`, `buggy_history`, `buggy_session_history`, `latest_buggy_telemetry`, dan `notification_subscriptions`. Tabel `buggies.is_active` dipakai sebagai flag visibilitas fleet: fleet hidden tidak muncul pada buggy list/map/history operasional, tetapi tetap dapat dikelola admin. Tabel `device_assignments` menyimpan relasi aktif antara perangkat fisik ESP dan buggy, sedangkan `device_registry` menyimpan device yang pernah terlihat dari payload MQTT agar dapat dipilih pada Edit Fleet. Tabel `latest_buggy_telemetry` menyimpan satu baris snapshot telemetry terbaru per buggy untuk mendukung fallback saat live store in-memory direset atau proses server restart, termasuk kolom `received_at` untuk menentukan kesegaran data dan kolom `gsm` untuk status jaringan device. Tabel `notification_subscriptions` menyimpan endpoint Web Push, key subscription, posisi terakhir pengguna, radius alert, dan cooldown notifikasi. Tabel `buggy_history` menyimpan raw GPS telemetry dan jumlah penumpang per titik, sedangkan status GSM/MQTT terbaru disimpan pada `latest_buggy_telemetry`. Tabel `buggy_session_history` memiliki kolom `passenger_avg`, `passenger_peak`, `passenger_samples`, dan `passenger_boardings` untuk analitik penumpang per sesi perjalanan. Statistik operasional memakai sesi unik, filter outlier jarak/kecepatan, dan estimasi penumpang naik berbasis stable positive occupancy delta. Sistem membagi sesi operasional ke sesi pagi 05.00-12.00, sesi siang/sore 13.00-17.30, serta sesi luar jadwal. Sistem menggunakan `proxy.ts`, `requireAdmin()`, filter role server-side, dan permission helper frontend untuk role-based access; endpoint history dapat diakses admin dan driver, tetapi driver hanya menerima data buggy yang ditugaskan. Ketika session habis pada panel history, frontend menangani `401/403` dengan redirect ke login. Endpoint ingest dilindungi bearer token, sedangkan endpoint push checker dan session maintenance dilindungi token worker seperti `PUSH_WORKER_TOKEN` atau `CRON_SECRET`. Geofence saat ini berbasis center point dan radius serta dapat diedit atau dihapus melalui panel admin. Aplikasi mendukung bahasa Indonesia dan Inggris melalui route `/id` dan `/en`. Rencana pengembangan berikutnya meliputi integrasi hardware final, command queue, ACK mechanism, penyimpanan permanen event geofence, notifikasi berbasis preferensi pengguna yang tersinkron ke database, dan pengujian lapangan.
