@@ -933,9 +933,9 @@ Rate limiting khusus endpoint ETA belum terlihat pada implementasi saat ini. Kar
 | `components/map/MapCanvas.tsx` | Render Google Maps, marker, route, dan visualisasi peta. |
 | `components/buggy/PanelActive.tsx` | Daftar buggy aktif. |
 | `components/buggy/BuggyDetailView.tsx` | Detail buggy yang dipilih, termasuk permintaan ETA XGBoost per segmen, akumulasi waktu kedatangan, dan fallback ETA berbasis rute/kecepatan. |
-| `components/data/AdminDataSection.tsx` | Panel admin untuk Statistik, Buggy, dan Geofence. |
-| `components/data/AdminStatisticsPanel.tsx` | Statistik operasional armada. |
-| `components/data/GeofenceManager.tsx` | Manajemen geofence. |
+| `components/admin/fleet/AdminDataSection.tsx` | Panel admin untuk Statistik, Buggy, dan Geofence. |
+| `components/admin/statistics/AdminStatisticsPanel.tsx` | Statistik operasional armada. |
+| `components/admin/geofence/GeofenceManager.tsx` | Manajemen geofence. |
 | `components/history/HistoryPanel.tsx` | Riwayat sesi perjalanan. |
 | `components/settings/AppSettingsPanel.tsx` | Pengaturan aplikasi, bahasa, akun, dan preferensi. |
 | `components/sidebar/FloatingSidebar.tsx` | Sidebar desktop. |

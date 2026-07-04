@@ -674,12 +674,12 @@ Frontend:
 
 | Fungsi | Lokasi |
 | --- | --- |
-| DeviceAssignmentPanel | `components/data/DeviceAssignmentPanel.tsx:54` |
-| Load assignment dari API | `components/data/DeviceAssignmentPanel.tsx:102-135` |
-| Submit assignment | `components/data/DeviceAssignmentPanel.tsx:168-229` |
-| Deactivate assignment | `components/data/DeviceAssignmentPanel.tsx:231-253` |
-| Panel ditempatkan di Edit Fleet | `components/data/AdminBuggyFormPanel.tsx:276-282` |
-| Operational detail menampilkan device ID | `components/data/BuggyOperationalDetail.tsx:84-118` dan `components/data/BuggyOperationalDetail.tsx:184-185` |
+| DeviceAssignmentPanel | `components/admin/device-assignment/DeviceAssignmentPanel.tsx:54` |
+| Load assignment dari API | `components/admin/device-assignment/DeviceAssignmentPanel.tsx:102-135` |
+| Submit assignment | `components/admin/device-assignment/DeviceAssignmentPanel.tsx:168-229` |
+| Deactivate assignment | `components/admin/device-assignment/DeviceAssignmentPanel.tsx:231-253` |
+| Panel ditempatkan di Edit Fleet | `components/admin/fleet/AdminBuggyFormPanel.tsx:276-282` |
+| Operational detail menampilkan device ID | `components/admin/fleet/BuggyOperationalDetail.tsx:84-118` dan `components/admin/fleet/BuggyOperationalDetail.tsx:184-185` |
 
 ---
 
@@ -693,12 +693,12 @@ Frontend:
 
 | Fungsi | Lokasi |
 | --- | --- |
-| Form tambah/edit buggy | `components/data/AdminBuggyFormPanel.tsx:18-55` |
-| Validasi code/name/capacity | `components/data/AdminBuggyFormPanel.tsx:55-74` |
-| Submit create/update | `components/data/AdminBuggyFormPanel.tsx:75-115` |
-| Delete fleet | `components/data/AdminBuggyFormPanel.tsx:117-134` |
-| Toggle Hide Fleet | `components/data/AdminBuggyFormPanel.tsx:198-220` |
-| Render device assignment saat edit | `components/data/AdminBuggyFormPanel.tsx:276-282` |
+| Form tambah/edit buggy | `components/admin/fleet/AdminBuggyFormPanel.tsx:18-55` |
+| Validasi code/name/capacity | `components/admin/fleet/AdminBuggyFormPanel.tsx:55-74` |
+| Submit create/update | `components/admin/fleet/AdminBuggyFormPanel.tsx:75-115` |
+| Delete fleet | `components/admin/fleet/AdminBuggyFormPanel.tsx:117-134` |
+| Toggle Hide Fleet | `components/admin/fleet/AdminBuggyFormPanel.tsx:198-220` |
+| Render device assignment saat edit | `components/admin/fleet/AdminBuggyFormPanel.tsx:276-282` |
 
 Backend:
 
@@ -736,15 +736,15 @@ Referensi kode:
 
 | Fungsi | Lokasi |
 | --- | --- |
-| Komponen detail | `components/data/BuggyOperationalDetail.tsx:70` |
-| Load assigned device ID | `components/data/BuggyOperationalDetail.tsx:86-118` |
-| Hitung current/next stop | `components/data/BuggyOperationalDetail.tsx:136-137` |
-| Hitung APN/GSM/MQTT label | `components/data/BuggyOperationalDetail.tsx:138-178` |
-| Hitung occupancy | `components/data/BuggyOperationalDetail.tsx:179-183` |
-| Device ID display value | `components/data/BuggyOperationalDetail.tsx:184-185` |
-| Last seen dan connection status | `components/data/BuggyOperationalDetail.tsx:186-193` |
-| Tombol edit fleet | `components/data/BuggyOperationalDetail.tsx:264-276` |
-| Passenger load visual | `components/data/BuggyOperationalDetail.tsx:333-360` |
+| Komponen detail | `components/admin/fleet/BuggyOperationalDetail.tsx:70` |
+| Load assigned device ID | `components/admin/fleet/BuggyOperationalDetail.tsx:86-118` |
+| Hitung current/next stop | `components/admin/fleet/BuggyOperationalDetail.tsx:136-137` |
+| Hitung APN/GSM/MQTT label | `components/admin/fleet/BuggyOperationalDetail.tsx:138-178` |
+| Hitung occupancy | `components/admin/fleet/BuggyOperationalDetail.tsx:179-183` |
+| Device ID display value | `components/admin/fleet/BuggyOperationalDetail.tsx:184-185` |
+| Last seen dan connection status | `components/admin/fleet/BuggyOperationalDetail.tsx:186-193` |
+| Tombol edit fleet | `components/admin/fleet/BuggyOperationalDetail.tsx:264-276` |
+| Passenger load visual | `components/admin/fleet/BuggyOperationalDetail.tsx:333-360` |
 
 ---
 
@@ -856,9 +856,9 @@ Referensi kode:
 
 | Fungsi | Lokasi |
 | --- | --- |
-| Komponen statistik | `components/data/AdminStatisticsPanel.tsx:47-54` |
-| Chart dan stat helpers | `components/data/AdminStatisticsPanel.tsx:62-172` |
-| Passenger load dari session | `components/data/AdminStatisticsPanel.tsx:200-212` |
+| Komponen statistik | `components/admin/statistics/AdminStatisticsPanel.tsx:47-54` |
+| Chart dan stat helpers | `components/admin/statistics/AdminStatisticsPanel.tsx:62-172` |
+| Passenger load dari session | `components/admin/statistics/AdminStatisticsPanel.tsx:200-212` |
 | API statistik admin | `app/api/admin/statistics/route.ts:32-208` |
 | Ambil data bulan berjalan | `app/api/admin/statistics/route.ts:47-58` |
 | Ambil data bulan sebelumnya | `app/api/admin/statistics/route.ts:60-70` |
@@ -894,9 +894,9 @@ UI:
 
 | Fungsi | Lokasi |
 | --- | --- |
-| Tab Geofence admin | `components/data/AdminDataSection.tsx:182-207` |
-| GeofenceManager | `components/data/GeofenceManager.tsx` |
-| GeofenceEventLog | `components/data/GeofenceEventLog.tsx` |
+| Tab Geofence admin | `components/admin/fleet/AdminDataSection.tsx:182-207` |
+| GeofenceManager | `components/admin/geofence/GeofenceManager.tsx` |
+| GeofenceEventLog | `components/admin/geofence/GeofenceEventLog.tsx` |
 | State geofence di admin page | `app/[locale]/admin/page.tsx:195-208` |
 | Draft geofence di map | `components/map/MapCanvas.tsx:158-164` |
 

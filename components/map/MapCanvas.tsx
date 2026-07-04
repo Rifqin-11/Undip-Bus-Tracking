@@ -4,11 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { CENTER_UNDIP } from "@/lib/transit/buggy-data";
 import { useLocale } from "@/lib/i18n/client";
-import type { Locale } from "@/lib/i18n/config";
-import type { HistoryStopPoint } from "@/lib/history/stop-points";
 import type {
-  CircleHandle,
-  GoogleMapsWindow,
   InfoWindowHandle,
   MapHandle,
   MapCanvasProps,
@@ -24,85 +20,19 @@ import {
 } from "@/components/map/MapMarker";
 import {
   DIRECTION_POLYLINE_OPTIONS,
-  HISTORY_POLYLINE_OPTIONS,
   ROUTE_POLYLINE_OPTIONS,
   WALKING_POLYLINE_OPTIONS,
-  buildHistoryEndpointIcon,
-  buildHistoryStopIcon,
   buildPolylineEndpointIcon,
 } from "@/components/map/MapPolyline";
-
-// ─── Google Maps loader ──────────────────────────────────────────────────────
-
-const SCRIPT_ID = "google-maps-script";
-const CALLBACK_NAME = "__simobiGoogleMapsReady";
-
-function getMapsApi(): MapsApi | null {
-  return (window as GoogleMapsWindow).google?.maps ?? null;
-}
-
-function isMapsApiReady(maps: MapsApi | null): maps is MapsApi {
-  return typeof maps?.Map === "function" && typeof maps.Marker === "function";
-}
-
-function waitForMapsApiReady(timeoutMs = 10_000): Promise<MapsApi> {
-  const startedAt = Date.now();
-
-  return new Promise((resolve, reject) => {
-    const check = () => {
-      const maps = getMapsApi();
-
-      if (isMapsApiReady(maps)) {
-        resolve(maps);
-        return;
-      }
-
-      if (Date.now() - startedAt > timeoutMs) {
-        reject(new Error("Google Maps JavaScript API tidak siap setelah load."));
-        return;
-      }
-
-      window.setTimeout(check, 50);
-    };
-
-    check();
-  });
-}
-
-function loadGoogleMapsScript(apiKey: string, locale: Locale): Promise<MapsApi> {
-  const mapsApi = getMapsApi();
-  if (isMapsApiReady(mapsApi)) return Promise.resolve(mapsApi);
-
-  return new Promise((resolve, reject) => {
-    const existingScript = document.getElementById(
-      SCRIPT_ID,
-    ) as HTMLScriptElement | null;
-
-    if (existingScript) {
-      waitForMapsApiReady().then(resolve).catch(reject);
-      existingScript.addEventListener("error", () =>
-        reject(new Error("Failed to load Google Maps script")),
-      );
-      return;
-    }
-
-    (
-      window as unknown as GoogleMapsWindow &
-        Record<typeof CALLBACK_NAME, () => void>
-    )[CALLBACK_NAME] = () => {
-      waitForMapsApiReady().then(resolve).catch(reject);
-    };
-
-    const script = document.createElement("script");
-    script.id = SCRIPT_ID;
-    script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&loading=async&libraries=marker&language=${locale}&callback=${CALLBACK_NAME}`;
-    script.async = true;
-    script.defer = true;
-    script.onerror = () =>
-      reject(new Error("Failed to load Google Maps script"));
-    document.head.appendChild(script);
-  });
-}
+import { loadGoogleMapsScript } from "@/components/map/google-maps-loader";
+import {
+  distanceMeters,
+  easeOutCubic,
+  getPathEndpoints,
+} from "@/components/map/map-geometry";
+import { useHistoryTrail } from "@/components/map/hooks/useHistoryTrail";
+import { useUserLocationMarker } from "@/components/map/hooks/useUserLocationMarker";
+import { useGeofenceOverlays } from "@/components/map/hooks/useGeofenceOverlays";
 
 // ─── Component ───────────────────────────────────────────────────────────────
 
@@ -116,135 +46,13 @@ const MAP_TYPE_ID_BY_STYLE: Record<
   terrain: "terrain",
 };
 
-const USER_LOCATION_PULSE_MIN_RADIUS = 14;
-const USER_LOCATION_PULSE_MAX_RADIUS = 48;
-const USER_LOCATION_PULSE_DURATION_MS = 1700;
 const BUGGY_MARKER_ANIMATION_MS = 850;
 const BUGGY_MARKER_MAX_ANIMATE_METERS = 250;
 const BUGGY_MARKER_MIN_ANIMATE_METERS = 0.75;
 
-function getPathEndpoints(path: [number, number][]) {
-  if (path.length < 2) return [];
-  const [startLat, startLng] = path[0];
-  const [endLat, endLng] = path[path.length - 1];
-
-  return [
-    { lat: startLat, lng: startLng },
-    { lat: endLat, lng: endLng },
-  ];
-}
-
 function getHalteIconSize(zoom: number, isSelected: boolean) {
   const baseSize = zoom <= 13 ? 16 : zoom <= 14 ? 20 : 24;
   return isSelected ? baseSize + 4 : baseSize;
-}
-
-function toRadians(value: number) {
-  return (value * Math.PI) / 180;
-}
-
-function distanceMeters(
-  from: { lat: number; lng: number },
-  to: { lat: number; lng: number },
-) {
-  const earthRadiusMeters = 6_371_000;
-  const dLat = toRadians(to.lat - from.lat);
-  const dLng = toRadians(to.lng - from.lng);
-  const fromLat = toRadians(from.lat);
-  const toLat = toRadians(to.lat);
-  const a =
-    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-    Math.cos(fromLat) *
-      Math.cos(toLat) *
-      Math.sin(dLng / 2) *
-      Math.sin(dLng / 2);
-
-  return earthRadiusMeters * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-}
-
-function easeOutCubic(value: number) {
-  return 1 - Math.pow(1 - value, 3);
-}
-
-function escapeHtml(value: string) {
-  return value
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;")
-    .replaceAll('"', "&quot;");
-}
-
-function formatHistoryStopTime(value: number | undefined, locale: Locale) {
-  if (typeof value !== "number" || !Number.isFinite(value)) return "--:--";
-  return new Date(value).toLocaleTimeString(locale === "en" ? "en-US" : "id-ID", {
-    hour: "2-digit",
-    minute: "2-digit",
-    hour12: false,
-    timeZone: "Asia/Jakarta",
-  });
-}
-
-function buildHistoryStopInfoContent(
-  activeStop: HistoryStopPoint,
-  sameHalteStops: HistoryStopPoint[],
-  locale: Locale,
-) {
-  const sortedStops = [...sameHalteStops].sort(
-    (a, b) =>
-      (a.startedAtMs ?? a.endedAtMs ?? 0) - (b.startedAtMs ?? b.endedAtMs ?? 0),
-  );
-  const rows = sortedStops
-    .map((stop, index) => {
-      const startLabel = formatHistoryStopTime(
-        stop.startedAtMs ?? stop.endedAtMs,
-        locale,
-      );
-      const endLabel =
-        stop.endedAtMs && stop.endedAtMs !== stop.startedAtMs
-          ? formatHistoryStopTime(stop.endedAtMs, locale)
-          : null;
-      const durationLabel =
-        typeof stop.durationSeconds === "number"
-          ? `${Math.max(1, Math.round(stop.durationSeconds / 60))} menit`
-          : null;
-      const meta = [
-        endLabel ? `sampai ${endLabel}` : null,
-        durationLabel,
-        `${stop.pointCount} titik`,
-        typeof stop.distanceMeters === "number"
-          ? `${stop.distanceMeters} m dari halte`
-          : null,
-      ].filter(Boolean);
-
-      return `
-        <li style="display:grid;grid-template-columns:34px 1fr;gap:8px;padding:8px 0;border-top:${index === 0 ? "0" : "1px solid #e2e8f0"};">
-          <span style="font-size:11px;font-weight:800;color:#2563eb;font-variant-numeric:tabular-nums;">${startLabel}</span>
-          <span>
-            <span style="display:block;font-size:12px;font-weight:700;color:#0f172a;">Kunjungan ${index + 1}</span>
-            <span style="display:block;margin-top:2px;font-size:11px;color:#64748b;">${escapeHtml(meta.join(" · "))}</span>
-          </span>
-        </li>
-      `;
-    })
-    .join("");
-
-  const activeTime = formatHistoryStopTime(
-    activeStop.startedAtMs ?? activeStop.endedAtMs,
-    locale,
-  );
-
-  return `
-    <div style="min-width:220px;max-width:280px;font-family:Inter,Arial,sans-serif;">
-      <div style="padding-bottom:8px;border-bottom:1px solid #e2e8f0;">
-        <div style="font-size:11px;font-weight:800;color:#64748b;text-transform:uppercase;letter-spacing:.08em;">Stop Halte</div>
-        <div style="margin-top:3px;font-size:14px;font-weight:800;color:#0f172a;">${escapeHtml(activeStop.halteName)}</div>
-        <div style="margin-top:3px;font-size:11px;color:#64748b;">Dipilih ${activeTime} · ${sortedStops.length} kali terdeteksi</div>
-      </div>
-      <ul style="list-style:none;margin:8px 0 0;padding:0;">
-        ${rows}
-      </ul>
-    </div>
-  `;
 }
 
 export function MapCanvas({
@@ -300,19 +108,8 @@ export function MapCanvas({
   const walkingToPolylineRef = useRef<PolylineHandle | null>(null);
   const walkingFromPolylineRef = useRef<PolylineHandle | null>(null);
   const routeEndpointMarkersRef = useRef<MarkerHandle[]>([]);
-  const historyPolylineRef = useRef<PolylineHandle | null>(null);
-  const historyStopMarkersRef = useRef<MarkerHandle[]>([]);
-  const historyEndpointMarkersRef = useRef<MarkerHandle[]>([]);
-  const userLocationMarkerRef = useRef<MarkerHandle | null>(null);
-  const userLocationPulseRef = useRef<CircleHandle | null>(null);
-  const userLocationPulseAnimationRef = useRef<number | null>(null);
   const originMarkerRef = useRef<MarkerHandle | null>(null);
   const destinationMarkerRef = useRef<MarkerHandle | null>(null);
-  const geofenceCirclesRef = useRef<Map<string, CircleHandle>>(new Map());
-  const draftCircleRef = useRef<CircleHandle | null>(null);
-  const draftCircleListenersRef = useRef<{ remove: () => void }[]>([]);
-  const isSyncingDraftCircleRef = useRef(false);
-  const latestDraftGeofenceRef = useRef<typeof draftGeofence>(null);
   const infoWindowCloseListenerRef = useRef<{ remove: () => void } | null>(
     null,
   );
@@ -326,7 +123,30 @@ export function MapCanvas({
   const keyError = apiKey
     ? null
     : "Isi NEXT_PUBLIC_GOOGLE_MAPS_API_KEY agar peta dapat tampil.";
-  const draftGeofenceActive = draftGeofence !== null;
+  const { clearHistoryTrail } = useHistoryTrail({
+    mapReady,
+    mapInstanceRef,
+    mapsApiRef,
+    infoWindowRef,
+    historyPath,
+    historyStopPoints,
+    locale,
+  });
+  const { clearUserLocationMarker } = useUserLocationMarker({
+    mapReady,
+    mapInstanceRef,
+    mapsApiRef,
+    userPosition,
+    title: t("userLocation"),
+  });
+  const { clearGeofenceOverlays } = useGeofenceOverlays({
+    mapReady,
+    mapInstanceRef,
+    mapsApiRef,
+    geofences,
+    draftGeofence,
+    onDraftGeofenceChange,
+  });
 
   const setBuggyMarkerPosition = useCallback(
     (
@@ -382,50 +202,6 @@ export function MapCanvas({
     [],
   );
 
-  useEffect(() => {
-    latestDraftGeofenceRef.current = draftGeofence;
-  }, [draftGeofence]);
-
-  const stopUserLocationPulse = useCallback(() => {
-    if (userLocationPulseAnimationRef.current === null) return;
-    window.cancelAnimationFrame(userLocationPulseAnimationRef.current);
-    userLocationPulseAnimationRef.current = null;
-  }, []);
-
-  const startUserLocationPulse = useCallback(() => {
-    if (userLocationPulseAnimationRef.current !== null) return;
-
-    const startedAt = performance.now();
-    const animate = (time: number) => {
-      const pulse = userLocationPulseRef.current;
-      if (!pulse) {
-        userLocationPulseAnimationRef.current = null;
-        return;
-      }
-
-      const progress =
-        ((time - startedAt) % USER_LOCATION_PULSE_DURATION_MS) /
-        USER_LOCATION_PULSE_DURATION_MS;
-      const eased = 1 - Math.pow(1 - progress, 3);
-      const radius =
-        USER_LOCATION_PULSE_MIN_RADIUS +
-        (USER_LOCATION_PULSE_MAX_RADIUS - USER_LOCATION_PULSE_MIN_RADIUS) *
-          eased;
-
-      pulse.setRadius(radius);
-      pulse.setOptions({
-        strokeOpacity: 0.34 * (1 - progress),
-        fillOpacity: 0.16 * (1 - progress),
-      });
-
-      userLocationPulseAnimationRef.current =
-        window.requestAnimationFrame(animate);
-    };
-
-    userLocationPulseAnimationRef.current =
-      window.requestAnimationFrame(animate);
-  }, []);
-
   // ── Initialize map ─────────────────────────────────────────────────────────
 
   useEffect(() => {
@@ -439,7 +215,6 @@ export function MapCanvas({
     const buggyMarkerIconKeys = buggyMarkerIconKeysRef.current;
     const halteMarkers = halteMarkersRef.current;
     const halteMarkerListeners = halteMarkerListenersRef.current;
-    const geofenceCircles = geofenceCirclesRef.current;
 
     loadGoogleMapsScript(apiKey, locale)
       .then((maps) => {
@@ -520,16 +295,11 @@ export function MapCanvas({
       walkingFromPolylineRef.current?.setMap(null);
       routeEndpointMarkersRef.current.forEach((marker) => marker.setMap(null));
       routeEndpointMarkersRef.current = [];
-      historyPolylineRef.current?.setMap(null);
-      historyStopMarkersRef.current.forEach((marker) => marker.setMap(null));
-      historyStopMarkersRef.current = [];
-      stopUserLocationPulse();
-      userLocationMarkerRef.current?.setMap(null);
-      userLocationPulseRef.current?.setMap(null);
+      clearHistoryTrail();
+      clearUserLocationMarker();
       originMarkerRef.current?.setMap(null);
       destinationMarkerRef.current?.setMap(null);
-      geofenceCircles.forEach((circle) => circle.setMap(null));
-      geofenceCircles.clear();
+      clearGeofenceOverlays();
       mapClickListenerRef.current?.remove();
       mapDragStartListenerRef.current?.remove();
       mapZoomListenerRef.current?.remove();
@@ -547,7 +317,15 @@ export function MapCanvas({
     // mapStyle sengaja tidak masuk deps: perubahannya di-handle di effect terpisah
     // (lihat di bawah) agar tidak re-init seluruh instance Google Maps.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [apiKey, locale, onInfoWindowClose, tErrors]);
+  }, [
+    apiKey,
+    clearGeofenceOverlays,
+    clearHistoryTrail,
+    clearUserLocationMarker,
+    locale,
+    onInfoWindowClose,
+    tErrors,
+  ]);
 
   // ── Update map style on prop change ────────────────────────────────────────
 
@@ -629,218 +407,6 @@ export function MapCanvas({
     );
   }, [directionPath, mapReady, walkingFromHaltePath, walkingToHaltePath]);
 
-  // ── Render GPS history trail polyline ────────────────────────────────────
-
-  useEffect(() => {
-    if (!mapReady || !mapInstanceRef.current || !mapsApiRef.current) return;
-
-    const map = mapInstanceRef.current;
-    const maps = mapsApiRef.current;
-
-    historyPolylineRef.current?.setMap(null);
-    historyPolylineRef.current =
-      historyPath.length > 1
-        ? new maps.Polyline({
-            map,
-            path: historyPath.map(([lat, lng]) => ({ lat, lng })),
-            ...HISTORY_POLYLINE_OPTIONS,
-          })
-        : null;
-  }, [historyPath, mapReady]);
-
-  useEffect(() => {
-    if (!mapReady || !mapInstanceRef.current || !mapsApiRef.current) return;
-
-    const map = mapInstanceRef.current;
-    const maps = mapsApiRef.current;
-    const startLabel = locale === "en" ? "Start" : "Awal";
-    const finishLabel = locale === "en" ? "Finish" : "Akhir";
-    const endpointPoints = historyPath.length
-      ? [
-          {
-            label: startLabel,
-            title: locale === "en" ? "Session start point" : "Titik awal sesi",
-            tone: "start" as const,
-            position: { lat: historyPath[0][0], lng: historyPath[0][1] },
-          },
-          ...(historyPath.length > 1
-            ? [
-                {
-                  label: finishLabel,
-                  title:
-                    locale === "en" ? "Session finish point" : "Titik akhir sesi",
-                  tone: "finish" as const,
-                  position: {
-                    lat: historyPath[historyPath.length - 1][0],
-                    lng: historyPath[historyPath.length - 1][1],
-                  },
-                },
-              ]
-            : []),
-        ]
-      : [];
-
-    historyEndpointMarkersRef.current.forEach((marker) => marker.setMap(null));
-    historyEndpointMarkersRef.current = endpointPoints.map((point) =>
-      new maps.Marker({
-        map,
-        position: point.position,
-        title: point.title,
-        icon: buildHistoryEndpointIcon(maps, point.label, point.tone),
-        zIndex: 48,
-      }),
-    );
-
-    return () => {
-      historyEndpointMarkersRef.current.forEach((marker) => marker.setMap(null));
-      historyEndpointMarkersRef.current = [];
-    };
-  }, [historyPath, locale, mapReady]);
-
-  useEffect(() => {
-    if (!mapReady || !mapInstanceRef.current || !mapsApiRef.current) return;
-
-    const map = mapInstanceRef.current;
-    const maps = mapsApiRef.current;
-    const infoWindow = infoWindowRef.current;
-    const stopsByHalteId = new Map<string, HistoryStopPoint[]>();
-    for (const point of historyStopPoints) {
-      const current = stopsByHalteId.get(point.halteId) ?? [];
-      current.push(point);
-      stopsByHalteId.set(point.halteId, current);
-    }
-
-    historyStopMarkersRef.current.forEach((marker) => marker.setMap(null));
-    historyStopMarkersRef.current = historyStopPoints.map((point) => {
-      const durationText =
-        typeof point.durationSeconds === "number"
-          ? ` · ${Math.max(1, Math.round(point.durationSeconds / 60))} menit`
-          : "";
-      const timeLabel = formatHistoryStopTime(
-        point.startedAtMs ?? point.endedAtMs,
-        locale,
-      );
-
-      const marker = new maps.Marker({
-        map,
-        position: { lat: point.lat, lng: point.lng },
-        title: `${point.halteName} · ${timeLabel}${durationText}`,
-        icon: buildHistoryStopIcon(maps, timeLabel),
-        zIndex: 45,
-      });
-      marker.addListener("click", () => {
-        if (!infoWindow) return;
-        infoWindow.setContent(
-          buildHistoryStopInfoContent(
-            point,
-            stopsByHalteId.get(point.halteId) ?? [point],
-            locale,
-          ),
-        );
-        infoWindow.open({ map, anchor: marker });
-      });
-
-      return marker;
-    });
-
-    return () => {
-      historyStopMarkersRef.current.forEach((marker) => marker.setMap(null));
-      historyStopMarkersRef.current = [];
-    };
-  }, [historyStopPoints, locale, mapReady]);
-
-  // ── Render current device/user location marker ───────────────────────────
-
-  useEffect(() => {
-    if (!mapReady || !mapInstanceRef.current || !mapsApiRef.current) return;
-
-    const map = mapInstanceRef.current;
-    const maps = mapsApiRef.current;
-
-    if (!userPosition) {
-      stopUserLocationPulse();
-      userLocationMarkerRef.current?.setMap(null);
-      userLocationPulseRef.current?.setMap(null);
-      userLocationMarkerRef.current = null;
-      userLocationPulseRef.current = null;
-      return;
-    }
-
-    if (userLocationMarkerRef.current) {
-      userLocationMarkerRef.current.setPosition(userPosition);
-      userLocationMarkerRef.current.setTitle(t("userLocation"));
-      userLocationPulseRef.current?.setCenter(userPosition);
-      startUserLocationPulse();
-      return;
-    }
-
-    userLocationPulseRef.current = new maps.Circle({
-      map,
-      center: userPosition,
-      radius: USER_LOCATION_PULSE_MIN_RADIUS,
-      clickable: false,
-      strokeColor: "#2563eb",
-      strokeOpacity: 0.34,
-      strokeWeight: 1,
-      fillColor: "#3b82f6",
-      fillOpacity: 0.16,
-      zIndex: 28,
-    });
-
-    userLocationMarkerRef.current = new maps.Marker({
-      map,
-      position: userPosition,
-      title: t("userLocation"),
-      icon: {
-        path: maps.SymbolPath.CIRCLE,
-        fillColor: "#2563eb",
-        fillOpacity: 1,
-        strokeColor: "#ffffff",
-        strokeWeight: 3,
-        scale: 8,
-      },
-      zIndex: 35,
-    });
-
-    startUserLocationPulse();
-  }, [
-    mapReady,
-    startUserLocationPulse,
-    stopUserLocationPulse,
-    t,
-    userPosition,
-  ]);
-
-  // ── Render geofence circles ───────────────────────────────────────────────
-
-  useEffect(() => {
-    if (!mapReady || !mapInstanceRef.current || !mapsApiRef.current) return;
-
-    const map = mapInstanceRef.current;
-    const maps = mapsApiRef.current;
-    const geofenceCircles = geofenceCirclesRef.current;
-
-    geofenceCircles.forEach((circle) => circle.setMap(null));
-    geofenceCircles.clear();
-
-    geofences.forEach((geofence) => {
-      const isEnabled = geofence.enabled;
-      const circle = new maps.Circle({
-        map,
-        center: geofence.center,
-        radius: geofence.radiusMeters,
-        clickable: false,
-        strokeColor: isEnabled ? "#2563eb" : "#64748b",
-        strokeOpacity: isEnabled ? 0.95 : 0.7,
-        strokeWeight: 2,
-        fillColor: isEnabled ? "#3b82f6" : "#94a3b8",
-        fillOpacity: isEnabled ? 0.15 : 0.08,
-        zIndex: 6,
-      });
-      geofenceCircles.set(geofence.id, circle);
-    });
-  }, [geofences, mapReady]);
-
   // ── Render origin/destination markers (search result) ────────────────────
 
   useEffect(() => {
@@ -878,94 +444,6 @@ export function MapCanvas({
         })
       : null;
   }, [destinationMarkerPosition, mapReady, originMarkerPosition, t]);
-
-  // ── Draft circle for geofence creation/editing ───────────────────────────
-
-  useEffect(() => {
-    if (!mapReady || !mapInstanceRef.current || !mapsApiRef.current) return;
-    const currentDraft = latestDraftGeofenceRef.current;
-
-    if (!currentDraft) {
-      draftCircleListenersRef.current.forEach((l) => l.remove());
-      draftCircleListenersRef.current = [];
-      draftCircleRef.current?.setMap(null);
-      draftCircleRef.current = null;
-      return;
-    }
-
-    if (draftCircleRef.current) return;
-
-    const map = mapInstanceRef.current;
-    const maps = mapsApiRef.current;
-
-    const circle = new maps.Circle({
-      map,
-      center: currentDraft.center,
-      radius: currentDraft.radiusMeters,
-      draggable: true,
-      editable: true,
-      strokeColor: "#16a34a",
-      strokeOpacity: 0.9,
-      strokeWeight: 2,
-      fillColor: "#22c55e",
-      fillOpacity: 0.15,
-      zIndex: 10,
-    });
-    draftCircleRef.current = circle;
-
-    // Pan only once when the draft is first opened. Re-panning on every radius
-    // update makes the map feel like it refreshes while the user is editing.
-    map.panTo(currentDraft.center);
-
-    const fireDraftChange = () => {
-      if (isSyncingDraftCircleRef.current) return;
-      if (!onDraftGeofenceChange) return;
-      const c = circle.getCenter();
-      if (!c) return;
-      onDraftGeofenceChange({ lat: c.lat(), lng: c.lng() }, circle.getRadius());
-    };
-
-    draftCircleListenersRef.current = [
-      // Update center only after drag finishes — avoids React re-render loop
-      circle.addListener("dragend", fireDraftChange),
-      // Update radius live as user drags the resize handle
-      circle.addListener("radius_changed", fireDraftChange),
-    ];
-
-    return () => {
-      draftCircleListenersRef.current.forEach((l) => l.remove());
-      draftCircleListenersRef.current = [];
-      draftCircleRef.current?.setMap(null);
-      draftCircleRef.current = null;
-    };
-  }, [
-    draftGeofenceActive,
-    mapReady,
-    onDraftGeofenceChange,
-  ]);
-
-  // ── Sync draft circle when state changes from form/slider ────────────────
-
-  useEffect(() => {
-    if (!draftCircleRef.current || !draftGeofence) return;
-    const circle = draftCircleRef.current;
-    const currentCenter = circle.getCenter();
-    const shouldSyncCenter =
-      !currentCenter ||
-      Math.abs(currentCenter.lat() - draftGeofence.center.lat) > 0.0000001 ||
-      Math.abs(currentCenter.lng() - draftGeofence.center.lng) > 0.0000001;
-    const shouldSyncRadius =
-      Math.abs(circle.getRadius() - draftGeofence.radiusMeters) >= 0.5;
-
-    if (!shouldSyncCenter && !shouldSyncRadius) return;
-
-    isSyncingDraftCircleRef.current = true;
-    if (shouldSyncCenter) circle.setCenter(draftGeofence.center);
-    if (shouldSyncRadius) circle.setRadius(draftGeofence.radiusMeters);
-    window.requestAnimationFrame(() => {
-      isSyncingDraftCircleRef.current = false;
-    });
-  }, [draftGeofence]);
 
   // ── Map click callback (kept for legacy fallback, inactive in create mode) ─
 

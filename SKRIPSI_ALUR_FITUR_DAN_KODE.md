@@ -459,7 +459,7 @@ Menjelaskan bagaimana angka statistik seperti total trips, total distance, total
 
 1. Panel statistik meminta data berdasarkan bulan.
 
-   File: `components/data/AdminStatisticsPanel.tsx`
+   File: `components/admin/statistics/AdminStatisticsPanel.tsx`
 
    Referensi:
 
