@@ -3,7 +3,7 @@
 > **Judul proyek:** Sistem Monitoring dan Tracking Real-Time Armada Buggy Listrik Kampus UNDIP
 > **Nama aplikasi:** SIMOBI
 > **Konteks:** Smart Mobility Universitas Diponegoro
-> **Status dokumen:** Diperbarui sesuai kondisi repo dan data operasional terakhir, 24 Juni 2026
+> **Status dokumen:** Diperbarui sesuai kondisi repo dan data operasional terakhir, 5 Juli 2026
 > **Tujuan dokumen:** Ringkasan teknis yang siap dipakai sebagai konteks untuk penulisan BAB skripsi, diskusi dengan dosen pembimbing, atau ditempel ke AI lain.
 
 ---
@@ -48,9 +48,11 @@ Pembagian peran dilakukan melalui Supabase Auth dan tabel `accounts`. Role yang 
 
 SIMOBI menggunakan satu dashboard utama berbasis role pada route `/id` dan `/en`.
 Komponen route `app/[locale]/page.tsx` hanya menjadi wrapper server-side tipis,
-sedangkan logic UI utama berada pada `components/dashboard/DashboardShell.tsx`.
+sedangkan orkestrasi UI utama berada pada `components/dashboard/DashboardShell.tsx`.
 Perbedaan akses pengguna umum, driver, dan admin ditentukan oleh helper permission
 di `lib/auth/dashboard-permissions.ts`.
+
+Pada implementasi terbaru, `DashboardShell` tidak lagi menampung seluruh logic panel secara langsung. File ini berperan sebagai penghubung state utama, sedangkan panel kanan/kiri dirender melalui `components/dashboard/DashboardSidePanel.tsx`. State tampilan, data fleet/halte, geofence, assignment driver, dan alert offline dipisahkan ke custom hook seperti `useDashboardViewState`, `useDashboardFleetData`, `useDashboardGeofences`, `useDriverAssignments`, dan `useOfflineBuggyAlerts`. Pemisahan ini membuat struktur dashboard lebih mudah dibaca dan diuji tanpa mengubah route utama.
 
 Fitur utama:
 
@@ -307,7 +309,7 @@ BuggyDetailView
 ETA API Python /predict_segment
       |
       +--> xgboost_eta_model.json
-      +--> dataroute.txt
+      +--> eta-vps/dataroute.txt
       |
       v
 eta_seconds, eta_minutes, eta_formatted
@@ -319,7 +321,7 @@ Model menggunakan objective regresi `reg:squarederror` dengan sembilan fitur dal
 
 | Fitur | Sumber pada proses inferensi |
 | --- | --- |
-| `route_distance_m` | Jarak maju sepanjang titik `dataroute.txt` antara halte asal dan tujuan. |
+| `route_distance_m` | Jarak maju sepanjang titik `eta-vps/dataroute.txt` antara halte asal dan tujuan. |
 | `max_passengers` | Nilai jumlah penumpang live yang dikirim dari detail buggy. Nama kolom mengikuti dataset training. |
 | `hour_of_day` | Jam request dalam zona waktu Asia/Jakarta. |
 | `day_of_week` | Hari Python `weekday()`, dengan Senin = 0 dan Minggu = 6. |
@@ -827,7 +829,7 @@ Tabel ini dibuat melalui migrasi `20260601122722_create_notification_subscriptio
 | Method | Endpoint | Fungsi |
 | --- | --- | --- |
 | `GET` | `/api/buggy` | Mengambil snapshot buggy terbaru untuk frontend. |
-| `GET` | `/api/buggy/stream` | Alternatif live feed menggunakan SSE. |
+| `GET` | `/api/buggy/stream` | Live feed utama berbasis SSE; frontend akan fallback ke polling `/api/buggy` jika stream gagal berulang. |
 | `POST` | `/api/gps-beacon` | Ingest data GPS dari MQTT bridge atau simulator, termasuk payload `statusOnly` untuk status GSM/MQTT. |
 | `POST` | `/api/eta/predict-segment` | Memvalidasi input dan meneruskan permintaan prediksi ETA satu segmen ke layanan XGBoost Python dengan timeout lima detik. |
 | `POST` | `/api/buggy/ingest` | Ingest snapshot atau telemetry legacy. |
@@ -929,18 +931,34 @@ Rate limiting khusus endpoint ETA belum terlihat pada implementasi saat ini. Kar
 
 | Komponen / Hook | Fungsi |
 | --- | --- |
-| `components/dashboard/DashboardShell.tsx` | Shell dashboard utama role-based untuk guest, pengguna umum, driver, dan admin. |
-| `components/map/MapCanvas.tsx` | Render Google Maps, marker, route, dan visualisasi peta. |
+| `components/dashboard/DashboardShell.tsx` | Orchestrator dashboard utama role-based untuk guest, pengguna umum, driver, dan admin. |
+| `components/dashboard/DashboardSidePanel.tsx` | Komposisi panel samping untuk daftar buggy, detail data admin, riwayat, dan pengaturan. |
+| `components/map/MapCanvas.tsx` | Render inti Google Maps, marker buggy/halte, route, dan visualisasi peta. |
+| `components/map/hooks/useHistoryTrail.ts` | Mengelola polyline histori perjalanan, marker awal/akhir, dan marker titik berhenti halte. |
+| `components/map/hooks/useUserLocationMarker.ts` | Mengelola marker lokasi pengguna dan animasi pulse pada peta. |
+| `components/map/hooks/useGeofenceOverlays.ts` | Mengelola lingkaran geofence dan draft circle saat admin membuat atau mengedit geofence. |
 | `components/buggy/PanelActive.tsx` | Daftar buggy aktif. |
 | `components/buggy/BuggyDetailView.tsx` | Detail buggy yang dipilih, termasuk permintaan ETA XGBoost per segmen, akumulasi waktu kedatangan, dan fallback ETA berbasis rute/kecepatan. |
 | `components/admin/fleet/AdminDataSection.tsx` | Panel admin untuk Statistik, Buggy, dan Geofence. |
+| `components/admin/fleet/AdminBuggyFormPanel.tsx` | Form tambah/edit buggy, termasuk hide/unhide fleet dan integrasi assignment device. |
+| `components/admin/fleet/BuggyOperationalDetail.tsx` | Detail operasional buggy untuk admin/driver, termasuk device assignment, status koneksi, GSM, dan zona geofence aktif. |
+| `components/admin/device-assignment/DeviceAssignmentPanel.tsx` | Manajemen assignment perangkat fisik `devicesId` ke buggy. |
 | `components/admin/statistics/AdminStatisticsPanel.tsx` | Statistik operasional armada. |
 | `components/admin/geofence/GeofenceManager.tsx` | Manajemen geofence. |
-| `components/history/HistoryPanel.tsx` | Riwayat sesi perjalanan. |
+| `components/admin/geofence/GeofenceEventLog.tsx` | Log event geofence pada dashboard admin. |
+| `components/history/HistoryPanel.tsx` | Riwayat sesi perjalanan berbasis tanggal, buggy, dan detail path. |
+| `components/history/HistoryDateBuggyList.tsx` | Daftar tanggal dan buggy yang memiliki sesi perjalanan. |
+| `components/history/HistorySessionList.tsx` | Daftar sesi perjalanan pada tanggal/buggy yang dipilih. |
+| `components/history/HistorySessionDetail.tsx` | Detail sesi, ringkasan durasi/jarak, path GPS, dan titik berhenti. |
 | `components/settings/AppSettingsPanel.tsx` | Pengaturan aplikasi, bahasa, akun, dan preferensi. |
 | `components/sidebar/FloatingSidebar.tsx` | Sidebar desktop. |
 | `components/sidebar/MobileBottomNav.tsx` | Navigasi mobile. |
-| `hooks/useBuggyLiveFeed.ts` | Mengambil data buggy realtime. |
+| `hooks/useBuggyLiveFeed.ts` | Mengambil data buggy realtime melalui SSE dengan fallback polling 5 detik. |
+| `hooks/useDashboardViewState.ts` | Mengelola active view, panel, pilihan buggy/halte, history path, dan form account pada dashboard. |
+| `hooks/useDashboardFleetData.ts` | Mengelola data live fleet, fallback local buggy, master buggy admin, halte, dan filter role-based. |
+| `hooks/useDashboardGeofences.ts` | Mengelola data geofence, draft geofence, status zona, dan event alert geofence. |
+| `hooks/useDriverAssignments.ts` | Mengambil nama driver yang ditugaskan ke buggy untuk tampilan detail operasional. |
+| `hooks/useOfflineBuggyAlerts.ts` | Memberi alert admin ketika buggy offline terlalu lama. |
 | `hooks/useDirectionSearch.ts` | Pencarian rute. |
 | `hooks/useNearestHaltes.ts` | Rekomendasi halte terdekat. |
 | `hooks/useNearbyBusAlert.ts` | Notifikasi buggy mendekat. |
@@ -955,10 +973,18 @@ Rate limiting khusus endpoint ETA belum terlihat pada implementasi saat ini. Kar
 
 | File | Fungsi |
 | --- | --- |
-| `app/api/gps-beacon/route.ts` | Endpoint ingest GPS utama. |
+| `app/api/gps-beacon/route.ts` | Route handler tipis untuk endpoint ingest GPS dan health check. |
+| `lib/server/gps-beacon/ingest-route.ts` | Orkestrasi utama ingest GPS: validasi token, resolve device assignment, update live store, persistence, session, dan broadcast. |
+| `lib/server/gps-beacon/history-throttle.ts` | Pembatasan insert `buggy_history` berdasarkan interval, jarak, perubahan kecepatan, dan filter titik no-fix/stagnan. |
+| `lib/server/gps-beacon/status-only.ts` | Handler payload `statusOnly` untuk update status GSM/MQTT tanpa menulis history GPS. |
+| `lib/server/gps-beacon/request-utils.ts` | Helper validasi bentuk request, fallback schema, dan normalisasi jumlah penumpang. |
 | `app/api/eta/predict-segment/route.ts` | Proxy server-side dari web menuju ETA API Python; melakukan normalisasi kode halte/penumpang, timeout, dan penanganan error service. |
 | `app/api/buggy/route.ts` | Snapshot buggy terbaru untuk frontend. |
 | `app/api/buggy/stream/route.ts` | SSE live feed. |
+| `app/api/buggy-sessions/route.ts` | Route handler tipis untuk membaca riwayat sesi perjalanan. |
+| `lib/server/buggy-sessions/get-sessions.ts` | Orkestrasi query sesi, penggabungan sesi tersimpan dengan raw GPS terbaru, dan response history. |
+| `lib/server/buggy-sessions/access.ts` | Role/access context untuk history: admin semua fleet, driver hanya buggy yang ditugaskan beserta aliasnya. |
+| `lib/server/buggy-sessions/session-rows.ts` | Mapper dan dedupe row `buggy_session_history` menjadi `BuggySession`. |
 | `lib/realtime/buggy-live-store.ts` | Menyimpan snapshot live buggy di memori. |
 | `lib/transit/buggy-route-utils.ts` | Perhitungan jarak maju sepanjang rute serta ETA deterministik yang dipakai sebagai nilai live dan fallback model. |
 | `lib/realtime/session-store.ts` | Mengelola sesi perjalanan dan finalisasi sesi. |
@@ -1194,7 +1220,7 @@ Bahas:
 - Pengujian akses role.
 - Pengujian API.
 
-Hasil black-box production tanggal 24 Juni 2026 didokumentasikan pada `docs/BLACKBOX_PLAYWRIGHT_REPORT_2026-06-24.md`. Pengujian Playwright memverifikasi halaman production HTTP 200, peta, 17 halte, detail halte, pergantian bahasa, dan penyimpanan gaya peta. Saat pengujian, dashboard menunjukkan `0 unit`, sehingga detail buggy dan UI ETA live tidak dapat diuji end-to-end. Login positif, registrasi positif, statistik, riwayat, serta push subscription juga belum dinyatakan berhasil karena akun uji sesuai role belum tersedia. Kondisi tersebut harus dipertahankan sebagai hasil aktual dan tidak boleh diubah menjadi `Berhasil` tanpa pengujian ulang.
+Hasil black-box production tanggal 24 Juni 2026 pada catatan pengujian internal memverifikasi halaman production HTTP 200, peta, 17 halte, detail halte, pergantian bahasa, dan penyimpanan gaya peta. Saat pengujian, dashboard menunjukkan `0 unit`, sehingga detail buggy dan UI ETA live tidak dapat diuji end-to-end. Login positif, registrasi positif, statistik, riwayat, serta push subscription juga belum dinyatakan berhasil karena akun uji sesuai role belum tersedia. Kondisi tersebut harus dipertahankan sebagai hasil aktual dan tidak boleh diubah menjadi `Berhasil` tanpa pengujian ulang.
 
 ### BAB V - Penutup
 
@@ -1254,9 +1280,9 @@ Pengembangan berikutnya yang dapat ditulis sebagai saran:
 
 ## 20. Ringkasan Singkat untuk Ditempel ke AI Lain
 
-SIMOBI adalah sistem monitoring real-time armada buggy listrik kampus UNDIP berbasis Next.js 16, React 19, TypeScript, Supabase PostgreSQL/Auth, Google Maps API, MQTT, dan PWA Web Push Notification. Sistem memiliki tiga peran pengguna: pengguna umum, driver, dan admin. Aplikasi memakai satu dashboard utama berbasis role pada route `/id` dan `/en`, dengan `DashboardShell` sebagai pusat UI dan `dashboard-permissions` sebagai helper penentu akses. Guest dan pengguna umum dapat melihat peta buggy, halte, ETA, rute/directions, detail buggy, status koneksi, dan posisi terakhir buggy tanpa login. Fitur personal seperti favorit tetap membutuhkan login, sedangkan notifikasi mendekati halte memakai subscription pengguna/browser. Driver melihat panel terbatas sesuai buggy yang ditugaskan, termasuk statistik dan riwayat sesi untuk buggy tersebut. Admin melihat panel operasional penuh untuk mengelola buggy, hide/unhide fleet, assignment device GPS fisik ke buggy, halte, geofence, akun, notifikasi, statistik, riwayat perjalanan, alert geofence, dan alert buggy offline terlalu lama.
+SIMOBI adalah sistem monitoring real-time armada buggy listrik kampus UNDIP berbasis Next.js 16, React 19, TypeScript, Supabase PostgreSQL/Auth, Google Maps API, MQTT, dan PWA Web Push Notification. Sistem memiliki tiga peran pengguna: pengguna umum, driver, dan admin. Aplikasi memakai satu dashboard utama berbasis role pada route `/id` dan `/en`, dengan `DashboardShell` sebagai orchestrator UI, `DashboardSidePanel` sebagai komposisi panel, dan `dashboard-permissions` sebagai helper penentu akses. State dashboard dipisahkan ke hook seperti `useDashboardViewState`, `useDashboardFleetData`, `useDashboardGeofences`, dan `useDriverAssignments`, sedangkan domain admin dipisahkan ke folder `components/admin/fleet`, `components/admin/statistics`, `components/admin/geofence`, dan `components/admin/device-assignment`. Guest dan pengguna umum dapat melihat peta buggy, halte, ETA, rute/directions, detail buggy, status koneksi, dan posisi terakhir buggy tanpa login. Fitur personal seperti favorit tetap membutuhkan login, sedangkan notifikasi mendekati halte memakai subscription pengguna/browser. Driver melihat panel terbatas sesuai buggy yang ditugaskan, termasuk statistik dan riwayat sesi untuk buggy tersebut. Admin melihat panel operasional penuh untuk mengelola buggy, hide/unhide fleet, assignment device GPS fisik ke buggy, halte, geofence, akun, notifikasi, statistik, riwayat perjalanan, alert geofence, dan alert buggy offline terlalu lama.
 
-Alur data utama adalah GPS tracker/simulator/hardware mengirim telemetry ke MQTT broker pada topic `buggy/{deviceId}/data`, misalnya `buggy/ESP-3C124B00/data`. Device juga dapat mengirim status GSM/MQTT yang lebih ringan ke topic `buggy/{deviceId}/status`, misalnya `buggy/ESP-3C124B00/status`. Broker production menggunakan Mosquitto pada folder sibling `simobi-mosquitto-broker`, dengan autentikasi username/password, ACL per device, persistence internal `mosquitto.db`, dan deployment long-running. MQTT bridge production berada pada folder sibling `mqtt-bridge-service`; worker ini subscribe ke `buggy/+/data` dan `buggy/+/status`, menormalisasi payload menjadi `devicesId`, lalu meneruskan data ke endpoint protected `POST /api/gps-beacon`. Untuk data simulator `/gps-tracker`, payload legacy berbasis `buggyId` masih diterima sebagai fallback kompatibilitas. Endpoint ingest memvalidasi `BUGGY_INGEST_TOKEN`, mencatat device yang terlihat ke `device_registry`, melakukan lookup assignment aktif `devicesId -> buggy_id`, menolak device yang belum diassign, menolak penerapan payload untuk fleet yang sedang di-hide, memperbarui live buggy store, menyimpan raw telemetry ke `buggy_history`, meng-upsert snapshot ke `latest_buggy_telemetry`, mengelola sesi perjalanan ke `buggy_session_history`, dan melakukan broadcast SSE ke dashboard yang sedang aktif. Payload `statusOnly` dari topic `/status` hanya memperbarui status GSM/MQTT pada snapshot terbaru dan tidak menambah titik histori GPS. Setiap snapshot terbaru menyimpan `received_at` sebagai waktu server menerima telemetry. Field ini digunakan untuk menghitung status koneksi `Online`, `Signal unstable`, `Connection lost`, atau `Offline`, sehingga dashboard tetap dapat menampilkan last known location ketika sinyal SIM800 melemah. Frontend membaca data realtime melalui SSE event-driven pada `/api/buggy/stream`, dengan fallback polling `GET /api/buggy` setiap 5 detik jika stream terputus. Untuk notifikasi PWA, browser mendaftarkan service worker `/sw.js`, menyimpan push subscription ke `notification_subscriptions`, lalu endpoint `/api/push/check-nearby` mengirim Web Push ketika buggy dengan status `Online` atau `Signal unstable` mendekati halte terdekat pengguna.
+Alur data utama adalah GPS tracker/simulator/hardware mengirim telemetry ke MQTT broker pada topic `buggy/{deviceId}/data`, misalnya `buggy/ESP-3C124B00/data`. Device juga dapat mengirim status GSM/MQTT yang lebih ringan ke topic `buggy/{deviceId}/status`, misalnya `buggy/ESP-3C124B00/status`. Broker production menggunakan Mosquitto pada folder sibling `simobi-mosquitto-broker`, dengan autentikasi username/password, ACL per device, persistence internal `mosquitto.db`, dan deployment long-running. MQTT bridge production berada pada folder sibling `mqtt-bridge-service`; worker ini subscribe ke `buggy/+/data` dan `buggy/+/status`, menormalisasi payload menjadi `devicesId`, lalu meneruskan data ke endpoint protected `POST /api/gps-beacon`. Route `app/api/gps-beacon/route.ts` dibuat tipis dan meneruskan proses ke `lib/server/gps-beacon/ingest-route.ts`, dengan helper terpisah untuk throttle history, payload `statusOnly`, dan normalisasi request. Untuk data simulator `/gps-tracker`, payload legacy berbasis `buggyId` masih diterima sebagai fallback kompatibilitas. Endpoint ingest memvalidasi `BUGGY_INGEST_TOKEN`, mencatat device yang terlihat ke `device_registry`, melakukan lookup assignment aktif `devicesId -> buggy_id`, menolak device yang belum diassign, menolak penerapan payload untuk fleet yang sedang di-hide, memperbarui live buggy store, menyimpan raw telemetry ke `buggy_history`, meng-upsert snapshot ke `latest_buggy_telemetry`, mengelola sesi perjalanan ke `buggy_session_history`, dan melakukan broadcast SSE ke dashboard yang sedang aktif. Payload `statusOnly` dari topic `/status` hanya memperbarui status GSM/MQTT pada snapshot terbaru dan tidak menambah titik histori GPS. Setiap snapshot terbaru menyimpan `received_at` sebagai waktu server menerima telemetry. Field ini digunakan untuk menghitung status koneksi `Online`, `Signal unstable`, `Connection lost`, atau `Offline`, sehingga dashboard tetap dapat menampilkan last known location ketika sinyal SIM800 melemah. Frontend membaca data realtime melalui SSE event-driven pada `/api/buggy/stream`, dengan fallback polling `GET /api/buggy` setiap 5 detik jika stream terputus. Untuk notifikasi PWA, browser mendaftarkan service worker `/sw.js`, menyimpan push subscription ke `notification_subscriptions`, lalu endpoint `/api/push/check-nearby` mengirim Web Push ketika buggy dengan status `Online` atau `Signal unstable` mendekati halte terdekat pengguna.
 
 Prediksi ETA memiliki dua lapis. Live store menghitung ETA deterministik menuju halte berikutnya dari jarak sepanjang `OFFICIAL_ROUTE_PATH` dan kecepatan buggy. Saat pengguna membuka detail buggy, `BuggyDetailView` meminta prediksi XGBoost untuk setiap pasangan halte melalui proxy Next.js `POST /api/eta/predict-segment`. Proxy memvalidasi kode halte dan jumlah penumpang, lalu memanggil Flask/Gunicorn ETA API melalui `ETA_API_URL` dengan timeout lima detik. Model `reg:squarederror` menggunakan sembilan fitur: `route_distance_m`, `max_passengers`, `hour_of_day`, `day_of_week`, `is_weekend`, `is_peak_hour`, `from_halte_idx`, `to_halte_idx`, dan `is_rusun`. Hasil per segmen diakumulasi menjadi estimasi jam kedatangan; jika request gagal atau halte tidak didukung model, UI otomatis memakai ETA deterministik berbasis rute/kecepatan. Endpoint production telah diverifikasi HTTP 200 pada 24 Juni 2026, tetapi akurasi model tetap harus dilaporkan dari evaluasi ground truth menggunakan MAE, RMSE, atau MAPE. Mapping halte dan feature model juga perlu diselaraskan sebelum evaluasi final karena service memakai daftar halte statis.
 

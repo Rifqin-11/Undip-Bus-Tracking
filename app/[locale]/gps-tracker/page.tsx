@@ -93,6 +93,27 @@ type TelemetryPayload = {
     mqttStateText?: string;
   };
 };
+type ServerSimulatorStatus = {
+  running: boolean;
+  mode: TrackerMode;
+  intervalMs: number;
+  mqttBrokerUrl: string;
+  topicPrefix: string;
+  sendCount: number;
+  lastSentAt: string | null;
+  startedAt: string | null;
+  error: string | null;
+  vehicles: Array<{
+    id: string;
+    numericId: number;
+    code: string;
+    name: string;
+    devicesId: string | null;
+    batteryLevel: number;
+    passengers: number;
+    speedKmh: number;
+  }>;
+};
 
 type MqttModule = {
   connect?: typeof import("mqtt").connect;
@@ -228,6 +249,9 @@ export default function GpsTrackerPage() {
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [log, setLog] = useState<string[]>([]);
   const [latestPayloads, setLatestPayloads] = useState<TelemetryPayload[]>([]);
+  const [serverSimulatorStatus, setServerSimulatorStatus] =
+    useState<ServerSimulatorStatus | null>(null);
+  const [serverSimulatorBusy, setServerSimulatorBusy] = useState(false);
   const [vehicles, setVehicles] = useState<SimulatedVehicle[]>([]);
   const [deviceCoords, setDeviceCoords] = useState<DeviceCoords | null>(null);
   const [deviceBattery, setDeviceBattery] = useState(92);
@@ -334,6 +358,19 @@ export default function GpsTrackerPage() {
     setLog((prev) => [`[${time}] ${message}`, ...prev].slice(0, 60));
   }, [formatTrackerTime]);
 
+  const loadServerSimulatorStatus = useCallback(async () => {
+    try {
+      const response = await fetch("/api/admin/gps-simulator", {
+        cache: "no-store",
+      });
+      if (!response.ok) return;
+      const status = (await response.json()) as ServerSimulatorStatus;
+      setServerSimulatorStatus(status);
+    } catch {
+      // Status server simulator hanya fitur tambahan admin; abaikan jika belum login.
+    }
+  }, []);
+
   useEffect(() => {
     fetch("/api/haltes", { cache: "no-store" })
       .then((response) => response.json())
@@ -374,7 +411,18 @@ export default function GpsTrackerPage() {
       .catch(() => {
         addLog("Info: Device assignments tidak dapat dimuat (memerlukan login admin). Menggunakan manual input.");
       });
-  }, [addLog]);
+
+    void loadServerSimulatorStatus();
+  }, [addLog, loadServerSimulatorStatus]);
+
+  useEffect(() => {
+    if (!serverSimulatorStatus?.running) return;
+    const interval = setInterval(() => {
+      void loadServerSimulatorStatus();
+    }, 5_000);
+
+    return () => clearInterval(interval);
+  }, [loadServerSimulatorStatus, serverSimulatorStatus?.running]);
 
   useEffect(() => {
     deviceCoordsRef.current = deviceCoords;
@@ -786,8 +834,84 @@ export default function GpsTrackerPage() {
     trackerMode,
   ]);
 
+  const startServerSimulator = useCallback(async () => {
+    setServerSimulatorBusy(true);
+    setErrorMsg(null);
+
+    try {
+      const response = await fetch("/api/admin/gps-simulator", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          mode: trackerMode,
+          selectedBuggyNumericId: selectedBuggyId,
+          fleetCount,
+          intervalMs,
+          mqttBrokerUrl,
+        }),
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        throw new Error(
+          typeof payload.message === "string"
+            ? payload.message
+            : "Gagal memulai simulator server.",
+        );
+      }
+
+      setServerSimulatorStatus(payload as ServerSimulatorStatus);
+      addLog("Simulator server berjalan. Tab ini boleh ditutup.");
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "Gagal memulai simulator server";
+      setErrorMsg(message);
+      addLog(message);
+    } finally {
+      setServerSimulatorBusy(false);
+    }
+  }, [
+    addLog,
+    fleetCount,
+    intervalMs,
+    mqttBrokerUrl,
+    selectedBuggyId,
+    trackerMode,
+  ]);
+
+  const stopServerSimulator = useCallback(async () => {
+    setServerSimulatorBusy(true);
+    setErrorMsg(null);
+
+    try {
+      const response = await fetch("/api/admin/gps-simulator", {
+        method: "DELETE",
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        throw new Error(
+          typeof payload.message === "string"
+            ? payload.message
+            : "Gagal menghentikan simulator server.",
+        );
+      }
+
+      setServerSimulatorStatus(payload as ServerSimulatorStatus);
+      addLog("Simulator server dihentikan.");
+    } catch (error) {
+      const message =
+        error instanceof Error
+          ? error.message
+          : "Gagal menghentikan simulator server";
+      setErrorMsg(message);
+      addLog(message);
+    } finally {
+      setServerSimulatorBusy(false);
+    }
+  }, [addLog]);
+
   const previewPayload =
     trackerMode === "fleet" ? latestPayloads[0] : latestDevicePayload;
+  const serverSimulatorRunning = serverSimulatorStatus?.running === true;
 
   return (
     <main style={S.page}>
@@ -1030,6 +1154,75 @@ export default function GpsTrackerPage() {
             <span>Waypoint rute resmi: <strong>{OFFICIAL_ROUTE_PATH.length}</strong></span>
             <span>Halte referensi ETA: <strong>{sortedHaltes.length}</strong></span>
             <span>Bridge target: <code style={S.code}>/api/gps-beacon</code></span>
+          </div>
+        </Card>
+
+        <Card title="Simulator Server">
+          <div style={S.infoRows}>
+            <span>
+              Status:{" "}
+              <strong style={{ color: serverSimulatorRunning ? "#86efac" : "#cbd5e1" }}>
+                {serverSimulatorRunning ? "Berjalan di server" : "Berhenti"}
+              </strong>
+            </span>
+            <span>
+              Fungsi: publish MQTT dari server sehingga tetap berjalan meskipun
+              halaman GPS tracker ditutup.
+            </span>
+            <span>
+              Broker server:{" "}
+              <code style={S.code}>
+                {serverSimulatorStatus?.mqttBrokerUrl ?? mqttBrokerUrl}
+              </code>
+            </span>
+            <span>
+              Publish server:{" "}
+              <strong>{serverSimulatorStatus?.sendCount ?? 0}x</strong>
+              {serverSimulatorStatus?.lastSentAt
+                ? ` · terakhir ${new Date(serverSimulatorStatus.lastSentAt).toLocaleTimeString("id-ID")}`
+                : ""}
+            </span>
+            {serverSimulatorStatus?.vehicles?.length ? (
+              <span>
+                Armada server:{" "}
+                {serverSimulatorStatus.vehicles
+                  .map((vehicle) => vehicle.code)
+                  .join(", ")}
+              </span>
+            ) : null}
+            {serverSimulatorStatus?.error ? (
+              <span style={{ color: "#fecaca" }}>
+                Error server: {serverSimulatorStatus.error}
+              </span>
+            ) : null}
+          </div>
+          <div style={{ display: "flex", gap: 10, marginTop: 12, flexWrap: "wrap" }}>
+            <button
+              type="button"
+              onClick={() => void startServerSimulator()}
+              disabled={serverSimulatorBusy || serverSimulatorRunning}
+              style={{
+                ...S.smallBtn,
+                opacity: serverSimulatorBusy || serverSimulatorRunning ? 0.6 : 1,
+              }}
+            >
+              {serverSimulatorBusy && !serverSimulatorRunning
+                ? "Memulai..."
+                : "Mulai Simulator Server"}
+            </button>
+            <button
+              type="button"
+              onClick={() => void stopServerSimulator()}
+              disabled={serverSimulatorBusy || !serverSimulatorRunning}
+              style={{
+                ...S.smallBtnDanger,
+                opacity: serverSimulatorBusy || !serverSimulatorRunning ? 0.6 : 1,
+              }}
+            >
+              {serverSimulatorBusy && serverSimulatorRunning
+                ? "Menghentikan..."
+                : "Hentikan Server"}
+            </button>
           </div>
         </Card>
 
