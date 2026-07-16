@@ -305,7 +305,7 @@ export default function GpsTrackerPage() {
   useEffect(() => { gsmLocalIpRef.current = gsmLocalIp; }, [gsmLocalIp]);
   useEffect(() => { gsmNetworkTypeRef.current = gsmNetworkType; }, [gsmNetworkType]);
   useEffect(() => { gsmMqttStateTextRef.current = gsmMqttStateText; }, [gsmMqttStateText]);
-  
+
   const mqttTopicPrefix = process.env.NEXT_PUBLIC_MQTT_TOPIC_PREFIX ?? "buggy";
   const mqttUsername = process.env.NEXT_PUBLIC_MQTT_USERNAME;
   const mqttPassword = process.env.NEXT_PUBLIC_MQTT_PASSWORD;
@@ -1161,7 +1161,7 @@ export default function GpsTrackerPage() {
           <div style={S.infoRows}>
             <span>
               Status:{" "}
-              <strong style={{ color: serverSimulatorRunning ? "#86efac" : "#cbd5e1" }}>
+              <strong style={{ color: serverSimulatorRunning ? "#15803d" : "#475569" }}>
                 {serverSimulatorRunning ? "Berjalan di server" : "Berhenti"}
               </strong>
             </span>
@@ -1191,7 +1191,7 @@ export default function GpsTrackerPage() {
               </span>
             ) : null}
             {serverSimulatorStatus?.error ? (
-              <span style={{ color: "#fecaca" }}>
+              <span style={{ color: "#b91c1c" }}>
                 Error server: {serverSimulatorStatus.error}
               </span>
             ) : null}
@@ -1316,12 +1316,12 @@ function Pill({
     <div
       style={{
         ...S.pill,
-        borderColor: highlight ? "rgba(56,189,248,.5)" : "rgba(255,255,255,.08)",
-        background: highlight ? "rgba(14,165,233,.14)" : "rgba(255,255,255,.05)",
+        borderColor: highlight ? "rgba(14,116,144,.35)" : "#e2e8f0",
+        background: highlight ? "#ecfeff" : "#f8fafc",
       }}
     >
-      <span style={{ color: "#94a3b8" }}>{label}</span>
-      <span style={{ color: highlight ? "#7dd3fc" : "#f8fafc", fontWeight: 800 }}>
+      <span style={{ color: "#64748b" }}>{label}</span>
+      <span style={{ color: highlight ? "#0e7490" : "#0f172a", fontWeight: 800 }}>
         {value}
       </span>
     </div>
@@ -1346,8 +1346,8 @@ function Field({
 const S: Record<string, React.CSSProperties> = {
   page: {
     minHeight: "100dvh",
-    background: "linear-gradient(135deg,#0f172a 0%,#1e293b 58%,#0f2027 100%)",
-    color: "#f1f5f9",
+    background: "#f8fafc",
+    color: "#0f172a",
     fontFamily: "'Inter',-apple-system,BlinkMacSystemFont,sans-serif",
     overflowX: "hidden",
   },
@@ -1360,7 +1360,7 @@ const S: Record<string, React.CSSProperties> = {
   eyebrow: {
     margin: "0 0 4px",
     fontSize: 11,
-    color: "#38bdf8",
+    color: "#0284c7",
     fontWeight: 800,
     letterSpacing: "0.14em",
     textTransform: "uppercase",
@@ -1369,12 +1369,12 @@ const S: Record<string, React.CSSProperties> = {
     margin: 0,
     fontSize: 24,
     fontWeight: 800,
-    color: "#f8fafc",
+    color: "#0f172a",
   },
   subtitle: {
     margin: "4px 0 0",
     fontSize: 13,
-    color: "#94a3b8",
+    color: "#64748b",
     lineHeight: 1.5,
   },
   pills: {
@@ -1386,7 +1386,7 @@ const S: Record<string, React.CSSProperties> = {
     display: "flex",
     alignItems: "center",
     gap: 7,
-    border: "1px solid rgba(255,255,255,.08)",
+    border: "1px solid #e2e8f0",
     borderRadius: 999,
     padding: "6px 11px",
     fontSize: 12,
@@ -1398,15 +1398,15 @@ const S: Record<string, React.CSSProperties> = {
     gap: 14,
   },
   card: {
-    background: "rgba(255,255,255,.055)",
-    border: "1px solid rgba(255,255,255,.09)",
+    background: "#ffffff",
+    border: "1px solid #e2e8f0",
     borderRadius: 16,
     padding: "14px 16px",
     backdropFilter: "blur(12px)",
   },
   cardTitle: {
     margin: "0 0 11px",
-    color: "#94a3b8",
+    color: "#475569",
     fontSize: 12,
     fontWeight: 800,
     letterSpacing: "0.08em",
@@ -1418,17 +1418,17 @@ const S: Record<string, React.CSSProperties> = {
     gap: 12,
   },
   label: {
-    color: "#94a3b8",
+    color: "#64748b",
     fontSize: 12,
     fontWeight: 700,
   },
   input: {
     width: "100%",
     boxSizing: "border-box",
-    background: "rgba(255,255,255,.07)",
-    border: "1px solid rgba(255,255,255,.14)",
+    background: "#ffffff",
+    border: "1px solid #cbd5e1",
     borderRadius: 10,
-    color: "#f8fafc",
+    color: "#0f172a",
     fontSize: 14,
     outline: "none",
     padding: "10px 12px",
@@ -1437,29 +1437,29 @@ const S: Record<string, React.CSSProperties> = {
     display: "flex",
     flexDirection: "column",
     gap: 5,
-    color: "#cbd5e1",
+    color: "#334155",
     fontSize: 13,
   },
   code: {
-    color: "#7dd3fc",
+    color: "#0369a1",
     fontFamily: "ui-monospace,SFMono-Regular,Menlo,monospace",
   },
   pre: {
     margin: 0,
-    background: "rgba(0,0,0,.32)",
-    border: "1px solid rgba(255,255,255,.08)",
+    background: "#f1f5f9",
+    border: "1px solid #e2e8f0",
     borderRadius: 10,
-    color: "#cbd5e1",
+    color: "#334155",
     fontSize: 11,
     lineHeight: 1.6,
     overflowX: "auto",
     padding: "11px 12px",
   },
   errorBox: {
-    background: "#450a0a",
-    border: "1px solid #7f1d1d",
+    background: "#fef2f2",
+    border: "1px solid #fecaca",
     borderRadius: 12,
-    color: "#fecaca",
+    color: "#b91c1c",
     fontSize: 13,
     padding: "11px 14px",
   },
@@ -1483,11 +1483,11 @@ const S: Record<string, React.CSSProperties> = {
     gridTemplateColumns: "0.7fr 0.7fr 1.3fr 1fr",
     gap: 8,
     alignItems: "center",
-    border: "1px solid rgba(255,255,255,.08)",
+    border: "1px solid #e2e8f0",
     borderRadius: 12,
     padding: "8px 10px",
     fontSize: 12,
-    color: "#cbd5e1",
+    color: "#334155",
   },
   logBox: {
     display: "flex",
@@ -1497,13 +1497,13 @@ const S: Record<string, React.CSSProperties> = {
     overflowY: "auto",
   },
   logLine: {
-    color: "#94a3b8",
+    color: "#64748b",
     fontFamily: "ui-monospace,SFMono-Regular,Menlo,monospace",
     fontSize: 11,
   },
   subCard: {
-    background: "rgba(0,0,0,.2)",
-    border: "1px solid rgba(255,255,255,.05)",
+    background: "#f8fafc",
+    border: "1px solid #e2e8f0",
     borderRadius: 12,
     padding: "12px 14px",
     marginTop: 8,
